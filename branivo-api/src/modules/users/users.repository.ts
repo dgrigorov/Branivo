@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { BaseRepository } from '../../common/base.repository';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
-import { User } from './entities/user.entity';
+import { User, UserRole } from './entities/user.entity';
 
 @Injectable()
 export class UsersRepository extends BaseRepository<User> {
@@ -22,6 +22,32 @@ export class UsersRepository extends BaseRepository<User> {
     return this.userRepo.findOne({
       where: { email, tenantId, deletedAt: IsNull() },
     });
+  }
+
+  async findAllByTenant(): Promise<User[]> {
+    return this.findAll({});
+  }
+
+  async updateRole(userId: string, role: UserRole): Promise<void> {
+    await this.setTenantSession();
+    const tenantId = this.tenantContext.getTenantId();
+    await this.userRepo.update(
+      { id: userId, tenantId, deletedAt: IsNull() },
+      { role },
+    );
+  }
+
+  async softDelete(userId: string): Promise<void> {
+    await this.setTenantSession();
+    const tenantId = this.tenantContext.getTenantId();
+    await this.userRepo.update(
+      { id: userId, tenantId, deletedAt: IsNull() },
+      { deletedAt: new Date() },
+    );
+  }
+
+  async createUser(data: Partial<User>): Promise<User> {
+    return this.save(data);
   }
 
   async incrementFailedLoginCount(userId: string): Promise<void> {

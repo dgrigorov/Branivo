@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
 import { UsersRepository } from './users.repository';
 import { User } from './entities/user.entity';
+import { IsNull } from 'typeorm';
 
 const mockUser: User = {
   id: 'user-uuid',
@@ -30,8 +31,11 @@ describe('UsersRepository', () => {
   beforeEach(async () => {
     const typeOrmMock = {
       findOne: jest.fn(),
+      find: jest.fn(),
+      save: jest.fn(),
       increment: jest.fn(),
       update: jest.fn(),
+      query: jest.fn().mockResolvedValue([]),
       manager: { query: jest.fn() },
     };
 
@@ -177,6 +181,80 @@ describe('UsersRepository', () => {
 
       expect(result.failedLoginCount).toBe(5);
       expect(result.lockedUntil).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('findAllByTenant (RLS enforcement)', () => {
+    it('calls setTenantSession before querying — sets app.current_tenant_id', async () => {
+      typeOrmRepo.query.mockResolvedValue([]);
+      typeOrmRepo.find.mockResolvedValue([mockUser]);
+
+      const result = await repo.findAllByTenant();
+
+      // setTenantSession calls repo.query: SELECT set_config('app.current_tenant_id', $1, true)
+      expect(typeOrmRepo.query).toHaveBeenCalledWith(
+        expect.stringContaining('set_config'),
+        ['tenant-uuid'],
+      );
+      expect(result).toEqual([mockUser]);
+    });
+  });
+
+  describe('updateRole', () => {
+    it('calls setTenantSession then updates role', async () => {
+      typeOrmRepo.query.mockResolvedValue([]);
+      typeOrmRepo.update.mockResolvedValue({
+        affected: 1,
+        raw: [],
+        generatedMaps: [],
+      });
+
+      await repo.updateRole('user-uuid', 'broker_viewer');
+
+      expect(typeOrmRepo.query).toHaveBeenCalledWith(
+        expect.stringContaining('set_config'),
+        ['tenant-uuid'],
+      );
+      expect(typeOrmRepo.update).toHaveBeenCalledWith(
+        { id: 'user-uuid', tenantId: 'tenant-uuid', deletedAt: IsNull() },
+        { role: 'broker_viewer' },
+      );
+    });
+  });
+
+  describe('softDelete (override)', () => {
+    it('calls setTenantSession then soft-deletes with explicit tenantId', async () => {
+      typeOrmRepo.query.mockResolvedValue([]);
+      typeOrmRepo.update.mockResolvedValue({
+        affected: 1,
+        raw: [],
+        generatedMaps: [],
+      });
+
+      await repo.softDelete('user-uuid');
+
+      expect(typeOrmRepo.query).toHaveBeenCalledWith(
+        expect.stringContaining('set_config'),
+        ['tenant-uuid'],
+      );
+      expect(typeOrmRepo.update).toHaveBeenCalledWith(
+        { id: 'user-uuid', tenantId: 'tenant-uuid', deletedAt: IsNull() },
+        { deletedAt: expect.any(Date) },
+      );
+    });
+  });
+
+  describe('createUser', () => {
+    it('calls setTenantSession via BaseRepository.save', async () => {
+      typeOrmRepo.query.mockResolvedValue([]);
+      typeOrmRepo.save.mockResolvedValue(mockUser);
+
+      await repo.createUser({ email: 'new@example.com', role: 'broker_agent' });
+
+      expect(typeOrmRepo.query).toHaveBeenCalledWith(
+        expect.stringContaining('set_config'),
+        ['tenant-uuid'],
+      );
     });
   });
 });

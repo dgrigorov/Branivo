@@ -312,6 +312,32 @@ describe('AuthService', () => {
         UnauthorizedException,
       );
     });
+
+    it('AC3: uses current role from DB, not role from old refresh token payload', async () => {
+      // Simulate role change: user was broker_admin when refresh token was issued,
+      // but is now broker_viewer in DB — new access token must reflect DB state
+      const userWithUpdatedRole = {
+        ...mockUser,
+        role: 'broker_viewer' as const,
+      };
+      jwtService.verify.mockReturnValue({
+        sub: 'user-uuid',
+        tid: 'tenant-uuid',
+        jti: 'refresh-jti',
+        type: 'refresh',
+      });
+      redisMock.get.mockResolvedValue('user-uuid');
+      redisMock.del.mockResolvedValue(1);
+      usersRepo.findByIdAndTenant.mockResolvedValue(userWithUpdatedRole);
+
+      await service.refresh('refresh-token');
+
+      // issueTokens is called with user.role from DB (broker_viewer), not from JWT payload
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'broker_viewer' }),
+        expect.any(Object),
+      );
+    });
   });
 
   describe('logout', () => {

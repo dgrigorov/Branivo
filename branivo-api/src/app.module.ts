@@ -17,6 +17,7 @@ import { PoliciesModule } from './modules/policies/policies.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { UsersModule } from './modules/users/users.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
@@ -46,6 +47,7 @@ import { HealthModule } from './health/health.module';
     PaymentsModule,
     NotificationsModule,
     BillingModule,
+    UsersModule,
     AdminModule,
   ],
 })
