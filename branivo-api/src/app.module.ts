@@ -60,6 +60,15 @@ export class AppModule implements NestModule {
         { path: 'api/v1/auth/2fa/verify', method: RequestMethod.POST },
         { path: 'api/v1/auth/refresh', method: RequestMethod.POST },
         { path: 'api/v1/auth/logout', method: RequestMethod.POST },
+        {
+          path: 'api/v1/admin/tenants/onboarding/*',
+          method: RequestMethod.GET,
+        },
+        {
+          path: 'api/v1/admin/tenants/onboarding/*',
+          method: RequestMethod.POST,
+        },
+        { path: 'api/v1/webhooks/stripe', method: RequestMethod.POST },
       )
       .forRoutes('*');
   }

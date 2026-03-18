@@ -17,8 +17,14 @@ export class Tenant {
   @Column({ name: 'name', length: 255 })
   name!: string;
 
-  @Column({ name: 'status', length: 32, default: 'active' })
+  @Column({ name: 'status', length: 50, default: 'invited' })
   status!: string;
+
+  @Column({ name: 'stripe_account_id', length: 255, nullable: true })
+  stripeAccountId!: string | null;
+
+  @Column({ name: 'kfn_license', length: 100, nullable: true })
+  kfnLicense!: string | null;
 
   @Column({ name: 'plan', length: 32, default: 'starter' })
   plan!: string;

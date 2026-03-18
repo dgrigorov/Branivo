@@ -14,6 +14,40 @@ Stack: **NestJS · Flutter · PostgreSQL · AWS ECS Fargate · Stripe Connect ·
 
 > Двата skill-а съдържат всичко необходимо. Не измисляй архитектура — следвай reference файловете.
 
+## Git workflow — преди всяка задача
+
+**ПРЕДИ да започнеш каквато и да е имплементация**, синхронизирай с main и създай работен branch:
+
+```bash
+git switch main
+git pull origin main
+git switch -c <prefix>/<branch-name>
+```
+
+Префикси: `feature/`, `bugfix/`, `chore/`, `refactor/`
+
+Пример за story: `git switch -c feature/story-1-3-broker-auth`
+
+> Това предотвратява merge conflicts — working branch винаги тръгва от актуален main.
+> `git switch` (Git 2.23+) е предпочитано пред `git checkout` — прави само едно нещо и не може случайно да презапише файлове.
+
+## Pull Request заглавия — задължителен формат
+
+Използвай винаги **Conventional Commits** формат:
+
+```
+<type>(story-X.Y): <кратко описание>
+```
+
+Типове: `feat`, `fix`, `chore`, `refactor`, `docs`
+
+Примери:
+- `feat(story-1.3): Broker Authentication with 2FA`
+- `fix(story-2.1): Policy activation webhook race condition`
+- `chore(story-1.1): Monorepo Foundation & Dev Infrastructure`
+
+> Никога не ползвай тире (`—`), `Story` с главна буква в скобите, или смесени формати.
+
 ## Структура на проекта
 
 ```
