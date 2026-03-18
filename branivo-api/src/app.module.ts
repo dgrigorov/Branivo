@@ -4,8 +4,9 @@ import {
   NestModule,
   RequestMethod,
 } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TenantContextModule } from './common/tenant-context/tenant-context.module';
 import { TenantMiddleware } from './common/tenant-context/tenant.middleware';
 import { TenantsModule } from './modules/tenants/tenants.module';
@@ -24,6 +25,7 @@ import { LoggerModule } from './infrastructure/logger/logger.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     ThrottlerModule.forRoot([
@@ -55,7 +57,9 @@ export class AppModule implements NestModule {
         { path: 'health', method: RequestMethod.GET },
         { path: 'api/docs(.*)', method: RequestMethod.ALL },
         { path: 'api/v1/auth/login', method: RequestMethod.POST },
+        { path: 'api/v1/auth/2fa/verify', method: RequestMethod.POST },
         { path: 'api/v1/auth/refresh', method: RequestMethod.POST },
+        { path: 'api/v1/auth/logout', method: RequestMethod.POST },
       )
       .forRoutes('*');
   }
