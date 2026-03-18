@@ -47,9 +47,9 @@ development_status:
   1-1-monorepo-foundation-dev-infrastructure: done
   1-2-tenant-resolution-tenantcontext-middleware: done
   1-3-broker-authentication-with-2fa: done
-  1-4-super-admin-tenant-onboarding: review
-  1-5-role-based-access-control-rbac: backlog
-  1-6-tenant-lifecycle-management: backlog
+  1-4-super-admin-tenant-onboarding: done
+  1-5-role-based-access-control-rbac: done
+  1-6-tenant-lifecycle-management: review
   epic-1-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────

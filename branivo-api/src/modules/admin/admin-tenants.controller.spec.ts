@@ -19,6 +19,7 @@ const mockAdminTenantsService = {
     tenantId: 'tenant-uuid',
     message: 'Invitation sent',
   }),
+  updateTenantStatus: jest.fn().mockResolvedValue(undefined),
   findAll: jest.fn().mockResolvedValue({
     data: [],
     total: 0,
@@ -228,6 +229,58 @@ describe('AdminTenantsController', () => {
       expect(body).not.toContain('stripe_webhook_secret');
       expect(body).not.toContain('STRIPE_WEBHOOK_SECRET');
       expect(body).not.toContain('api_key_enc');
+    });
+  });
+
+  describe('PATCH /admin/tenants/:id/status', () => {
+    const VALID_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+    it('returns 401 without authentication', async () => {
+      await request(unauthApp.getHttpServer())
+        .patch(`/admin/tenants/${VALID_UUID}/status`)
+        .send({ status: 'suspended' })
+        .expect(401);
+    });
+
+    it('returns 403 for broker_admin role', async () => {
+      await request(brokerApp.getHttpServer())
+        .patch(`/admin/tenants/${VALID_UUID}/status`)
+        .send({ status: 'suspended' })
+        .expect(403);
+    });
+
+    it('returns 204 for super_admin with valid active→suspended transition', async () => {
+      await request(superAdminApp.getHttpServer())
+        .patch(`/admin/tenants/${VALID_UUID}/status`)
+        .send({ status: 'suspended' })
+        .expect(204);
+
+      expect(mockAdminTenantsService.updateTenantStatus).toHaveBeenCalledWith(
+        VALID_UUID,
+        'suspended',
+        'super-uuid',
+      );
+    });
+
+    it('returns 400 for invalid UUID in :id param', async () => {
+      await request(superAdminApp.getHttpServer())
+        .patch('/admin/tenants/not-a-uuid/status')
+        .send({ status: 'suspended' })
+        .expect(400);
+    });
+
+    it('returns 400 for invalid status value', async () => {
+      await request(superAdminApp.getHttpServer())
+        .patch(`/admin/tenants/${VALID_UUID}/status`)
+        .send({ status: 'invited' })
+        .expect(400);
+    });
+
+    it('returns 400 for missing status field', async () => {
+      await request(superAdminApp.getHttpServer())
+        .patch(`/admin/tenants/${VALID_UUID}/status`)
+        .send({})
+        .expect(400);
     });
   });
 

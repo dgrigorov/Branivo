@@ -280,6 +280,41 @@ export class AdminTenantsService {
     return { userId, otpauthUrl };
   }
 
+  async updateTenantStatus(
+    tenantId: string,
+    newStatus: 'active' | 'suspended',
+    superAdminId: string,
+  ): Promise<void> {
+    const tenant = await this.findTenantOrThrow(tenantId);
+
+    const allowed: Record<string, string[]> = {
+      active: ['suspended'],
+      suspended: ['active'],
+    };
+
+    if (!allowed[tenant.status]?.includes(newStatus)) {
+      throw new BadRequestException(
+        `Cannot transition from '${tenant.status}' to '${newStatus}'`,
+      );
+    }
+
+    await this.tenantsRepository.updateStatus(tenantId, newStatus);
+
+    const cacheKey = RedisKeyHelper.build(tenantId, 'config', 'tenant');
+    await this.redis.del(cacheKey);
+
+    const action =
+      newStatus === 'suspended' ? 'tenant.deactivated' : 'tenant.reactivated';
+
+    await this.writeAuditLog({
+      tenantId,
+      userId: superAdminId,
+      action,
+      entityType: 'tenant',
+      entityId: tenantId,
+    });
+  }
+
   async findAll(
     page: number,
     limit: number,

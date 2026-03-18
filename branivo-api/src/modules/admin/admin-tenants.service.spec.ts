@@ -131,6 +131,7 @@ describe('AdminTenantsService', () => {
     exists: jest.fn().mockResolvedValue(0),
     set: jest.fn().mockResolvedValue('OK'),
     get: jest.fn(),
+    del: jest.fn().mockResolvedValue(1),
   };
 
   beforeEach(async () => {
@@ -359,6 +360,84 @@ describe('AdminTenantsService', () => {
           password: 'ValidPass1!',
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('updateTenantStatus', () => {
+    it('deactivates active tenant: updates status, invalidates Redis cache, writes audit log', async () => {
+      tenantsRepo.findById.mockResolvedValue(makeTenant({ status: 'active' }));
+
+      await service.updateTenantStatus(
+        'tenant-uuid',
+        'suspended',
+        'super-uuid',
+      );
+
+      expect(tenantsRepo.updateStatus).toHaveBeenCalledWith(
+        'tenant-uuid',
+        'suspended',
+      );
+      expect(redisMock.del).toHaveBeenCalledWith(
+        expect.stringContaining('tenant-uuid'),
+      );
+      expect(managerQueryMock).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO audit_log'),
+        expect.arrayContaining([
+          'tenant-uuid',
+          'super-uuid',
+          'tenant.deactivated',
+        ]),
+      );
+    });
+
+    it('reactivates suspended tenant: updates status and writes audit log tenant.reactivated', async () => {
+      tenantsRepo.findById.mockResolvedValue(
+        makeTenant({ status: 'suspended' }),
+      );
+
+      await service.updateTenantStatus('tenant-uuid', 'active', 'super-uuid');
+
+      expect(tenantsRepo.updateStatus).toHaveBeenCalledWith(
+        'tenant-uuid',
+        'active',
+      );
+      expect(managerQueryMock).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO audit_log'),
+        expect.arrayContaining([
+          'tenant-uuid',
+          'super-uuid',
+          'tenant.reactivated',
+        ]),
+      );
+    });
+
+    it('throws BadRequestException for invalid transition invited → suspended', async () => {
+      tenantsRepo.findById.mockResolvedValue(makeTenant({ status: 'invited' }));
+
+      await expect(
+        service.updateTenantStatus('tenant-uuid', 'suspended', 'super-uuid'),
+      ).rejects.toThrow(BadRequestException);
+      expect(tenantsRepo.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for invalid transition active → active', async () => {
+      tenantsRepo.findById.mockResolvedValue(makeTenant({ status: 'active' }));
+
+      await expect(
+        service.updateTenantStatus('tenant-uuid', 'active', 'super-uuid'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException for non-existent tenant', async () => {
+      tenantsRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.updateTenantStatus(
+          'non-existent-uuid',
+          'suspended',
+          'super-uuid',
+        ),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

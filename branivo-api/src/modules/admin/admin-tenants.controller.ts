@@ -5,6 +5,8 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Request,
@@ -18,6 +20,7 @@ import { AdminTenantsService } from './admin-tenants.service';
 import { InviteTenantDto } from './dto/invite-tenant.dto';
 import { VerifyKfnDto } from './dto/verify-kfn.dto';
 import { SetupBrokerDto } from './dto/setup-broker.dto';
+import { UpdateTenantStatusDto } from './dto/update-tenant-status.dto';
 
 interface AuthenticatedRequest {
   user: { userId: string; role: string };
@@ -97,6 +100,22 @@ export class AdminTenantsController {
   @Roles('super_admin')
   async initiateStripeConnect(@Param('id') id: string) {
     return this.adminTenantsService.initiateStripeConnect(id);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async updateTenantStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateTenantStatusDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.adminTenantsService.updateTenantStatus(
+      id,
+      dto.status,
+      req.user.userId,
+    );
   }
 
   @Post(':id/verify-kfn')
