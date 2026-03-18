@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Branivo — UX Design Directions</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0F172A; color: #fff; }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: #0F172A; border-bottom: 1px solid #1E293B;
+    padding: 12px 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  nav span { color: #94A3B8; font-size: 13px; margin-right: 8px; }
+  nav button {
+    padding: 6px 14px; border-radius: 6px; border: 1px solid #334155;
+    background: transparent; color: #94A3B8; font-size: 13px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  nav button.active, nav button:hover { background: #6366F1; color: #fff; border-color: #6366F1; }
+
+  /* SECTIONS */
+  section { display: none; padding: 80px 24px 40px; min-height: 100vh; }
+  section.active { display: block; }
+
+  .direction-label {
+    text-align: center; margin-bottom: 32px;
+  }
+  .direction-label h2 { font-size: 22px; font-weight: 700; color: #fff; }
+  .direction-label p { font-size: 14px; color: #64748B; margin-top: 6px; }
+
+  /* PHONE FRAME */
+  .phones { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+  .phone {
+    width: 320px; background: #fff; border-radius: 32px;
+    overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    border: 6px solid #1E293B;
+  }
+  .phone-header {
+    height: 40px; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; letter-spacing: 1px;
+  }
+  .phone-screen { padding: 0; min-height: 580px; }
+  .phone-label {
+    text-align: center; margin-top: 12px;
+    font-size: 12px; color: #64748B; font-weight: 500;
+  }
+
+  /* ===== DIRECTION 1: Clean Minimal ===== */
+  .d1-header { background: #6366F1; color: #fff; }
+  .d1-screen { background: #FAFAFA; }
+  .d1-topbar {
+    background: #fff; padding: 16px 20px; display: flex;
+    align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #F1F5F9;
+  }
+  .d1-topbar .logo { font-size: 16px; font-weight: 700; color: #6366F1; }
+  .d1-topbar .avatar { width: 32px; height: 32px; border-radius: 50%; background: #EEF2FF; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #6366F1; font-weight: 700; }
+  .d1-hero { padding: 24px 20px 16px; }
+  .d1-hero h1 { font-size: 22px; font-weight: 700; color: #111827; line-height: 1.3; }
+  .d1-hero p { font-size: 14px; color: #6B7280; margin-top: 6px; }
+  .d1-cta {
+    margin: 16px 20px; background: #6366F1; color: #fff;
+    border-radius: 12px; padding: 18px; text-align: center; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+  }
+  .d1-cta .cta-icon { font-size: 28px; margin-bottom: 6px; }
+  .d1-cta .cta-title { font-size: 16px; font-weight: 700; }
+  .d1-cta .cta-sub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+  .d1-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 20px 16px; }
+  .d1-stat { background: #fff; border-radius: 10px; padding: 12px; border: 1px solid #F1F5F9; }
+  .d1-stat .val { font-size: 18px; font-weight: 700; color: #111827; }
+  .d1-stat .lbl { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
+  .d1-recent { margin: 0 20px; }
+  .d1-recent .sec-title { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 10px; }
+  .d1-item { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; border: 1px solid #F1F5F9; }
+  .d1-item-icon { width: 36px; height: 36px; border-radius: 8px; background: #EEF2FF; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .d1-item-info .name { font-size: 13px; font-weight: 600; color: #111827; }
+  .d1-item-info .sub { font-size: 11px; color: #9CA3AF; margin-top: 1px; }
+  .d1-item-badge { margin-left: auto; font-size: 11px; font-weight: 600; color: #10B981; background: #ECFDF5; padding: 3px 8px; border-radius: 20px; }
+  .d1-nav { display: flex; background: #fff; border-top: 1px solid #F1F5F9; padding: 10px 0 6px; }
+  .d1-nav-item { flex: 1; text-align: center; font-size: 10px; color: #9CA3AF; }
+  .d1-nav-item.active { color: #6366F1; }
+  .d1-nav-item .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; }
+
+  /* ===== DIRECTION 2: OCR Wizard Screen ===== */
+  .d2-screen { background: #111827; }
+  .d2-topbar { padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+  .d2-topbar .back { font-size: 20px; color: #fff; }
+  .d2-topbar .title { font-size: 15px; font-weight: 600; color: #fff; }
+  .d2-progress { padding: 0 20px 16px; display: flex; gap: 6px; }
+  .d2-step { flex: 1; height: 3px; border-radius: 2px; background: #374151; }
+  .d2-step.done { background: #10B981; }
+  .d2-step.active { background: #6366F1; }
+  .d2-camera { margin: 0 20px; background: #1E293B; border-radius: 16px; aspect-ratio: 16/9; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .d2-camera-frame { width: 85%; height: 80%; border: 2px solid #6366F1; border-radius: 8px; position: relative; }
+  .d2-camera-frame::before, .d2-camera-frame::after { content: ''; position: absolute; width: 16px; height: 16px; border-color: #6366F1; border-style: solid; }
+  .d2-camera-frame::before { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .d2-camera-frame::after { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+  .d2-hint { text-align: center; padding: 16px 20px 8px; }
+  .d2-hint .step-num { font-size: 11px; font-weight: 600; color: #6366F1; letter-spacing: 1px; text-transform: uppercase; }
+  .d2-hint .step-text { font-size: 15px; font-weight: 600; color: #fff; margin-top: 4px; }
+  .d2-hint .step-sub { font-size: 12px; color: #64748B; margin-top: 4px; }
+  .d2-partial { margin: 8px 20px; background: #1E293B; border-radius: 10px; padding: 12px; border-left: 3px solid #10B981; }
+  .d2-partial .p-label { font-size: 11px; color: #10B981; font-weight: 600; margin-bottom: 6px; }
+  .d2-partial .p-item { font-size: 12px; color: #94A3B8; margin-bottom: 2px; }
+  .d2-partial .p-item span { color: #fff; font-weight: 600; }
+  .d2-capture { margin: 12px 20px; background: #6366F1; border-radius: 50px; padding: 14px; text-align: center; font-size: 15px; font-weight: 700; color: #fff; }
+
+  /* ===== DIRECTION 3: Offers Screen ===== */
+  .d3-screen { background: #F8FAFC; }
+  .d3-topbar { background: #fff; padding: 16px 20px; border-bottom: 1px solid #F1F5F9; }
+  .d3-topbar .car { font-size: 13px; font-weight: 600; color: #111827; }
+  .d3-topbar .sub { font-size: 11px; color: #6B7280; margin-top: 2px; }
+  .d3-filter { padding: 12px 20px; display: flex; gap: 8px; overflow-x: auto; }
+  .d3-tag { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; white-space: nowrap; background: #fff; color: #6B7280; border: 1px solid #E5E7EB; }
+  .d3-tag.active { background: #6366F1; color: #fff; border-color: #6366F1; }
+  .d3-card { margin: 0 20px 10px; background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #F1F5F9; }
+  .d3-card.recommended { border: 2px solid #6366F1; }
+  .d3-rec-badge { font-size: 11px; font-weight: 700; color: #6366F1; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+  .d3-rec-reason { font-size: 11px; color: #6B7280; margin-bottom: 10px; font-style: italic; }
+  .d3-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .d3-insurer { font-size: 13px; font-weight: 700; color: #111827; }
+  .d3-price { font-size: 22px; font-weight: 700; color: #111827; }
+  .d3-price span { font-size: 13px; font-weight: 400; color: #6B7280; }
+  .d3-features { display: flex; gap: 6px; flex-wrap: wrap; }
+  .d3-feat { font-size: 11px; color: #6B7280; background: #F9FAFB; padding: 3px 8px; border-radius: 4px; }
+  .d3-buy { margin-top: 10px; background: #6366F1; color: #fff; border-radius: 8px; padding: 10px; text-align: center; font-size: 13px; font-weight: 700; }
+  .d3-buy-out { margin-top: 8px; background: transparent; color: #6366F1; border: 1px solid #6366F1; border-radius: 8px; padding: 10px; text-align: center; font-size: 13px; font-weight: 600; }
+
+  /* ===== DIRECTION 4: Confirmation ===== */
+  .d4-screen { background: #FAFAFA; display: flex; flex-direction: column; }
+  .d4-success { background: linear-gradient(135deg, #6366F1 0%, #0D9488 100%); padding: 40px 20px 32px; text-align: center; }
+  .d4-checkmark { width: 64px; height: 64px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 32px; }
+  .d4-success h1 { font-size: 22px; font-weight: 700; color: #fff; }
+  .d4-success p { font-size: 14px; color: rgba(255,255,255,0.8); margin-top: 6px; }
+  .d4-coverage { margin: -16px 20px 0; background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+  .d4-cov-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 14px; }
+  .d4-cov-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #F9FAFB; font-size: 13px; }
+  .d4-cov-item:last-child { border: none; }
+  .d4-cov-item .k { color: #6B7280; }
+  .d4-cov-item .v { color: #111827; font-weight: 600; }
+  .d4-loyalty { margin: 12px 20px; background: #FFF7ED; border-radius: 12px; padding: 14px; display: flex; align-items: center; gap: 12px; border: 1px solid #FED7AA; }
+  .d4-loyalty .icon { font-size: 24px; }
+  .d4-loyalty .text .title { font-size: 13px; font-weight: 700; color: #92400E; }
+  .d4-loyalty .text .sub { font-size: 12px; color: #B45309; margin-top: 2px; }
+  .d4-actions { padding: 0 20px 20px; }
+  .d4-btn-primary { background: #6366F1; color: #fff; border-radius: 10px; padding: 14px; text-align: center; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+  .d4-btn-secondary { background: transparent; color: #6366F1; border: 1px solid #6366F1; border-radius: 10px; padding: 12px; text-align: center; font-size: 13px; }
+
+  /* ===== DIRECTION 5: Broker Dashboard ===== */
+  .d5-screen { background: #F1F5F9; }
+  .d5-topbar { background: #6366F1; padding: 20px 20px 40px; }
+  .d5-topbar .greeting { font-size: 13px; color: rgba(255,255,255,0.7); }
+  .d5-topbar .name { font-size: 20px; font-weight: 700; color: #fff; margin-top: 2px; }
+  .d5-mrr { margin: -20px 16px 0; background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+  .d5-mrr .mrr-label { font-size: 12px; color: #6B7280; font-weight: 500; }
+  .d5-mrr .mrr-value { font-size: 32px; font-weight: 800; color: #111827; margin: 4px 0; }
+  .d5-mrr .mrr-growth { font-size: 13px; color: #10B981; font-weight: 600; }
+  .d5-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 16px; }
+  .d5-kpi { background: #fff; border-radius: 12px; padding: 14px; }
+  .d5-kpi .k-val { font-size: 22px; font-weight: 700; color: #111827; }
+  .d5-kpi .k-lbl { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
+  .d5-recent { margin: 0 16px; }
+  .d5-recent .sec-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 8px; }
+  .d5-sale { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .d5-sale .dot { width: 8px; height: 8px; border-radius: 50%; background: #10B981; flex-shrink: 0; }
+  .d5-sale .info .name { font-size: 13px; font-weight: 600; color: #111827; }
+  .d5-sale .info .sub { font-size: 11px; color: #9CA3AF; margin-top: 1px; }
+  .d5-sale .amount { margin-left: auto; font-size: 14px; font-weight: 700; color: #10B981; }
+
+  /* ===== DIRECTION 6: Renewal Flow ===== */
+  .d6-screen { background: #0F172A; }
+  .d6-notif { margin: 20px 16px 0; background: #1E293B; border-radius: 14px; padding: 16px; border-left: 4px solid #6366F1; }
+  .d6-notif .n-time { font-size: 11px; color: #64748B; margin-bottom: 6px; }
+  .d6-notif .n-title { font-size: 14px; font-weight: 700; color: #fff; }
+  .d6-notif .n-body { font-size: 12px; color: #94A3B8; margin-top: 4px; }
+  .d6-card { margin: 16px; background: #1E293B; border-radius: 16px; padding: 20px; }
+  .d6-card .c-label { font-size: 11px; font-weight: 600; color: #6366F1; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+  .d6-card .c-car { font-size: 18px; font-weight: 700; color: #fff; }
+  .d6-card .c-plate { font-size: 13px; color: #64748B; margin-top: 2px; }
+  .d6-card .c-divider { height: 1px; background: #334155; margin: 14px 0; }
+  .d6-card .c-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+  .d6-card .c-row .ck { color: #64748B; }
+  .d6-card .c-row .cv { color: #fff; font-weight: 600; }
+  .d6-price { margin: 0 16px; background: linear-gradient(135deg, #6366F1, #0D9488); border-radius: 14px; padding: 20px; text-align: center; }
+  .d6-price .p-label { font-size: 12px; color: rgba(255,255,255,0.7); }
+  .d6-price .p-amount { font-size: 36px; font-weight: 800; color: #fff; margin: 6px 0; }
+  .d6-price .p-period { font-size: 13px; color: rgba(255,255,255,0.7); }
+  .d6-actions { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .d6-pay { background: #fff; color: #111827; border-radius: 12px; padding: 16px; text-align: center; font-size: 16px; font-weight: 800; }
+  .d6-pay .pay-sub { font-size: 11px; color: #6B7280; margin-top: 3px; font-weight: 400; }
+  .d6-skip { text-align: center; font-size: 13px; color: #475569; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span>Branivo UX Directions:</span>
+  <button class="active" onclick="show(1)">1. Home (клиент)</button>
+  <button onclick="show(2)">2. OCR Wizard</button>
+  <button onclick="show(3)">3. Оферти</button>
+  <button onclick="show(4)">4. Confirmation</button>
+  <button onclick="show(5)">5. Broker Dashboard</button>
+  <button onclick="show(6)">6. Renewal Flow</button>
+</nav>
+
+<!-- DIRECTION 1: Client Home -->
+<section id="d1" class="active">
+  <div class="direction-label">
+    <h2>Direction 1 — Client Home Screen</h2>
+    <p>Clean Minimal · Индиго primary · Anonymous-first · OCR като главен CTA</p>
+  </div>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="phone-header d1-header">ЗАСТРАХОВКИ ДИМИТРОВ</div>
+        <div class="phone-screen d1-screen">
+          <div class="d1-topbar">
+            <span class="logo">Застраховки Димитров</span>
+            <div class="d1-avatar">МД</div>
+          </div>
+          <div class="d1-hero">
+            <h1>Застрахови колата си за минути</h1>
+            <p>Снимай талона · Сравни оферти · Плати онлайн</p>
+          </div>
+          <div class="d1-cta">
+            <div class="cta-icon">📷</div>
+            <div class="cta-title">Сканирай талона</div>
+            <div class="cta-sub">3 снимки · 30 секунди · без регистрация</div>
+          </div>
+          <div class="d1-stats">
+            <div class="d1-stat">
+              <div class="val">2</div>
+              <div class="lbl">Активни полици</div>
+            </div>
+            <div class="d1-stat">
+              <div class="val">24</div>
+              <div class="lbl">Дни до подновяване</div>
+            </div>
+          </div>
+          <div class="d1-recent">
+            <div class="sec-title">Моите полици</div>
+            <div class="d1-item">
+              <div class="d1-item-icon">🚗</div>
+              <div class="d1-item-info">
+                <div class="name">Toyota Corolla 2019</div>
+                <div class="sub">ГО · до 17.03.2027</div>
+              </div>
+              <div class="d1-item-badge">Активна</div>
+            </div>
+            <div class="d1-item">
+              <div class="d1-item-icon">🚙</div>
+              <div class="d1-item-info">
+                <div class="name">VW Golf 2020</div>
+                <div class="sub">ГО · до 05.06.2026</div>
+              </div>
+              <div class="d1-item-badge">Активна</div>
+            </div>
+          </div>
+          <div class="d1-nav">
+            <div class="d1-nav-item active"><span class="nav-icon">🏠</span>Начало</div>
+            <div class="d1-nav-item"><span class="nav-icon">📋</span>Полици</div>
+            <div class="d1-nav-item"><span class="nav-icon">💬</span>Чат</div>
+            <div class="d1-nav-item"><span class="nav-icon">👤</span>Профил</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Начален екран · Връщащ се клиент</div>
+    </div>
+  </div>
+</section>
+
+<!-- DIRECTION 2: OCR Wizard -->
+<section id="d2">
+  <div class="direction-label">
+    <h2>Direction 2 — OCR Wizard</h2>
+    <p>Dark mode · 3-стъпков wizard · Frame guide · Partial reveal след всяка снимка</p>
+  </div>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="phone-header" style="background:#1E293B; color:#6366F1">📷 СКАНИРАНЕ</div>
+        <div class="phone-screen d2-screen">
+          <div class="d2-topbar">
+            <span class="back">←</span>
+            <span class="title">Сканирай талона</span>
+          </div>
+          <div class="d2-progress">
+            <div class="d2-step done"></div>
+            <div class="d2-step active"></div>
+            <div class="d2-step"></div>
+          </div>
+          <div class="d2-hint">
+            <div class="step-num">Стъпка 2 от 3</div>
+            <div class="step-text">Горна дясна секция</div>
+            <div class="step-sub">Снимай собственика и датата на регистрация</div>
+          </div>
+          <div class="d2-camera">
+            <div class="d2-camera-frame"></div>
+          </div>
+          <div class="d2-partial">
+            <div class="p-label">✓ Разпознато от Стъпка 1</div>
+            <div class="p-item">Марка: <span>Toyota Corolla</span></div>
+            <div class="p-item">Година: <span>2019</span></div>
+            <div class="p-item">Рег. №: <span>СА 1234 АВ</span></div>
+          </div>
+          <div class="d2-capture">📷 Снимай</div>
+        </div>
+      </div>
+      <div class="phone-label">OCR Wizard · Стъпка 2 · Partial reveal</div>
+    </div>
+  </div>
+</section>
+
+<!-- DIRECTION 3: Offers -->
+<section id="d3">
+  <div class="direction-label">
+    <h2>Direction 3 — Оферти Screen</h2>
+    <p>Value Justification · is_recommended с динамично "защо" · Ценова прозрачност</p>
+  </div>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="phone-header" style="background:#6366F1; color:#fff">ОФЕРТИ</div>
+        <div class="phone-screen d3-screen">
+          <div class="d3-topbar">
+            <div class="car">Toyota Corolla 2019 · СА 1234 АВ</div>
+            <div class="sub">4 оферти · обновено преди 2 сек</div>
+          </div>
+          <div class="d3-filter">
+            <div class="d3-tag active">Всички</div>
+            <div class="d3-tag">Най-евтини</div>
+            <div class="d3-tag">Най-добро покритие</div>
+            <div class="d3-tag">Бързо изплащане</div>
+          </div>
+
+          <!-- Recommended card -->
+          <div class="d3-card recommended">
+            <div class="d3-rec-badge">⭐ Препоръчано за вас</div>
+            <div class="d3-rec-reason">Най-бързо изплащане при щета (24ч) + пълно покритие за вашия автомобил</div>
+            <div class="d3-card-top">
+              <div class="d3-insurer">ДЗИ</div>
+              <div class="d3-price">189 <span>лв/год</span></div>
+            </div>
+            <div class="d3-features">
+              <div class="d3-feat">✓ 24ч изплащане</div>
+              <div class="d3-feat">✓ Пълно покритие</div>
+              <div class="d3-feat">✓ Безплатен асистанс</div>
+            </div>
+            <div class="d3-buy">Купи сега</div>
+          </div>
+
+          <!-- Regular card -->
+          <div class="d3-card">
+            <div class="d3-card-top">
+              <div class="d3-insurer">Алианц</div>
+              <div class="d3-price">162 <span>лв/год</span></div>
+            </div>
+            <div class="d3-features">
+              <div class="d3-feat">✓ 48ч изплащане</div>
+              <div class="d3-feat">✓ Стандартно покритие</div>
+            </div>
+            <div class="d3-buy-out">Избери</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Оферти · is_recommended с "защо" · Value Justification</div>
+    </div>
+  </div>
+</section>
+
+<!-- DIRECTION 4: Confirmation -->
+<section id="d4">
+  <div class="direction-label">
+    <h2>Direction 4 — Confirmation Screen</h2>
+    <p>Три емоционални слоя: Облекчение → Удовлетворение → Micro-delight (loyalty)</p>
+  </div>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="phone-header" style="background:linear-gradient(90deg,#6366F1,#0D9488); color:#fff">✓ ГОТОВО</div>
+        <div class="phone-screen d4-screen">
+          <div class="d4-success">
+            <div class="d4-checkmark">✓</div>
+            <h1>Готово, полицата е ваша!</h1>
+            <p>PDF и Зелена карта ще получите на имейл в рамките на 5 минути</p>
+          </div>
+          <div class="d4-coverage">
+            <div class="d4-cov-title">Вашето покритие</div>
+            <div class="d4-cov-item"><span class="k">Полица №</span><span class="v">GO-2026-00847</span></div>
+            <div class="d4-cov-item"><span class="k">Застраховател</span><span class="v">ДЗИ</span></div>
+            <div class="d4-cov-item"><span class="k">МПС</span><span class="v">Toyota Corolla 2019</span></div>
+            <div class="d4-cov-item"><span class="k">Валидна до</span><span class="v">17.03.2027</span></div>
+            <div class="d4-cov-item"><span class="k">Покритие</span><span class="v">Пълна ГО + асистанс</span></div>
+          </div>
+          <div class="d4-loyalty">
+            <div class="icon">⭐</div>
+            <div class="text">
+              <div class="title">Спечелихте 18 точки!</div>
+              <div class="sub">= 1.80 лв към следваща покупка</div>
+            </div>
+          </div>
+          <div class="d4-actions">
+            <div class="d4-btn-primary">Изтегли PDF</div>
+            <div class="d4-btn-secondary">Обратно към начало</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Confirmation · Облекчение + Удовлетворение + Loyalty</div>
+    </div>
+  </div>
+</section>
+
+<!-- DIRECTION 5: Broker Dashboard -->
+<section id="d5">
+  <div class="direction-label">
+    <h2>Direction 5 — Broker Dashboard</h2>
+    <p>Майсторство и Собственост · MRR prominent · Live sales notifications</p>
+  </div>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="phone-header" style="background:#6366F1; color:#fff">BROKER DASHBOARD</div>
+        <div class="phone-screen d5-screen">
+          <div class="d5-topbar">
+            <div class="greeting">Добро утро,</div>
+            <div class="name">Мариян Димитров</div>
+          </div>
+          <div class="d5-mrr">
+            <div class="mrr-label">МЕСЕЧЕН ПРИХОД (MRR)</div>
+            <div class="mrr-value">€ 1,840</div>
+            <div class="mrr-growth">↑ +12% спрямо миналия месец</div>
+          </div>
+          <div class="d5-grid">
+            <div class="d5-kpi">
+              <div class="k-val">47</div>
+              <div class="k-lbl">Активни клиенти</div>
+            </div>
+            <div class="d5-kpi">
+              <div class="k-val">12</div>
+              <div class="k-lbl">Полици тази седмица</div>
+            </div>
+            <div class="d5-kpi">
+              <div class="k-val">3</div>
+              <div class="k-lbl">Изтичащи тази седмица</div>
+            </div>
+            <div class="d5-kpi">
+              <div class="k-val">98%</div>
+              <div class="k-lbl">Renewal rate</div>
+            </div>
+          </div>
+          <div class="d5-recent">
+            <div class="sec-title">Последни продажби</div>
+            <div class="d5-sale">
+              <div class="dot"></div>
+              <div class="info">
+                <div class="name">Николай Петров</div>
+                <div class="sub">Toyota Corolla · ГО · преди 12 мин</div>
+              </div>
+              <div class="amount">+189 лв</div>
+            </div>
+            <div class="d5-sale">
+              <div class="dot"></div>
+              <div class="info">
+                <div class="name">Радка Иванова</div>
+                <div class="sub">VW Golf · ГО · преди 1 час</div>
+              </div>
+              <div class="amount">+162 лв</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Broker Dashboard · Мариян · MRR + Live sales</div>
+    </div>
+  </div>
+</section>
+
+<!-- DIRECTION 6: Renewal -->
+<section id="d6">
+  <div class="direction-label">
+    <h2>Direction 6 — Renewal Flow (Стоян)</h2>
+    <p>Push → отваря → Face ID → Pay · Dark mode · 12 секунди total</p>
+  </div>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="phone-header" style="background:#1E293B; color:#6366F1">🔔 ПОДНОВЯВАНЕ</div>
+        <div class="phone-screen d6-screen">
+          <div class="d6-notif">
+            <div class="n-time">Преди 2 минути</div>
+            <div class="n-title">Застраховки Димитров</div>
+            <div class="n-body">Вашата ГО за Toyota Corolla изтича след 7 дни. Поднови сега →</div>
+          </div>
+          <div class="d6-card">
+            <div class="c-label">Подновяване на полица</div>
+            <div class="c-car">Toyota Corolla 2019</div>
+            <div class="c-plate">СА 1234 АВ</div>
+            <div class="c-divider"></div>
+            <div class="c-row"><span class="ck">Застраховател</span><span class="cv">ДЗИ (същият)</span></div>
+            <div class="c-row"><span class="ck">Нова валидност</span><span class="cv">до 17.03.2027</span></div>
+            <div class="c-row"><span class="ck">Покритие</span><span class="cv">Пълна ГО</span></div>
+          </div>
+          <div class="d6-price">
+            <div class="p-label">Сума за плащане</div>
+            <div class="p-amount">189 лв</div>
+            <div class="p-period">за 1 година</div>
+          </div>
+          <div class="d6-actions">
+            <div class="d6-pay">
+              Face ID · Плати с Apple Pay
+              <div class="pay-sub">Ще бъдеш таксуван 189.00 лв</div>
+            </div>
+            <div class="d6-skip">Напомни ми по-късно</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Renewal · Стоян · Push → Face ID → Pay</div>
+    </div>
+  </div>
+</section>
+
+<script>
+function show(n) {
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('d' + n).classList.add('active');
+  document.querySelectorAll('nav button')[n - 1].classList.add('active');
+}
+</script>
+</body>
+</html>

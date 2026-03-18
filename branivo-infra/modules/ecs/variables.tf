@@ -1,0 +1,11 @@
+variable "env"                { type = string }
+variable "project"            { type = string }
+variable "tags"               { type = map(string) }
+variable "vpc_id"             { type = string }
+variable "public_subnet_ids"  { type = list(string) }
+variable "private_subnet_ids" { type = list(string) }
+variable "ecr_repository_url" { type = string }
+variable "db_secret_arn"      { type = string }
+variable "redis_url"          { type = string }
+variable "s3_bucket"          { type = string }
+variable "aws_region"         { type = string }

@@ -1,0 +1,159 @@
+# generated: 2026-03-18
+# project: Branivo
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: /Users/danielgrigorov/Desktop/Branivo/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-18
+project: Branivo
+project_key: NOKEY
+tracking_system: file-system
+story_location: /Users/danielgrigorov/Desktop/Branivo/_bmad-output/implementation-artifacts
+
+development_status:
+  # ─────────────────────────────────────────────────────────────
+  # Epic 1: Platform Foundation & Multi-Tenant Core
+  # ─────────────────────────────────────────────────────────────
+  epic-1: in-progress
+  1-1-monorepo-foundation-dev-infrastructure: review
+  1-2-tenant-resolution-tenantcontext-middleware: backlog
+  1-3-broker-authentication-with-2fa: backlog
+  1-4-super-admin-tenant-onboarding: backlog
+  1-5-role-based-access-control-rbac: backlog
+  1-6-tenant-lifecycle-management: backlog
+  epic-1-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 2: White-Label Broker Portal & Tenant Configuration
+  # ─────────────────────────────────────────────────────────────
+  epic-2: backlog
+  2-1-white-label-branding-configuration: backlog
+  2-2-custom-domain-configuration: backlog
+  2-3-feature-flags-management: backlog
+  epic-2-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 3: End Customer Registration & Vehicle Management
+  # ─────────────────────────────────────────────────────────────
+  epic-3: backlog
+  3-1-anonymous-session-quote-browsing: backlog
+  3-2-sms-otp-inline-registration: backlog
+  3-3-vehicle-document-ocr-scanning: backlog
+  3-4-vehicle-data-validation: backlog
+  3-5-vehicle-data-persistence-auto-load: backlog
+  3-6-ocr-analytics-dashboard: backlog
+  epic-3-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 4: Insurance Quote & Policy Purchase
+  # ─────────────────────────────────────────────────────────────
+  epic-4: backlog
+  4-1-parallel-quote-aggregation: backlog
+  4-2-policy-purchase-with-stripe-3ds: backlog
+  4-3-policy-activation-via-stripe-webhook: backlog
+  4-4-policy-document-delivery: backlog
+  4-5-sticker-delivery-integration: backlog
+  epic-4-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 5: Billing & Commission Management
+  # ─────────────────────────────────────────────────────────────
+  epic-5: backlog
+  5-1-commission-matrix-configuration: backlog
+  5-2-broker-commission-dashboard: backlog
+  5-3-monthly-invoicing-job: backlog
+  5-4-stripe-account-revocation-handling: backlog
+  epic-5-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 6: Renewal & Notification Engine
+  # ─────────────────────────────────────────────────────────────
+  epic-6: backlog
+  6-1-renewal-check-scheduled-job: backlog
+  6-2-multi-channel-notification-delivery: backlog
+  6-3-renewal-escalation-configuration: backlog
+  epic-6-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 7: Fleet Management
+  # ─────────────────────────────────────────────────────────────
+  epic-7: backlog
+  7-1-fleet-vehicle-status-dashboard: backlog
+  7-2-bulk-quote-policy-purchase: backlog
+  7-3-batch-pdf-export: backlog
+  7-4-driver-role-scoped-view: backlog
+  epic-7-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 8: Super Admin Platform Operations
+  # ─────────────────────────────────────────────────────────────
+  epic-8: backlog
+  8-1-tenant-health-monitoring: backlog
+  8-2-insurer-api-monitoring-manual-fallback: backlog
+  8-3-subscription-tier-management: backlog
+  8-4-system-notifications-broadcast: backlog
+  epic-8-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 9: API Tier & External Integration
+  # ─────────────────────────────────────────────────────────────
+  epic-9: backlog
+  9-1-api-key-management-authentication: backlog
+  9-2-quote-policy-issuance-api: backlog
+  9-3-api-sandbox-environment: backlog
+  9-4-rate-limiting-usage-billing: backlog
+  epic-9-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 10: Digital Claims Protocol (DKP)
+  # ─────────────────────────────────────────────────────────────
+  epic-10: backlog
+  10-1-offline-dkp-single-device-wizard: backlog
+  10-2-dkp-confirmation-pdf-generation: backlog
+  epic-10-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 11: GDPR Self-Service & Compliance Portal
+  # ─────────────────────────────────────────────────────────────
+  epic-11: backlog
+  11-1-end-client-data-export-gdpr-right-of-access: backlog
+  11-2-broker-offboarding-gdpr-export: backlog
+  11-3-soft-delete-data-retention: backlog
+  epic-11-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 12: Claims Management (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-12: backlog
+  12-1-claim-submission-with-documents: backlog
+  12-2-broker-claims-tracking-dashboard: backlog
+  epic-12-retrospective: optional

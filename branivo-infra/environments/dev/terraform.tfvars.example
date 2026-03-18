@@ -1,0 +1,5 @@
+# Copy to terraform.tfvars and fill in values — NEVER commit terraform.tfvars with real secrets
+aws_region         = "eu-central-1"
+vpc_cidr           = "10.0.0.0/16"
+db_secret_arn      = "arn:aws:secretsmanager:eu-central-1:ACCOUNT_ID:secret:branivo/dev/db"
+ecr_repository_url = "ACCOUNT_ID.dkr.ecr.eu-central-1.amazonaws.com/branivo-api"

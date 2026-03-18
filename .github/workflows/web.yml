@@ -1,0 +1,42 @@
+name: Web CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['branivo-web/**']
+  pull_request:
+    branches: [main]
+    paths: ['branivo-web/**']
+
+jobs:
+  test:
+    name: Lint, Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: branivo-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: branivo-web
+
+      - name: Lint
+        run: npm run lint
+        working-directory: branivo-web
+
+      - name: Type check
+        run: npx tsc --noEmit
+        working-directory: branivo-web
+
+      - name: Build
+        run: npm run build
+        working-directory: branivo-web
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: https://api.branivo.bg/api/v1

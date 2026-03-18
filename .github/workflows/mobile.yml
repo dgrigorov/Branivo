@@ -1,0 +1,35 @@
+name: Mobile CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['branivo_app/**']
+  pull_request:
+    branches: [main]
+    paths: ['branivo_app/**']
+
+jobs:
+  test:
+    name: Flutter Analyze & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: branivo_app
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+        working-directory: branivo_app
+
+      - name: Test
+        run: flutter test
+        working-directory: branivo_app

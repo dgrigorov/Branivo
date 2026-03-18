@@ -1,0 +1,65 @@
+# Node.js
+node_modules/
+dist/
+.next/
+out/
+.turbo/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+crash.log
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.iml
+.packages
+pubspec.lock
+
+# macOS
+.DS_Store
+*.swp
+.Spotlight-V100
+.Trashes
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.user
+
+# PWA
+public/workbox-*
+public/worker-*
+public/sw.js
+public/fallback-*.js
+
+# Docker
+*.pid
+
+# AWS
+.aws/
+
+# Claude Code — entire .claude folder (local to this machine)
+.claude/
+
+# BMAD framework internals (not project-specific)
+_bmad/
