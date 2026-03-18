@@ -45,7 +45,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   epic-1: in-progress
   1-1-monorepo-foundation-dev-infrastructure: review
-  1-2-tenant-resolution-tenantcontext-middleware: backlog
+  1-2-tenant-resolution-tenantcontext-middleware: done
   1-3-broker-authentication-with-2fa: backlog
   1-4-super-admin-tenant-onboarding: backlog
   1-5-role-based-access-control-rbac: backlog

@@ -1,6 +1,13 @@
-import { Module } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { TenantContextModule } from './common/tenant-context/tenant-context.module';
+import { TenantMiddleware } from './common/tenant-context/tenant.middleware';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OcrModule } from './modules/ocr/ocr.module';
@@ -27,6 +34,7 @@ import { HealthModule } from './health/health.module';
     DatabaseModule,
     RedisModule,
     QueueModule,
+    TenantContextModule,
     HealthModule,
     TenantsModule,
     AuthModule,
@@ -39,4 +47,16 @@ import { HealthModule } from './health/health.module';
     AdminModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(TenantMiddleware)
+      .exclude(
+        { path: 'health', method: RequestMethod.GET },
+        { path: 'api/docs(.*)', method: RequestMethod.ALL },
+        { path: 'api/v1/auth/login', method: RequestMethod.POST },
+        { path: 'api/v1/auth/refresh', method: RequestMethod.POST },
+      )
+      .forRoutes('*');
+  }
+}

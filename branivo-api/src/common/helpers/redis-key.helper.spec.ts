@@ -22,4 +22,16 @@ describe('RedisKeyHelper', () => {
     const key = RedisKeyHelper.build(tenantId, 'domain', 'key');
     expect(key.startsWith(tenantId)).toBe(true);
   });
+
+  describe('buildSystem', () => {
+    it('builds system key in format _system:{domain}:{key}', () => {
+      const key = RedisKeyHelper.buildSystem('host', 'broker1.branivo.bg');
+      expect(key).toBe('_system:host:broker1.branivo.bg');
+    });
+
+    it('does not include tenantId in system key', () => {
+      const key = RedisKeyHelper.buildSystem('host', 'example.com');
+      expect(key.startsWith('_system:')).toBe(true);
+    });
+  });
 });
