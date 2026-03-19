@@ -7,6 +7,8 @@ import { DomainsController } from './domains.controller';
 import { DomainsService } from './domains.service';
 import { DnsVerificationService } from './dns-verification.service';
 import { DomainVerificationJob } from './domain-verification.job';
+import { FeatureFlagsController } from './feature-flags.controller';
+import { FeatureFlagsService } from './feature-flags.service';
 import { Tenant } from './entities/tenant.entity';
 import { TenantConfig } from './entities/tenant-config.entity';
 import { TenantDomain } from './entities/tenant-domain.entity';
@@ -19,7 +21,7 @@ import { S3Module } from '../../infrastructure/s3/s3.module';
     TypeOrmModule.forFeature([Tenant, TenantConfig, TenantDomain]),
     S3Module,
   ],
-  controllers: [TenantsController, DomainsController],
+  controllers: [TenantsController, DomainsController, FeatureFlagsController],
   providers: [
     TenantsService,
     TenantsRepository,
@@ -28,6 +30,7 @@ import { S3Module } from '../../infrastructure/s3/s3.module';
     DomainVerificationJob,
     FeatureFlagGuard,
     TenantActiveGuard,
+    FeatureFlagsService,
   ],
   exports: [TenantsRepository, FeatureFlagGuard, TenantActiveGuard],
 })
