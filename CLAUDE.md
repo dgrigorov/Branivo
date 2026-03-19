@@ -116,6 +116,17 @@ target-name: ## Кратко описание на командата
 - Нова Flutter команда → нов target
 - Нов CI/CD step → нов target
 
+## TypeScript — забранен `any` тип
+
+**НИКОГА** не използвай `any` тип — нито в production код, нито в тестове:
+
+- Вместо `any` ползвай точния тип, `unknown`, или type assertion с конкретен тип (напр. `as MyDto`)
+- За `Object.entries/values` добавяй explicit тип анотация: `([k, v]: [string, MyType | undefined]) => ...`
+- За supertest `res.body` cast-вай: `const body = res.body as MyResponseDto`
+- За `let` променливи с неизвестен тип: `let result: MyType | null | undefined`
+
+Нарушаването на това правило е lint error (`@typescript-eslint/no-unsafe-*`) — CI ще fail-не.
+
 ## Тестове — задължително
 
 **ВИНАГИ** пиши тестове заедно с имплементацията — не след, не по-късно:

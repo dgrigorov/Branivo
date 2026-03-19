@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 export const QUEUE_PDF_GENERATION = 'pdf-generation';
 export const QUEUE_NOTIFICATIONS = 'notifications';
 export const QUEUE_LOGISTICS = 'logistics';
+export const QUEUE_OCR_PROCESSING = 'ocr-processing';
 
 @Module({
   imports: [
