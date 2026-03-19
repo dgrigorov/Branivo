@@ -35,6 +35,11 @@ git switch -c <prefix>/<branch-name>
 
 **Pull Request base е винаги `main`** — никога `feature/story-X-Y-...` или друг branch.
 
+> **КРИТИЧНО:** `gh pr create` **ЗАДЪЛЖИТЕЛНО** се извиква с `--base main`. Без този флаг gh взима repo default branch (което е `feature/story-1-1-monorepo-foundation`), което е грешно. Винаги:
+> ```bash
+> gh pr create --base main --title "..." --body "..."
+> ```
+
 ## Pull Request заглавия — задължителен формат
 
 Използвай винаги **Conventional Commits** формат:

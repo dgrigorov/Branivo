@@ -64,8 +64,8 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 3: End Customer Registration & Vehicle Management
   # ─────────────────────────────────────────────────────────────
-  epic-3: backlog
-  3-1-anonymous-session-quote-browsing: backlog
+  epic-3: in-progress
+  3-1-anonymous-session-quote-browsing: done
   3-2-sms-otp-inline-registration: backlog
   3-3-vehicle-document-ocr-scanning: backlog
   3-4-vehicle-data-validation: backlog
