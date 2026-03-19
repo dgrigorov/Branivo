@@ -373,14 +373,19 @@ _Без значими debug события._
 
 ### Completion Notes List
 
-- Code review завършен — 5 issues оправени (3 High, 2 Medium)
+- Code review 1 завършен — 5 issues оправени (3 High, 2 Medium)
 - H1: `migrateSession` → `NotFoundException` вместо `ServiceUnavailableException` при не намерена сесия
 - H2: `updateSessionData` → `NotFoundException` вместо silent return при не намерена сесия
 - H3: `quotes/page.tsx` → redirect с locale prefix `/${locale}/login`
 - M1: `(client)/layout.tsx` → реален Host header чрез `headers()` от `next/headers`
 - M2: Flutter `_onMigrate` → извиква `repository.migrateSession()` и emit-ва `AnonymousSessionMigratedState`
 - Добавен `migrateSession()` метод в `AnonymousSessionRepository`
-- Тестове: +1 unit (updateSessionData NotFoundException), +1 bloc (migrate event) = 27 теста общо
+- Code review 2 завършен — 4 issues оправени (2 High, 2 Medium)
+- H1: `service.spec.ts` — fix buggy test: `requires_login` assertion никога не се изпълняваше (double-call pattern)
+- H2: Branch contamination — премахнат `ClientsModule` от `app.module.ts`; премахнати `InlineRegistration` и `use-client-auth` импорти от `quotes/page.tsx` (Story 3.2 код)
+- M1: `checkExistingSession` — fix: проверява `body.requires_login` при 503 (не третира всеки 503 като requires_login)
+- M2: `updateSessionData` hook — fix: обработва 404 (→ isExpired=true) и 503 (→ requiresLogin=true)
+- Добавен тест: GET 503 без requires_login → третира като expired (не requiresLogin)
 - Имплементирани всички 15 задачи за Story 3.1
 - Redis ключ `anon:{sessionId}:session` (не tenant-scoped) — tenant isolation чрез payload check (AC7)
 - `ServiceUnavailableException` с `{ requires_login: true }` при Redis unavailability (AC5)
@@ -388,7 +393,7 @@ _Без значими debug события._
 - `migrate` endpoint изисква JWT; всички останали са публични
 - Next.js: `localStorage` за session UUID (device-bound — съзнателен дизайн)
 - Flutter: `flutter_secure_storage` (не Hive) за session UUID
-- Тестове: 7 unit + 6 integration (NestJS) + 4 hook + 4 component (Next.js) + 4 bloc (Flutter) = 25 теста
+- Тестове: 9 unit + 6 integration (NestJS) + 5 hook + 4 component (Next.js) + 5 bloc (Flutter) = 29 теста
 
 ### File List
 

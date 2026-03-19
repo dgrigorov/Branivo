@@ -44,7 +44,11 @@ async function checkExistingSession(sessionId: string): Promise<'active' | 'expi
   try {
     const res = await fetch(`/api/v1/sessions/anonymous/${sessionId}`, {});
     if (res.status === 404) return 'expired';
-    if (res.status === 503) return 'requires_login';
+    if (res.status === 503) {
+      const body = await res.json().catch(() => ({})) as { requires_login?: boolean };
+      if (body.requires_login) return 'requires_login';
+      return 'expired'; // 503 without requires_login — treat as temporary, retry later
+    }
     if (res.ok) return 'active';
     return 'expired';
   } catch {
@@ -116,11 +120,20 @@ export function useAnonymousSession(): AnonymousSessionState {
   const updateSessionData = useCallback(
     async (payload: UpdateSessionPayload): Promise<void> => {
       if (!sessionId) return;
-      await fetch(`/api/v1/sessions/anonymous/${sessionId}/data`, {
+      const res = await fetch(`/api/v1/sessions/anonymous/${sessionId}/data`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      if (res.status === 404) {
+        // Session expired mid-browsing — clear and mark expired
+        localStorage.removeItem(STORAGE_KEY);
+        setSessionId(null);
+        setIsExpired(true);
+      } else if (res.status === 503) {
+        const body = await res.json().catch(() => ({})) as { requires_login?: boolean };
+        if (body.requires_login) setRequiresLogin(true);
+      }
     },
     [sessionId],
   );

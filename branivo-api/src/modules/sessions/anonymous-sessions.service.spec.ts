@@ -61,17 +61,16 @@ describe('AnonymousSessionsService', () => {
       mockRedis.setex.mockRejectedValueOnce(new Error('ECONNREFUSED'));
 
       const service = buildService();
-      await expect(service.createSession(TENANT_ID)).rejects.toThrow(
-        ServiceUnavailableException,
-      );
-
+      let caught: ServiceUnavailableException | null = null;
       try {
         await service.createSession(TENANT_ID);
       } catch (err) {
-        const e = err as ServiceUnavailableException;
-        const response = e.getResponse() as Record<string, unknown>;
-        expect(response.requires_login).toBe(true);
+        caught = err as ServiceUnavailableException;
       }
+
+      expect(caught).toBeInstanceOf(ServiceUnavailableException);
+      const response = caught!.getResponse() as Record<string, unknown>;
+      expect(response.requires_login).toBe(true);
     });
   });
 

@@ -99,4 +99,28 @@ describe('useAnonymousSession', () => {
     expect(result.current.sessionId).toBeNull();
     expect(localStorageMock.getItem(STORAGE_KEY)).toBeNull();
   });
+
+  it('treats GET 503 without requires_login as expired (not requiresLogin)', async () => {
+    localStorageMock.setItem(STORAGE_KEY, 'session-uuid');
+
+    // GET returns 503 but WITHOUT requires_login flag → treat as temporary outage
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: async () => ({ message: 'Service unavailable' }),
+    } as Response);
+    // POST for new session (called after expiry path)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({ session_id: 'recovered-session-uuid', expires_at: '2026-03-21T10:00:00Z' }),
+    } as Response);
+
+    const { result } = renderHook(() => useAnonymousSession());
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.requiresLogin).toBe(false);
+    expect(result.current.sessionId).toBe('recovered-session-uuid');
+  });
 });
