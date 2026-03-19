@@ -38,6 +38,16 @@ export class TenantsRepository extends BaseRepository<Tenant> {
     return Object.assign(tenant, { config: config ?? null });
   }
 
+  async upsertBranding(
+    tenantId: string,
+    data: Partial<TenantConfig>,
+  ): Promise<void> {
+    await this.configRepo.upsert(
+      { tenantId, ...data },
+      { conflictPaths: ['tenantId'] },
+    );
+  }
+
   async findTenantIdByHostname(hostname: string): Promise<string | null> {
     const domain = await this.domainRepo.findOne({
       where: { domain: hostname },

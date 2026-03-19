@@ -1,5 +1,5 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 import { TenantConfigResponseDto } from './dto/tenant-config-response.dto';
@@ -13,6 +13,8 @@ const mockTenantConfig: TenantConfigResponseDto = {
   features: { fleet: false, api_access: false },
   branding: {
     primaryColor: '#1A56DB',
+    secondaryColor: null,
+    brandFont: null,
     logoUrl: null,
     supportEmail: 'support@broker1.branivo.bg',
     supportPhone: null,
@@ -21,6 +23,7 @@ const mockTenantConfig: TenantConfigResponseDto = {
 
 const mockTenantsService = {
   getTenantConfig: jest.fn(),
+  updateBranding: jest.fn(),
 };
 
 describe('TenantsController', () => {
@@ -56,7 +59,7 @@ describe('TenantsController', () => {
       await expect(controller.getConfig()).rejects.toThrow(NotFoundException);
     });
 
-    it('response data includes all required fields', async () => {
+    it('response data includes all required fields including secondaryColor and brandFont', async () => {
       mockTenantsService.getTenantConfig.mockResolvedValueOnce(
         mockTenantConfig,
       );
@@ -67,9 +70,62 @@ describe('TenantsController', () => {
       expect(data).toHaveProperty('slug');
       expect(data).toHaveProperty('features');
       expect(data).toHaveProperty('branding');
-      // Ensures no sensitive fields are present
+      expect(data.branding).toHaveProperty('secondaryColor');
+      expect(data.branding).toHaveProperty('brandFont');
       expect(data).not.toHaveProperty('api_key_enc');
       expect(data).not.toHaveProperty('stripe_credentials');
+    });
+  });
+
+  describe('updateBranding', () => {
+    beforeEach(() => {
+      mockTenantsService.updateBranding.mockResolvedValue(undefined);
+    });
+
+    it('calls service.updateBranding and returns void (204)', async () => {
+      const result = await controller.updateBranding(
+        { primaryColor: '#1A56DB' },
+        undefined,
+      );
+
+      expect(mockTenantsService.updateBranding).toHaveBeenCalledWith(
+        { primaryColor: '#1A56DB' },
+        undefined,
+      );
+      expect(result).toBeUndefined();
+    });
+
+    it('passes logo file to service when provided', async () => {
+      const logoFile = {
+        buffer: Buffer.from('img'),
+        mimetype: 'image/png',
+      } as Express.Multer.File;
+
+      await controller.updateBranding({ brandFont: 'Roboto' }, logoFile);
+
+      expect(mockTenantsService.updateBranding).toHaveBeenCalledWith(
+        { brandFont: 'Roboto' },
+        logoFile,
+      );
+    });
+
+    it('propagates BadRequestException for non-WCAG color', async () => {
+      mockTenantsService.updateBranding.mockRejectedValueOnce(
+        new BadRequestException('Color #FFFF00 fails WCAG AA contrast'),
+      );
+
+      await expect(
+        controller.updateBranding({ primaryColor: '#FFFF00' }, undefined),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('calls service with empty dto when no fields provided', async () => {
+      await controller.updateBranding({}, undefined);
+
+      expect(mockTenantsService.updateBranding).toHaveBeenCalledWith(
+        {},
+        undefined,
+      );
     });
   });
 });

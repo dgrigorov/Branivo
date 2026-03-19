@@ -55,8 +55,8 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 2: White-Label Broker Portal & Tenant Configuration
   # ─────────────────────────────────────────────────────────────
-  epic-2: backlog
-  2-1-white-label-branding-configuration: backlog
+  epic-2: in-progress
+  2-1-white-label-branding-configuration: done
   2-2-custom-domain-configuration: backlog
   2-3-feature-flags-management: backlog
   epic-2-retrospective: optional

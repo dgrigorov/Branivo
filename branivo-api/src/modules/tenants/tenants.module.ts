@@ -8,9 +8,13 @@ import { TenantConfig } from './entities/tenant-config.entity';
 import { TenantDomain } from './entities/tenant-domain.entity';
 import { FeatureFlagGuard } from '../../common/guards/feature-flag.guard';
 import { TenantActiveGuard } from '../../common/guards/tenant-active.guard';
+import { S3Module } from '../../infrastructure/s3/s3.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Tenant, TenantConfig, TenantDomain])],
+  imports: [
+    TypeOrmModule.forFeature([Tenant, TenantConfig, TenantDomain]),
+    S3Module,
+  ],
   controllers: [TenantsController],
   providers: [
     TenantsService,

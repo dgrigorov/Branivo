@@ -7,6 +7,8 @@ export class TenantConfigResponseDto {
   features!: Record<string, boolean>;
   branding!: {
     primaryColor: string;
+    secondaryColor: string | null;
+    brandFont: string | null;
     logoUrl: string | null;
     supportEmail: string | null;
     supportPhone: string | null;

@@ -16,9 +16,10 @@ Stack: **NestJS · Flutter · PostgreSQL · AWS ECS Fargate · Stripe Connect ·
 
 ## Git workflow — преди всяка задача
 
-**ПРЕДИ да започнеш каквато и да е имплементация**, синхронизирай с main и създай работен branch:
+**ПРЕДИ да започнеш каквато и да е имплементация**, задължително изпълни точно тези стъпки:
 
 ```bash
+git fetch origin
 git switch main
 git pull origin main
 git switch -c <prefix>/<branch-name>
@@ -26,10 +27,13 @@ git switch -c <prefix>/<branch-name>
 
 Префикси: `feature/`, `bugfix/`, `chore/`, `refactor/`
 
-Пример за story: `git switch -c feature/story-1-3-broker-auth`
+Пример за story: `git switch -c feature/story-2-2-custom-domain`
 
-> Това предотвратява merge conflicts — working branch винаги тръгва от актуален main.
-> `git switch` (Git 2.23+) е предпочитано пред `git checkout` — прави само едно нещо и не може случайно да презапише файлове.
+> **КРИТИЧНО:** Всеки PR трябва да е базиран на `main` и да съдържа САМО commit-ите за конкретното story.
+> Ако не pull-неш `main` преди `switch -c`, branch-ът тръгва от стар commit и PR-ът ще показва чужди commit-и от предишни stories.
+> `git fetch origin` първо — за да имаш актуалните merged PR-и в локалното repo.
+
+**Pull Request base е винаги `main`** — никога `feature/story-X-Y-...` или друг branch.
 
 ## Pull Request заглавия — задължителен формат
 
@@ -89,6 +93,23 @@ PR се създава само ако всички команди завърш�
 2. Провери PRD-а за точните business rules на фийчъра
 3. Следвай модулната структура: Controller → Service → Repository (без прескачане)
 4. Всяка нова DB таблица: UUID PK, `tenant_id`, `created_at`, `updated_at`, `deleted_at`, RLS
+
+## Makefile — поддържай го актуален
+
+В root-а на проекта (`/Users/danielgrigorov/Desktop/InsurTech/Makefile`) живее централният developer Makefile.
+
+**ЗАДЪЛЖИТЕЛНО**: При всяка нова npm скрипт, нова инфра команда, нов инструмент или нов workflow добавен в проекта — добави съответния `make` target в Makefile-а. Форматът е:
+
+```makefile
+target-name: ## Кратко описание на командата
+	<shell команда>
+```
+
+Примери за кога се ъпдейтва:
+- Нов Docker service в `docker-compose.yml` → нов target
+- Нов npm script в `package.json` → нов target
+- Нова Flutter команда → нов target
+- Нов CI/CD step → нов target
 
 ## Тестове — задължително
 

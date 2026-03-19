@@ -5,11 +5,13 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
 
 @Entity({ name: 'tenant_configs' })
+@Unique('uq_tenant_configs_tenant_id', ['tenantId'])
 export class TenantConfig {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -32,6 +34,12 @@ export class TenantConfig {
 
   @Column({ name: 'support_phone', length: 32, nullable: true })
   supportPhone!: string | null;
+
+  @Column({ name: 'secondary_color', length: 7, nullable: true })
+  secondaryColor!: string | null;
+
+  @Column({ name: 'brand_font', length: 32, nullable: true })
+  brandFont!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
