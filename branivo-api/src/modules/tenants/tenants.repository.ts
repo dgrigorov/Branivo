@@ -5,7 +5,7 @@ import { TenantContext } from '../../common/tenant-context/tenant.context';
 import { BaseRepository } from '../../common/base.repository';
 import { Tenant } from './entities/tenant.entity';
 import { TenantConfig } from './entities/tenant-config.entity';
-import { TenantDomain } from './entities/tenant-domain.entity';
+import { TenantDomain, DomainStatus } from './entities/tenant-domain.entity';
 
 // Super Admin context methods are below (no tenant_id scope — documented exception)
 
@@ -48,13 +48,79 @@ export class TenantsRepository extends BaseRepository<Tenant> {
     );
   }
 
-  async findTenantIdByHostname(hostname: string): Promise<string | null> {
-    const domain = await this.domainRepo.findOne({
-      where: { domain: hostname },
-      relations: ['tenant'],
+  // ─── Domain methods (tenant-scoped) ──────────────────────────────────────────
+
+  async findDomainsByTenantId(tenantId: string): Promise<TenantDomain[]> {
+    return this.domainRepo.find({
+      where: { tenantId },
+      order: { createdAt: 'ASC' },
     });
-    if (!domain || !domain.tenant || domain.tenant.deletedAt) return null;
-    return domain.tenantId;
+  }
+
+  async findDomainById(
+    id: string,
+    tenantId: string,
+  ): Promise<TenantDomain | null> {
+    return this.domainRepo.findOne({ where: { id, tenantId } });
+  }
+
+  async findCustomDomainByTenantId(
+    tenantId: string,
+  ): Promise<TenantDomain | null> {
+    return this.domainRepo.findOne({ where: { tenantId, isPrimary: false } });
+  }
+
+  async createCustomDomain(
+    tenantId: string,
+    domain: string,
+    verificationToken: string,
+  ): Promise<TenantDomain> {
+    const entity = this.domainRepo.create({
+      tenantId,
+      domain,
+      isPrimary: false,
+      status: 'pending',
+      verificationToken,
+      verifiedAt: null,
+      failureReason: null,
+    });
+    return this.domainRepo.save(entity);
+  }
+
+  async updateDomainStatus(
+    id: string,
+    status: DomainStatus,
+    extra?: { verifiedAt?: Date; failureReason?: string },
+  ): Promise<void> {
+    await this.domainRepo.update(id, { status, ...extra });
+  }
+
+  async deleteDomain(id: string, tenantId: string): Promise<void> {
+    await this.domainRepo.delete({ id, tenantId });
+  }
+
+  /**
+   * Resolves tenant ID from hostname.
+   * Only 'active' domains belonging to non-deleted tenants are valid (AC7).
+   * Uses a JOIN WHERE to avoid loading the full Tenant entity.
+   */
+  async findTenantIdByHostname(hostname: string): Promise<string | null> {
+    const result = await this.domainRepo
+      .createQueryBuilder('d')
+      .select('d.tenant_id', 'tenantId')
+      .innerJoin('d.tenant', 't', 't.deleted_at IS NULL')
+      .where('d.domain = :hostname', { hostname })
+      .andWhere("d.status = 'active'")
+      .getRawOne<{ tenantId: string }>();
+    return result?.tenantId ?? null;
+  }
+
+  // ─── Cron job methods (system context — no tenant scope) ─────────────────────
+
+  async findPendingOrVerifyingDomains(): Promise<TenantDomain[]> {
+    return this.domainRepo.find({
+      where: [{ status: 'pending' }, { status: 'verifying' }],
+    });
   }
 
   // ─── Super Admin methods (no tenant_id scope) ───────────────────────────────

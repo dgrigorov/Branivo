@@ -3,6 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 import { TenantsRepository } from './tenants.repository';
+import { DomainsController } from './domains.controller';
+import { DomainsService } from './domains.service';
+import { DnsVerificationService } from './dns-verification.service';
+import { DomainVerificationJob } from './domain-verification.job';
 import { Tenant } from './entities/tenant.entity';
 import { TenantConfig } from './entities/tenant-config.entity';
 import { TenantDomain } from './entities/tenant-domain.entity';
@@ -15,10 +19,13 @@ import { S3Module } from '../../infrastructure/s3/s3.module';
     TypeOrmModule.forFeature([Tenant, TenantConfig, TenantDomain]),
     S3Module,
   ],
-  controllers: [TenantsController],
+  controllers: [TenantsController, DomainsController],
   providers: [
     TenantsService,
     TenantsRepository,
+    DomainsService,
+    DnsVerificationService,
+    DomainVerificationJob,
     FeatureFlagGuard,
     TenantActiveGuard,
   ],

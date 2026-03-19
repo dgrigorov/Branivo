@@ -57,7 +57,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   epic-2: in-progress
   2-1-white-label-branding-configuration: done
-  2-2-custom-domain-configuration: backlog
+  2-2-custom-domain-configuration: done
   2-3-feature-flags-management: backlog
   epic-2-retrospective: optional
 

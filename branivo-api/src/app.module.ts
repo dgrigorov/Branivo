@@ -7,6 +7,7 @@ import {
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TenantContextModule } from './common/tenant-context/tenant-context.module';
 import { TenantMiddleware } from './common/tenant-context/tenant.middleware';
 import { TenantsModule } from './modules/tenants/tenants.module';
@@ -33,6 +34,7 @@ import { HealthModule } from './health/health.module';
       { name: 'public', ttl: 60000, limit: 100 },
       { name: 'auth', ttl: 60000, limit: 300 },
     ]),
+    ScheduleModule.forRoot(),
     LoggerModule,
     DatabaseModule,
     RedisModule,

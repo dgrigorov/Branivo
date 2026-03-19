@@ -5,8 +5,11 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
+
+export type DomainStatus = 'pending' | 'verifying' | 'active' | 'failed';
 
 @Entity({ name: 'tenant_domains' })
 export class TenantDomain {
@@ -26,6 +29,26 @@ export class TenantDomain {
   @Column({ name: 'is_primary', default: false })
   isPrimary!: boolean;
 
+  @Column({ name: 'status', length: 20, default: 'active' })
+  status!: DomainStatus;
+
+  @Column({
+    name: 'verification_token',
+    length: 64,
+    nullable: true,
+    unique: true,
+  })
+  verificationToken!: string | null;
+
+  @Column({ name: 'verified_at', type: 'timestamptz', nullable: true })
+  verifiedAt!: Date | null;
+
+  @Column({ name: 'failure_reason', length: 512, nullable: true })
+  failureReason!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  updatedAt!: Date;
 }
