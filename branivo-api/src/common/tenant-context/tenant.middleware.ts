@@ -34,6 +34,7 @@ export class TenantMiddleware implements NestMiddleware {
     }
 
     this.tenantContext.setTenantId(tenantId);
+    this.tenantContext.setDomain(host);
     next();
   }
 
