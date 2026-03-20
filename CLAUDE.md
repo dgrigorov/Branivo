@@ -156,3 +156,19 @@ cd branivo-api && npm run dev
 - **Flutter (branivo_app):** widget тест за всеки нов екран/widget
 
 Тестовете трябва да минават преди да се commit-не код (`npm run test:cov` / `flutter test`).
+
+## Seeder — задължително за нови модули
+
+**ЗАДЪЛЖИТЕЛНО**: При всеки нов NestJS модул или функционалност, която въвежда нови DB таблици или нови типове данни — добави seed данни в `branivo-api/src/infrastructure/database/seed.service.ts`.
+
+Правила:
+- Seeder-ът се изпълнява автоматично при `npm run dev` (чрез `OnApplicationBootstrap`)
+- **НИКОГА** не се изпълнява в production (`NODE_ENV === 'production'` check вече съществува)
+- Използвай `ON CONFLICT ... DO NOTHING` — seed-ването е идемпотентно
+- Методът се именува `seedXxx()` и се извиква от `onApplicationBootstrap()`
+- Целта: dev среда да е веднага тествабилна без ръчно въвеждане на данни
+
+Примери за кога се добавя seed:
+- Нова `insurers` таблица → seed 3-4 mock застрахователя с реалистични данни
+- Нова `commission_rules` таблица → seed demo комисионна структура за demo тенанта
+- Нов feature flag → seed стойност за demo тенанта

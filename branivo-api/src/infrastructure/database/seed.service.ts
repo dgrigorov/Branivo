@@ -41,6 +41,7 @@ export class SeedService implements OnApplicationBootstrap {
     const clientId = await this.seedEndClients();
     await this.seedVehicles(clientId);
     await this.seedTenantInvitation();
+    await this.seedInsurers();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
@@ -131,5 +132,33 @@ export class SeedService implements OnApplicationBootstrap {
        )`,
       [DEMO_TENANT_ID],
     );
+  }
+
+  private async seedInsurers(): Promise<void> {
+    const insurers = [
+      {
+        code: 'allianz',
+        name: 'Allianz Bulgaria',
+        rating: 4.5,
+        claimSpeed: 8.5,
+      },
+      {
+        code: 'generali',
+        name: 'Generali Bulgaria',
+        rating: 4.2,
+        claimSpeed: 7.8,
+      },
+      { code: 'dsk', name: 'ДЗИ (DSK)', rating: 4.0, claimSpeed: 7.0 },
+      { code: 'bulstrad', name: 'Булстрад', rating: 3.8, claimSpeed: 6.5 },
+    ];
+    for (const ins of insurers) {
+      await this.dataSource.query(
+        `INSERT INTO insurers (id, name, code, is_active, rating, claim_speed, extras_config, adapter_class)
+         VALUES (gen_random_uuid(), $1, $2, true, $3, $4, '{"roadside_assistance": true, "glass": true, "legal": false}', 'MockInsurerAdapter')
+         ON CONFLICT (code) DO NOTHING`,
+        [ins.name, ins.code, ins.rating, ins.claimSpeed],
+      );
+    }
+    this.logger.log('Insurers seeded.');
   }
 }

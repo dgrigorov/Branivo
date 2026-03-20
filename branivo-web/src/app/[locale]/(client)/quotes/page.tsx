@@ -1,13 +1,60 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAnonymousSession, type UpdateSessionPayload } from '../../../../lib/hooks/use-anonymous-session';
+import { createQuoteRequest, useQuotesBySession, type QuoteSession } from '../../../../lib/hooks/use-quotes';
+import { OfferCard } from './components/offer-card';
+
+function OfferResultsList({ sessionToken }: { sessionToken: string }) {
+  const { data, isPending, isError, error } = useQuotesBySession(sessionToken);
+
+  if (isPending) {
+    return (
+      <div className="mt-6 space-y-3">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-200" />
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div
+        role="alert"
+        className="mt-6 rounded border border-red-200 bg-red-50 p-4 text-red-700"
+      >
+        Грешка при зареждане на оферти: {error.message}
+      </div>
+    );
+  }
+
+  if (!data || data.offers.length === 0) {
+    return <p className="mt-6 text-center text-gray-500">Няма налични оферти.</p>;
+  }
+
+  return (
+    <div className="mt-6 space-y-3" aria-label="Оферти за застраховка">
+      <h2 className="text-xl font-bold">Оферти</h2>
+      {data.offers.map((offer) => (
+        <OfferCard
+          key={offer.id}
+          offer={offer}
+          isRecommended={offer.isRecommended}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function QuotesPage() {
   const router = useRouter();
   const params = useParams<{ locale: string }>();
   const { sessionId, isLoading, isExpired, requiresLogin, updateSessionData } = useAnonymousSession();
+  const [quoteSession, setQuoteSession] = useState<QuoteSession | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (requiresLogin) {
@@ -15,8 +62,10 @@ export default function QuotesPage() {
     }
   }, [requiresLogin, router, params.locale]);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
+    if (!sessionId) return;
+
     const form = e.currentTarget;
     const data = new FormData(form);
 
@@ -31,6 +80,17 @@ export default function QuotesPage() {
     };
 
     void updateSessionData(payload);
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const session = await createQuoteRequest(sessionId);
+      setQuoteSession(session);
+    } catch {
+      setSubmitError('Грешка при получаване на оферти. Моля, опитайте отново.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   if (isLoading) {
@@ -65,7 +125,7 @@ export default function QuotesPage() {
 
       <h1 className="mb-6 text-2xl font-bold">Сравни застрахователни оферти</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         <div>
           <label htmlFor="reg_number" className="block text-sm font-medium text-gray-700">
             Регистрационен номер
@@ -133,15 +193,36 @@ export default function QuotesPage() {
           />
         </div>
 
+        {submitError && (
+          <p role="alert" className="text-sm text-red-600">
+            {submitError}
+          </p>
+        )}
+
         <button
           type="submit"
-          disabled={!sessionId}
+          disabled={!sessionId || isSubmitting}
           className="w-full rounded bg-primary px-4 py-2 font-medium text-white disabled:opacity-50"
           style={{ backgroundColor: 'var(--color-primary, #2563eb)' }}
         >
-          Сравни оферти
+          {isSubmitting ? 'Търсене на оферти...' : 'Сравни оферти'}
         </button>
       </form>
+
+      {/* Offer results — staleTime: 0 enforced by useQuotesBySession */}
+      {quoteSession && (
+        <Suspense
+          fallback={
+            <div className="mt-6 space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-200" />
+              ))}
+            </div>
+          }
+        >
+          <OfferResultsList sessionToken={quoteSession.sessionToken} />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -12,6 +12,9 @@ import '../../features/vehicles/bloc/vehicles_bloc.dart';
 import '../../features/vehicles/bloc/vehicle_validation_bloc.dart';
 import '../../features/vehicles/data/repositories/vehicles_repository.dart';
 import '../../features/vehicles/data/repositories/vehicle_api_repository.dart';
+import '../../features/quotes/screens/offers_screen.dart';
+import '../../features/quotes/bloc/quote_bloc.dart';
+import '../../features/quotes/data/quote_api_repository.dart';
 
 /// Navigation extras for /vehicles/scan route
 class OcrWizardRouteArgs {
@@ -94,6 +97,17 @@ class AppRouter {
               vin: args.vin,
               licensePlate: args.licensePlate,
             ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/quotes/offers',
+        builder: (context, state) {
+          final args = state.extra as QuoteOffersRouteArgs;
+          final repo = context.read<QuoteApiRepository>();
+          return BlocProvider(
+            create: (_) => QuoteBloc(repository: repo),
+            child: OffersScreen(sessionToken: args.sessionToken),
           );
         },
       ),

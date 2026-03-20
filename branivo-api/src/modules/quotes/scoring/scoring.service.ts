@@ -1,0 +1,104 @@
+import { Injectable } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import type { QuoteResult } from '../adapters/insurer-adapter.interface';
+import type { Insurer } from '../entities/insurer.entity';
+
+// IMMUTABLE — NEVER change weights without product decision (NFR44, КФН compliance)
+const SCORING_WEIGHTS = {
+  price: 0.4,
+  rating: 0.3,
+  claimSpeed: 0.2,
+  extras: 0.1,
+} as const;
+
+export interface ScoredOffer extends QuoteResult {
+  score: number;
+  isRecommended: boolean;
+  insurer: Insurer;
+}
+
+@Injectable()
+export class ScoringService {
+  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+
+  scoreOffers(offers: QuoteResult[], insurers: Insurer[]): ScoredOffer[] {
+    if (offers.length === 0) return [];
+
+    const insurerMap = new Map(insurers.map((ins) => [ins.code, ins]));
+    const prices = offers.map((o) => o.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+
+    const scored = offers.map((offer) => {
+      const insurer = insurerMap.get(offer.insurerCode)!;
+      const priceScore =
+        maxPrice === minPrice
+          ? 1.0
+          : 1 - (offer.price - minPrice) / (maxPrice - minPrice);
+
+      const extrasEntries = Object.entries(offer.extras);
+      const availableExtrasCount = extrasEntries.length;
+      const activeExtrasCount = extrasEntries.filter(
+        ([, v]) => v === true,
+      ).length;
+      const extrasScore =
+        availableExtrasCount > 0 ? activeExtrasCount / availableExtrasCount : 0;
+
+      const score =
+        SCORING_WEIGHTS.price * priceScore +
+        SCORING_WEIGHTS.rating * (Number(insurer.rating) / 5) +
+        SCORING_WEIGHTS.claimSpeed * (Number(insurer.claimSpeed) / 10) +
+        SCORING_WEIGHTS.extras * extrasScore;
+
+      return { ...offer, score, isRecommended: false, insurer };
+    });
+
+    // Mark only 1 recommended — tie-break by higher rating
+    let bestIdx = 0;
+    for (let i = 1; i < scored.length; i++) {
+      const isBetter =
+        scored[i].score > scored[bestIdx].score ||
+        (scored[i].score === scored[bestIdx].score &&
+          Number(scored[i].insurer.rating) >
+            Number(scored[bestIdx].insurer.rating));
+      if (isBetter) bestIdx = i;
+    }
+    scored[bestIdx].isRecommended = true;
+
+    return scored;
+  }
+
+  async logScoringAudit(
+    tenantId: string,
+    sessionToken: string,
+    vehicleVin: string,
+    scoredOffers: ScoredOffer[],
+  ): Promise<void> {
+    const payload = {
+      inputs: {
+        sessionToken,
+        vehicleVin,
+        insurerCount: scoredOffers.length,
+      },
+      weights: {
+        price: SCORING_WEIGHTS.price,
+        rating: SCORING_WEIGHTS.rating,
+        claimSpeed: SCORING_WEIGHTS.claimSpeed,
+        extras: SCORING_WEIGHTS.extras,
+      },
+      results: scoredOffers.map((o) => ({
+        insurerCode: o.insurerCode,
+        price: o.price,
+        score: o.score,
+        isRecommended: o.isRecommended,
+      })),
+    };
+
+    await this.dataSource.query(
+      `INSERT INTO audit_logs (id, tenant_id, user_id, action, entity_type, entity_id, payload, created_at)
+       VALUES (gen_random_uuid(), $1, NULL, 'quote.scored', 'quote_session', $2, $3, NOW())`,
+      [tenantId, sessionToken, JSON.stringify(payload)],
+    );
+  }
+}
