@@ -5,6 +5,7 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -23,6 +24,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { TenantDomain } from './modules/tenants/entities/tenant-domain.entity';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
 import { QueueModule } from './infrastructure/queues/queue.module';
@@ -40,6 +42,7 @@ import { HealthModule } from './health/health.module';
     ScheduleModule.forRoot(),
     LoggerModule,
     DatabaseModule,
+    TypeOrmModule.forFeature([TenantDomain]),
     RedisModule,
     QueueModule,
     TenantContextModule,
@@ -65,7 +68,8 @@ export class AppModule implements NestModule {
       .apply(TenantMiddleware)
       .exclude(
         { path: 'health', method: RequestMethod.GET },
-        { path: 'api/docs(.*)', method: RequestMethod.ALL },
+        { path: 'api/docs/*path', method: RequestMethod.ALL },
+        { path: 'api/docs', method: RequestMethod.ALL },
         { path: 'api/v1/auth/login', method: RequestMethod.POST },
         { path: 'api/v1/auth/2fa/verify', method: RequestMethod.POST },
         { path: 'api/v1/auth/refresh', method: RequestMethod.POST },

@@ -8,6 +8,6 @@ import { TenantContext } from './tenant.context';
 @Module({
   imports: [TypeOrmModule.forFeature([TenantDomain])],
   providers: [TenantContext, TenantMiddleware],
-  exports: [TenantContext],
+  exports: [TenantContext, TenantMiddleware],
 })
 export class TenantContextModule {}

@@ -74,6 +74,14 @@ migrate: ## Run pending TypeORM migrations
 migrate-revert: ## Revert last TypeORM migration
 	cd branivo-api && npx typeorm migration:revert -d src/infrastructure/database/data-source.ts
 
+seed-reset: ## Force re-seed: removes demo tenant so SeedService re-inserts on next API restart
+	docker exec branivo-postgres psql -U branivo -d branivo_dev \
+	  -c "DELETE FROM users WHERE tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';" \
+	  -c "DELETE FROM tenant_domains WHERE tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';" \
+	  -c "DELETE FROM tenant_configs WHERE tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';" \
+	  -c "DELETE FROM tenants WHERE id = 'aaaaaaaa-0000-0000-0000-000000000001';"
+	@echo "Demo data removed. Restart API to re-seed."
+
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 build: ## Build both API and web for production

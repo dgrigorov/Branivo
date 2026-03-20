@@ -26,19 +26,19 @@ export class TenantConfig {
   @Column({ name: 'primary_color', length: 7, default: '#1A56DB' })
   primaryColor!: string;
 
-  @Column({ name: 'logo_url', length: 512, nullable: true })
+  @Column({ name: 'logo_url', type: 'varchar', length: 512, nullable: true })
   logoUrl!: string | null;
 
-  @Column({ name: 'support_email', length: 255, nullable: true })
+  @Column({ name: 'support_email', type: 'varchar', length: 255, nullable: true })
   supportEmail!: string | null;
 
-  @Column({ name: 'support_phone', length: 32, nullable: true })
+  @Column({ name: 'support_phone', type: 'varchar', length: 32, nullable: true })
   supportPhone!: string | null;
 
-  @Column({ name: 'secondary_color', length: 7, nullable: true })
+  @Column({ name: 'secondary_color', type: 'varchar', length: 7, nullable: true })
   secondaryColor!: string | null;
 
-  @Column({ name: 'brand_font', length: 32, nullable: true })
+  @Column({ name: 'brand_font', type: 'varchar', length: 32, nullable: true })
   brandFont!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
