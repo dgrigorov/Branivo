@@ -2,6 +2,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import Redis from 'ioredis';
@@ -13,6 +14,10 @@ import { GfApiUnavailableError } from './exceptions/gf-api-unavailable.exception
 import { VehicleBlockedByGfException } from './exceptions/vehicle-blocked-by-gf.exception';
 import { ValidateVehicleDto } from './dto/validate-vehicle.dto';
 import { VehicleValidationResultDto } from './dto/vehicle-validation-result.dto';
+import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { VehicleResponseDto } from './dto/vehicle-response.dto';
+import { VehiclesRepository } from './vehicles.repository';
+import { Vehicle } from './entities/vehicle.entity';
 
 const VIN_REGEX = /^[A-HJ-NPR-Z0-9]{17}$/;
 const SESSION_TTL_SECONDS = 172800; // 48h
@@ -32,7 +37,48 @@ export class VehiclesService {
     private readonly katApiAdapter: KatApiAdapter,
     private readonly gfAdapter: GarantsionenFondAdapter,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly vehiclesRepository: VehiclesRepository,
   ) {}
+
+  async saveVehicle(
+    dto: CreateVehicleDto,
+    ownerId: string,
+    tenantId: string,
+  ): Promise<VehicleResponseDto> {
+    const vehicle = await this.vehiclesRepository.save({
+      vin: dto.vin,
+      licensePlate: dto.licensePlate,
+      make: dto.make,
+      model: dto.model,
+      year: dto.year,
+      color: dto.color ?? null,
+      engineVolume: dto.engineVolume ?? null,
+      fuelType: dto.fuelType ?? null,
+      firstRegistrationDate: dto.firstRegistrationDate ?? null,
+      ownerId,
+      tenantId,
+    });
+    return this.toResponseDto(vehicle);
+  }
+
+  async listVehicles(ownerId: string): Promise<VehicleResponseDto[]> {
+    const vehicles = await this.vehiclesRepository.findByOwner(ownerId);
+    return vehicles.map((v) => this.toResponseDto(v));
+  }
+
+  async getVehicle(
+    ownerId: string,
+    vehicleId: string,
+  ): Promise<VehicleResponseDto> {
+    const vehicle = await this.vehiclesRepository.findByOwnerAndId(
+      ownerId,
+      vehicleId,
+    );
+    if (!vehicle) {
+      throw new NotFoundException('МПС не е намерено');
+    }
+    return this.toResponseDto(vehicle);
+  }
 
   async validateVehicle(
     dto: ValidateVehicleDto,
@@ -71,6 +117,26 @@ export class VehiclesService {
     const result = this.buildResult(true, katStatus, gfStatus);
     await this.updateValidationStatus(sessionToken, result);
     return result;
+  }
+
+  private toResponseDto(vehicle: Vehicle): VehicleResponseDto {
+    const dto = new VehicleResponseDto();
+    dto.id = vehicle.id;
+    dto.tenantId = vehicle.tenantId;
+    dto.ownerId = vehicle.ownerId;
+    dto.vin = vehicle.vin;
+    dto.licensePlate = vehicle.licensePlate;
+    dto.make = vehicle.make;
+    dto.model = vehicle.model;
+    dto.year = vehicle.year;
+    dto.color = vehicle.color;
+    dto.engineVolume = vehicle.engineVolume;
+    dto.fuelType = vehicle.fuelType;
+    dto.firstRegistrationDate = vehicle.firstRegistrationDate;
+    dto.createdAt = vehicle.createdAt;
+    dto.updatedAt = vehicle.updatedAt;
+    dto.lastPolicyStatus = null;
+    return dto;
   }
 
   private async runKatValidation(

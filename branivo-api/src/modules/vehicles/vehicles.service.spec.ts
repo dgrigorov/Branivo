@@ -1,4 +1,7 @@
-import { UnprocessableEntityException } from '@nestjs/common';
+import {
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import Redis from 'ioredis';
 import { VehiclesService } from './vehicles.service';
 import { KatApiAdapter } from './adapters/kat-api.adapter';
@@ -7,10 +10,15 @@ import { KatApiUnavailableError } from './exceptions/kat-api-unavailable.excepti
 import { GfApiUnavailableError } from './exceptions/gf-api-unavailable.exception';
 import { VehicleBlockedByGfException } from './exceptions/vehicle-blocked-by-gf.exception';
 import { ValidateVehicleDto } from './dto/validate-vehicle.dto';
+import { VehiclesRepository } from './vehicles.repository';
+import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { Vehicle } from './entities/vehicle.entity';
 
 const VALID_VIN = 'WVWZZZ3BZ3E123456';
 const SESSION_TOKEN = 'test-session-token';
 const LICENSE_PLATE = 'СА1234АА';
+const OWNER_ID = 'owner-uuid-123';
+const VEHICLE_ID = 'vehicle-uuid-456';
 
 const mockKatAdapter = {
   validateVin: jest.fn(),
@@ -25,11 +33,38 @@ const mockRedis = {
   setex: jest.fn().mockResolvedValue('OK'),
 };
 
+const mockVehiclesRepository = {
+  save: jest.fn(),
+  findByOwner: jest.fn(),
+  findByOwnerAndId: jest.fn(),
+};
+
+function buildVehicle(overrides: Partial<Vehicle> = {}): Vehicle {
+  const v = new Vehicle();
+  v.id = VEHICLE_ID;
+  v.tenantId = 'tenant-uuid';
+  v.ownerId = OWNER_ID;
+  v.vin = VALID_VIN;
+  v.licensePlate = LICENSE_PLATE;
+  v.make = 'VW';
+  v.model = 'Golf';
+  v.year = 2020;
+  v.color = null;
+  v.engineVolume = null;
+  v.fuelType = null;
+  v.firstRegistrationDate = null;
+  v.createdAt = new Date();
+  v.updatedAt = new Date();
+  v.deletedAt = null;
+  return Object.assign(v, overrides);
+}
+
 function buildService(): VehiclesService {
   return new VehiclesService(
     mockKatAdapter as unknown as KatApiAdapter,
     mockGfAdapter as unknown as GarantsionenFondAdapter,
     mockRedis as unknown as Redis,
+    mockVehiclesRepository as unknown as VehiclesRepository,
   );
 }
 
@@ -43,7 +78,20 @@ function validDto(
   });
 }
 
-describe('VehiclesService', () => {
+function buildCreateDto(
+  overrides: Partial<CreateVehicleDto> = {},
+): CreateVehicleDto {
+  return Object.assign(new CreateVehicleDto(), {
+    vin: VALID_VIN,
+    licensePlate: LICENSE_PLATE,
+    make: 'VW',
+    model: 'Golf',
+    year: 2020,
+    ...overrides,
+  });
+}
+
+describe('VehiclesService — validateVehicle', () => {
   let service: VehiclesService;
 
   beforeEach(() => {
@@ -190,5 +238,97 @@ describe('VehiclesService', () => {
     expect(result.gfStatus).toBe('unavailable');
     expect(result.canProceedToQuote).toBe(false);
     expect(mockGfAdapter.checkVehicle).not.toHaveBeenCalled();
+  });
+});
+
+describe('VehiclesService — saveVehicle', () => {
+  let service: VehiclesService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = buildService();
+  });
+
+  it('saveVehicle → saves and returns VehicleResponseDto', async () => {
+    const saved = buildVehicle();
+    mockVehiclesRepository.save.mockResolvedValue(saved);
+
+    const dto = buildCreateDto({ color: 'Бяло' });
+    const result = await service.saveVehicle(dto, OWNER_ID, 'tenant-uuid');
+
+    expect(mockVehiclesRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vin: VALID_VIN,
+        licensePlate: LICENSE_PLATE,
+        make: 'VW',
+        model: 'Golf',
+        year: 2020,
+        ownerId: OWNER_ID,
+        tenantId: 'tenant-uuid',
+        color: 'Бяло',
+      }),
+    );
+    expect(result.id).toBe(VEHICLE_ID);
+    expect(result.ownerId).toBe(OWNER_ID);
+    expect(result.lastPolicyStatus).toBeNull();
+  });
+});
+
+describe('VehiclesService — listVehicles', () => {
+  let service: VehiclesService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = buildService();
+  });
+
+  it('listVehicles — empty list → returns []', async () => {
+    mockVehiclesRepository.findByOwner.mockResolvedValue([]);
+
+    const result = await service.listVehicles(OWNER_ID);
+
+    expect(result).toEqual([]);
+    expect(mockVehiclesRepository.findByOwner).toHaveBeenCalledWith(OWNER_ID);
+  });
+
+  it('listVehicles — with vehicles → returns mapped DTOs', async () => {
+    const vehicles = [buildVehicle(), buildVehicle({ id: 'other-id' })];
+    mockVehiclesRepository.findByOwner.mockResolvedValue(vehicles);
+
+    const result = await service.listVehicles(OWNER_ID);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].vin).toBe(VALID_VIN);
+    expect(result[0].lastPolicyStatus).toBeNull();
+  });
+});
+
+describe('VehiclesService — getVehicle', () => {
+  let service: VehiclesService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = buildService();
+  });
+
+  it('getVehicle — found → returns VehicleResponseDto', async () => {
+    const vehicle = buildVehicle();
+    mockVehiclesRepository.findByOwnerAndId.mockResolvedValue(vehicle);
+
+    const result = await service.getVehicle(OWNER_ID, VEHICLE_ID);
+
+    expect(result.id).toBe(VEHICLE_ID);
+    expect(mockVehiclesRepository.findByOwnerAndId).toHaveBeenCalledWith(
+      OWNER_ID,
+      VEHICLE_ID,
+    );
+  });
+
+  it('getVehicle — not found → throws NotFoundException', async () => {
+    mockVehiclesRepository.findByOwnerAndId.mockResolvedValue(null);
+
+    await expect(service.getVehicle(OWNER_ID, VEHICLE_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
