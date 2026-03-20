@@ -2,16 +2,24 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/ocr/data/repositories/ocr_api_repository.dart';
+import 'features/payments/data/payment_api_repository.dart';
 import 'features/vehicles/data/repositories/vehicle_api_repository.dart';
 import 'features/vehicles/data/repositories/vehicles_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // flutter_stripe setup — publishable key configured before runApp
+  Stripe.publishableKey = const String.fromEnvironment(
+    'STRIPE_PUBLISHABLE_KEY',
+    defaultValue: 'pk_test_placeholder',
+  );
 
   await Hive.initFlutter();
   await Hive.openBox<dynamic>('policies');
@@ -23,6 +31,7 @@ Future<void> main() async {
   final vehiclesRepository = VehiclesRepository(dio: dio, storage: storage);
   final vehicleApiRepository = VehicleApiRepository(dio: dio, storage: storage);
   final ocrApiRepository = OcrApiRepository(dio: dio);
+  final paymentApiRepository = PaymentApiRepository(dio: dio);
 
   runApp(
     MultiRepositoryProvider(
@@ -31,6 +40,8 @@ Future<void> main() async {
         RepositoryProvider<VehicleApiRepository>.value(
             value: vehicleApiRepository),
         RepositoryProvider<OcrApiRepository>.value(value: ocrApiRepository),
+        RepositoryProvider<PaymentApiRepository>.value(
+            value: paymentApiRepository),
       ],
       child: const BranivoApp(),
     ),

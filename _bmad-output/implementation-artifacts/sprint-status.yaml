@@ -64,21 +64,21 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 3: End Customer Registration & Vehicle Management
   # ─────────────────────────────────────────────────────────────
-  epic-3: in-progress
+  epic-3: done
   3-1-anonymous-session-quote-browsing: done
   3-2-sms-otp-inline-registration: done
   3-3-vehicle-document-ocr-scanning: done
   3-4-vehicle-data-validation: done
   3-5-vehicle-data-persistence-auto-load: done
-  3-6-ocr-analytics-dashboard: review
+  3-6-ocr-analytics-dashboard: done
   epic-3-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────
   # Epic 4: Insurance Quote & Policy Purchase
   # ─────────────────────────────────────────────────────────────
   epic-4: in-progress
-  4-1-parallel-quote-aggregation: review
-  4-2-policy-purchase-with-stripe-3ds: backlog
+  4-1-parallel-quote-aggregation: done
+  4-2-policy-purchase-with-stripe-3ds: review
   4-3-policy-activation-via-stripe-webhook: backlog
   4-4-policy-document-delivery: backlog
   4-5-sticker-delivery-integration: backlog

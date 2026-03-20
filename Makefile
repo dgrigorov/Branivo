@@ -10,7 +10,8 @@
         lint lint-api lint-web \
         migrate build \
         kill-stockcrm \
-        status
+        status \
+        flutter-pub-get flutter-test flutter-analyze
 
 # ── Default ──────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,17 @@ build-web: ## Build branivo-web only
 # ── CI checks (run before PR) ─────────────────────────────────────────────────
 
 ci: lint test build ## Full CI pipeline: lint → test → build
+
+# ── Flutter ───────────────────────────────────────────────────────────────────
+
+flutter-pub-get: ## Install Flutter dependencies
+	cd branivo_app && flutter pub get
+
+flutter-test: ## Run Flutter tests
+	cd branivo_app && flutter test
+
+flutter-analyze: ## Analyze Flutter code (no fatal infos)
+	cd branivo_app && flutter analyze --no-fatal-infos
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 

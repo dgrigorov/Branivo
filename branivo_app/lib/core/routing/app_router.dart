@@ -15,6 +15,9 @@ import '../../features/vehicles/data/repositories/vehicle_api_repository.dart';
 import '../../features/quotes/screens/offers_screen.dart';
 import '../../features/quotes/bloc/quote_bloc.dart';
 import '../../features/quotes/data/quote_api_repository.dart';
+import '../../features/payments/screens/payment_screen.dart';
+import '../../features/payments/bloc/payment_bloc.dart';
+import '../../features/payments/data/payment_api_repository.dart';
 
 /// Navigation extras for /vehicles/scan route
 class OcrWizardRouteArgs {
@@ -108,6 +111,27 @@ class AppRouter {
           return BlocProvider(
             create: (_) => QuoteBloc(repository: repo),
             child: OffersScreen(sessionToken: args.sessionToken),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/payment',
+        builder: (context, state) {
+          final args = state.extra as PaymentRouteArgs;
+          final repo = context.read<PaymentApiRepository>();
+          // bearerToken се взима от storage в реален сценарий
+          // За сега се предава чрез PaymentRouteArgs (или storage)
+          return BlocProvider(
+            create: (_) => PaymentBloc(
+              paymentRepo: repo,
+              bearerToken: '', // TODO: inject from secure storage
+            ),
+            child: PaymentScreen(
+              quoteId: args.quoteId,
+              insurerName: args.insurerName,
+              amount: args.amount,
+              currency: args.currency,
+            ),
           );
         },
       ),

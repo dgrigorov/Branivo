@@ -34,6 +34,15 @@ export class QuotesRepository extends BaseRepository<Quote> {
       .find({ where: { isActive: true, deletedAt: IsNull() } });
   }
 
+  async findOneById(id: string): Promise<Quote | null> {
+    const tenantId = this.tenantContext.getTenantId();
+    await this.setTenantSession();
+    return this.quoteRepo.findOne({
+      where: { id, tenantId, deletedAt: IsNull() },
+      relations: ['insurer'],
+    });
+  }
+
   async bulkCreate(quotes: Partial<Quote>[]): Promise<Quote[]> {
     await this.setTenantSession();
     const entities = this.quoteRepo.create(quotes);
