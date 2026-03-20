@@ -47,6 +47,44 @@ export class EmailService {
     await this.sendWithRetry(mailOptions);
   }
 
+  async sendOcrAlertEmail(
+    to: string,
+    field: string,
+    fallbackRate: number,
+    tenantId: string,
+  ): Promise<void> {
+    const mailOptions: Mail.Options = {
+      from: this.fromAddress,
+      to,
+      subject: `[Branivo OCR Alert] Поле "${field}" — fallback rate ${(fallbackRate * 100).toFixed(1)}%`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>⚠️ OCR Fallback Rate Alert</h2>
+          <p>Полето <strong>${field}</strong> е надхвърлило прага от 20% за AWS Textract fallback.</p>
+          <table style="width:100%; border-collapse:collapse; margin-top:16px;">
+            <tr>
+              <td style="padding:8px; border:1px solid #ddd;"><strong>Поле</strong></td>
+              <td style="padding:8px; border:1px solid #ddd;">${field}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px; border:1px solid #ddd;"><strong>Fallback Rate</strong></td>
+              <td style="padding:8px; border:1px solid #ddd; color:#dc2626;">${(fallbackRate * 100).toFixed(1)}%</td>
+            </tr>
+            <tr>
+              <td style="padding:8px; border:1px solid #ddd;"><strong>Tenant ID</strong></td>
+              <td style="padding:8px; border:1px solid #ddd;">${tenantId}</td>
+            </tr>
+          </table>
+          <p style="color:#666; font-size:14px; margin-top:16px;">
+            Отворете OCR Analytics Dashboard за детайли.
+          </p>
+        </div>
+      `,
+    };
+
+    await this.sendWithRetry(mailOptions);
+  }
+
   private async sendWithRetry(
     options: Mail.Options,
     maxRetries = 3,

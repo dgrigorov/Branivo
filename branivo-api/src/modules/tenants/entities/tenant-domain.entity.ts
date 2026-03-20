@@ -44,7 +44,12 @@ export class TenantDomain {
   @Column({ name: 'verified_at', type: 'timestamptz', nullable: true })
   verifiedAt!: Date | null;
 
-  @Column({ name: 'failure_reason', type: 'varchar', length: 512, nullable: true })
+  @Column({
+    name: 'failure_reason',
+    type: 'varchar',
+    length: 512,
+    nullable: true,
+  })
   failureReason!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

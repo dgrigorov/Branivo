@@ -20,7 +20,12 @@ export class Tenant {
   @Column({ name: 'status', length: 50, default: 'invited' })
   status!: string;
 
-  @Column({ name: 'stripe_account_id', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'stripe_account_id',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   stripeAccountId!: string | null;
 
   @Column({ name: 'kfn_license', type: 'varchar', length: 100, nullable: true })

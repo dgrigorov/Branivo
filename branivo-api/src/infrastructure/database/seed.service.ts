@@ -42,9 +42,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedVehicles(clientId);
     await this.seedTenantInvitation();
 
-    this.logger.log(
-      'Demo seed complete. Login: admin@branivo.bg / Admin1234!',
-    );
+    this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
 
   private async seedTenant(): Promise<void> {

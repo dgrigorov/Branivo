@@ -12,6 +12,9 @@ import { GoogleVisionService } from './providers/google-vision.service';
 import { AwsTextractService } from './providers/aws-textract.service';
 import { OcrJobEntity } from './entities/ocr-job.entity';
 import { TenantContextModule } from '../../common/tenant-context/tenant-context.module';
+import { OcrAnalyticsController } from './ocr-analytics.controller';
+import { OcrAnalyticsService } from './ocr-analytics.service';
+import { EmailService } from '../../common/email/email.service';
 
 @Module({
   imports: [
@@ -20,7 +23,7 @@ import { TenantContextModule } from '../../common/tenant-context/tenant-context.
     MulterModule.register({ storage: memoryStorage() }),
     TenantContextModule,
   ],
-  controllers: [OcrController],
+  controllers: [OcrController, OcrAnalyticsController],
   providers: [
     OcrService,
     OcrJobRepository,
@@ -28,6 +31,8 @@ import { TenantContextModule } from '../../common/tenant-context/tenant-context.
     OcrProcessor,
     GoogleVisionService,
     AwsTextractService,
+    OcrAnalyticsService,
+    EmailService,
   ],
   exports: [OcrService],
 })
