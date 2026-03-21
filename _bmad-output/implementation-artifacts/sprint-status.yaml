@@ -89,7 +89,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   epic-5: in-progress
   5-1-commission-matrix-configuration: done
-  5-2-broker-commission-dashboard: backlog
+  5-2-broker-commission-dashboard: done
   5-3-monthly-invoicing-job: backlog
   5-4-stripe-account-revocation-handling: backlog
   epic-5-retrospective: optional

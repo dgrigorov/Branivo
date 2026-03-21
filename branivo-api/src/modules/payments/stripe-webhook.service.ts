@@ -19,6 +19,7 @@ import { QuotesRepository } from '../quotes/quotes.repository';
 import { TenantsRepository } from '../tenants/tenants.repository';
 import { StickerDeliveryJobPayload } from '../logistics/interfaces/sticker-delivery-job.payload';
 import { DeliveryAddress } from '../logistics/interfaces/delivery-address.interface';
+import { CommissionsService } from '../commissions/commissions.service';
 
 export interface PdfGenerationJobPayload {
   policyId: string;
@@ -39,6 +40,7 @@ export class StripeWebhookService {
     private readonly quotesRepo: QuotesRepository,
     private readonly tenantsRepo: TenantsRepository,
     private readonly config: ConfigService,
+    private readonly commissionsService: CommissionsService,
     @InjectQueue(QUEUE_PDF_GENERATION)
     private readonly pdfQueue: Queue<PdfGenerationJobPayload>,
     @InjectQueue(QUEUE_LOGISTICS)
@@ -187,6 +189,16 @@ export class StripeWebhookService {
       );
     }
 
+    // 12. Потвърди pending commission event (AC: #4)
+    try {
+      await this.commissionsService.confirmPendingEvent(payment.id, payment.tenantId);
+    } catch (confirmErr) {
+      this.logger.error(
+        `Failed to confirm pending commission event for payment ${payment.id}`,
+        confirmErr instanceof Error ? confirmErr.stack : String(confirmErr),
+      );
+    }
+
     this.logger.log(
       `Policy activated: ${policy.id} for tenant: ${payment.tenantId}`,
     );
@@ -215,6 +227,16 @@ export class StripeWebhookService {
     );
 
     // НЕ активирай полица (AC4)
+    // Маркирай pending commission event като failed (AC: #4)
+    try {
+      await this.commissionsService.failPendingEvent(payment.id, payment.tenantId);
+    } catch (failErr) {
+      this.logger.error(
+        `Failed to fail pending commission event for payment ${payment.id}`,
+        failErr instanceof Error ? failErr.stack : String(failErr),
+      );
+    }
+
     this.logger.log(
       `Payment failed for intent: ${intent.id} (event: ${stripeEventId}), no policy activation`,
     );

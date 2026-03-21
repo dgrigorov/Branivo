@@ -16,6 +16,7 @@ import {
   QUEUE_LOGISTICS,
   QUEUE_PDF_GENERATION,
 } from '../../infrastructure/queues/queue.module';
+import { CommissionsService } from '../commissions/commissions.service';
 
 const TENANT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
 const PAYMENT_ID = 'payment-uuid-111';
@@ -82,6 +83,11 @@ const mockLogisticsQueue = {
   add: jest.fn(),
 };
 
+const mockCommissionsService = {
+  confirmPendingEvent: jest.fn().mockResolvedValue(undefined),
+  failPendingEvent: jest.fn().mockResolvedValue(undefined),
+};
+
 describe('StripeWebhookService', () => {
   let service: StripeWebhookService;
 
@@ -98,6 +104,7 @@ describe('StripeWebhookService', () => {
         { provide: QuotesRepository, useValue: mockQuotesRepo },
         { provide: TenantsRepository, useValue: mockTenantsRepo },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: CommissionsService, useValue: mockCommissionsService },
         {
           provide: getQueueToken(QUEUE_PDF_GENERATION),
           useValue: mockPdfQueue,
@@ -186,6 +193,10 @@ describe('StripeWebhookService', () => {
       expect(mockPolicyEventsRepo.createEvent).toHaveBeenCalledWith(
         expect.objectContaining({ eventType: PolicyEventType.PDF_QUEUED }),
       );
+      expect(mockCommissionsService.confirmPendingEvent).toHaveBeenCalledWith(
+        PAYMENT_ID,
+        TENANT_ID,
+      );
     });
   });
 
@@ -235,6 +246,10 @@ describe('StripeWebhookService', () => {
       );
       expect(mockPoliciesRepo.saveWithoutTenantScope).not.toHaveBeenCalled();
       expect(mockPoliciesRepo.activatePolicy).not.toHaveBeenCalled();
+      expect(mockCommissionsService.failPendingEvent).toHaveBeenCalledWith(
+        PAYMENT_ID,
+        TENANT_ID,
+      );
     });
   });
 

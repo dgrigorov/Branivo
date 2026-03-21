@@ -44,6 +44,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedInsurers();
     await this.seedCommissionMatrix();
     await this.seedPolicies();
+    await this.seedDemoCommissions();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
@@ -216,5 +217,30 @@ export class SeedService implements OnApplicationBootstrap {
       [DEMO_TENANT_ID, payment.id, payment.quote_id, insurerId],
     );
     this.logger.log('Policies seeded.');
+  }
+
+  private async seedDemoCommissions(): Promise<void> {
+    // Seed 1-2 demo pending_commission_events за demo тенанта
+    const payments = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM payments WHERE tenant_id = $1 LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    if (payments.length === 0) return;
+
+    const insurer = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM insurers WHERE code = 'generali' LIMIT 1`,
+    );
+    if (insurer.length === 0) return;
+
+    await this.dataSource.query(
+      `INSERT INTO pending_commission_events
+         (id, tenant_id, payment_id, insurer_id, product_type,
+          premium_amount, commission_pct, commission_amount, status)
+       VALUES
+         (gen_random_uuid(), $1, $2, $3, 'GO', 320.00, 0.045, 14.40, 'pending')
+       ON CONFLICT DO NOTHING`,
+      [DEMO_TENANT_ID, payments[0].id, insurer[0].id],
+    );
+    this.logger.log('Demo commission events seeded.');
   }
 }

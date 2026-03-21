@@ -86,8 +86,9 @@ export class PaymentsService {
 
     // 6. Запази в DB — wrap в try/catch: ако DB fail-не след успешен Stripe call,
     // logни PI ID за ръчно възстановяване (M1 fix)
+    let savedPayment;
     try {
-      await this.paymentsRepo.save({
+      savedPayment = await this.paymentsRepo.save({
         tenantId,
         quoteId: dto.quoteId,
         endClientId: dto.endClientId ?? null,
@@ -114,6 +115,24 @@ export class PaymentsService {
       );
       throw new InternalServerErrorException(
         'Payment processing error — please retry',
+      );
+    }
+
+    // 7. Создай pending commission event за Optimistic UI (AC: #6)
+    try {
+      await this.commissionsService.createPendingEvent({
+        tenantId,
+        paymentId: savedPayment.id,
+        insurerId: quote.insurerId,
+        productType: (productType as 'GO' | 'KASKO' | 'PROPERTY') ?? 'GO',
+        premiumAmount: quote.price,
+        commissionPct: platformFeePct,
+        commissionAmount: feeCents / 100,
+      });
+    } catch (pendingErr) {
+      this.logger.error(
+        `Failed to create pending commission event for PI ${intent.id}`,
+        pendingErr instanceof Error ? pendingErr.stack : String(pendingErr),
       );
     }
 

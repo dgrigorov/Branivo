@@ -2,10 +2,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { CommissionsRepository } from './commissions.repository';
+import type { CreatePendingEventData } from './commissions.repository';
 import { CommissionMatrixEntryDto } from './dto/commission-matrix-response.dto';
 import { UpsertCommissionRateDto } from './dto/upsert-commission-rate.dto';
+import type {
+  CommissionByInsurerDto,
+  CommissionDashboardQueryDto,
+  CommissionDashboardResponseDto,
+  CommissionPolicyItemDto,
+} from './dto/commission-dashboard.dto';
 
 const SYSTEM_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 @Injectable()
 export class CommissionsService {
@@ -94,6 +105,91 @@ export class CommissionsService {
       productType: entry.productType,
       ratePct: Number(entry.ratePct),
       updatedAt: entry.updatedAt.toISOString(),
+    };
+  }
+
+  async createPendingEvent(data: CreatePendingEventData): Promise<void> {
+    await this.commissionsRepo.createPendingEvent(data);
+  }
+
+  async confirmPendingEvent(paymentId: string, tenantId: string): Promise<void> {
+    await this.commissionsRepo.confirmPendingEvent(paymentId, tenantId);
+  }
+
+  async failPendingEvent(paymentId: string, tenantId: string): Promise<void> {
+    await this.commissionsRepo.failPendingEvent(paymentId, tenantId);
+  }
+
+  async getDashboardStats(
+    tenantId: string,
+    query: CommissionDashboardQueryDto,
+  ): Promise<CommissionDashboardResponseDto> {
+    const dateFrom =
+      query.dateFrom ??
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const rows = await this.commissionsRepo.getDashboardData(tenantId, {
+      dateFrom,
+      dateTo: query.dateTo,
+      insurerId: query.insurerId,
+    });
+
+    const byInsurerMap = new Map<string, CommissionByInsurerDto>();
+    const policies: CommissionPolicyItemDto[] = [];
+
+    for (const row of rows) {
+      const premiumAmount = Number(row.premium_amount);
+      const commissionPct = Number(row.commission_pct);
+      const commissionAmount = Number(row.commission_amount);
+
+      policies.push({
+        id: row.id,
+        insurerId: row.insurer_id,
+        insurerName: row.insurer_name,
+        productType: row.product_type,
+        premiumAmount,
+        commissionPct,
+        commissionAmount,
+        commissionStatus: row.commission_status,
+        createdAt: row.created_at.toISOString(),
+      });
+
+      const existing = byInsurerMap.get(row.insurer_id);
+      if (existing) {
+        existing.policiesCount += 1;
+        existing.totalPremium = round2(existing.totalPremium + premiumAmount);
+        existing.totalCommission = round2(
+          existing.totalCommission + commissionAmount,
+        );
+      } else {
+        byInsurerMap.set(row.insurer_id, {
+          insurerId: row.insurer_id,
+          insurerName: row.insurer_name,
+          policiesCount: 1,
+          totalPremium: premiumAmount,
+          totalCommission: commissionAmount,
+        });
+      }
+    }
+
+    const byInsurer = Array.from(byInsurerMap.values());
+    const totalPolicies = policies.length;
+    const totalPremium = round2(
+      byInsurer.reduce((s, b) => s + b.totalPremium, 0),
+    );
+    const totalCommission = round2(
+      byInsurer.reduce((s, b) => s + b.totalCommission, 0),
+    );
+
+    return {
+      summary: {
+        totalPolicies,
+        totalPremium,
+        totalCommission,
+        currency: 'BGN',
+      },
+      byInsurer,
+      policies,
     };
   }
 }
