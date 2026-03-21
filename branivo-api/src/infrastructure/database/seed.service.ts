@@ -42,6 +42,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedVehicles(clientId);
     await this.seedTenantInvitation();
     await this.seedInsurers();
+    await this.seedCommissionMatrix();
     await this.seedPolicies();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
@@ -161,6 +162,30 @@ export class SeedService implements OnApplicationBootstrap {
       );
     }
     this.logger.log('Insurers seeded.');
+  }
+
+  private async seedCommissionMatrix(): Promise<void> {
+    const insurers = await this.dataSource.query<
+      { id: string; code: string }[]
+    >(
+      `SELECT id, code FROM insurers WHERE code IN ('allianz', 'generali', 'dsk', 'bulstrad')`,
+    );
+
+    for (const ins of insurers) {
+      let ratePct: number;
+      if (ins.code === 'allianz') ratePct = 0.05;
+      else if (ins.code === 'generali') ratePct = 0.045;
+      else if (ins.code === 'dsk') ratePct = 0.05;
+      else ratePct = 0.055; // bulstrad
+
+      await this.dataSource.query(
+        `INSERT INTO commission_matrix (insurer_id, product_type, rate_pct)
+         VALUES ($1, 'GO', $2)
+         ON CONFLICT (insurer_id, product_type) DO NOTHING`,
+        [ins.id, ratePct],
+      );
+    }
+    this.logger.log('Commission matrix seeded.');
   }
 
   private async seedPolicies(): Promise<void> {

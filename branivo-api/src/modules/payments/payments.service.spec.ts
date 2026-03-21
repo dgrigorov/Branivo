@@ -12,6 +12,7 @@ import { QuoteStatus } from '../quotes/entities/quote.entity';
 import type { Quote } from '../quotes/entities/quote.entity';
 import type { Tenant } from '../tenants/entities/tenant.entity';
 import type Stripe from 'stripe';
+import { CommissionsService } from '../commissions/commissions.service';
 
 const TENANT_ID = 'tenant-uuid-001';
 const QUOTE_ID = 'quote-uuid-001';
@@ -84,6 +85,10 @@ const mockConfig = {
   getOrThrow: jest.fn(),
 };
 
+const mockCommissionsService = {
+  getRate: jest.fn().mockResolvedValue(0.05),
+};
+
 describe('PaymentsService', () => {
   let service: PaymentsService;
 
@@ -100,6 +105,7 @@ describe('PaymentsService', () => {
         { provide: StripeService, useValue: mockStripeService },
         { provide: TenantContext, useValue: mockTenantContext },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: CommissionsService, useValue: mockCommissionsService },
       ],
     }).compile();
 
@@ -177,6 +183,63 @@ describe('PaymentsService', () => {
 
       await expect(service.createIntent({ quoteId: QUOTE_ID })).rejects.toThrow(
         BadRequestException,
+      );
+    });
+
+    it('calls commissionsService.getRate with insurerId and productType', async () => {
+      mockPaymentsRepo.findByIdempotencyKey.mockResolvedValue(null);
+      const quote = makeQuote();
+      quote.coverDetails = { product_type: 'KASKO' };
+      mockQuotesRepo.findOneById.mockResolvedValue(quote);
+      mockTenantsRepo.findById.mockResolvedValue(makeTenant());
+      mockStripeService.createPaymentIntent.mockResolvedValue({
+        id: 'pi_test',
+        client_secret: 'pi_secret',
+      } as Partial<Stripe.PaymentIntent>);
+      mockPaymentsRepo.save.mockResolvedValue({} as Payment);
+
+      await service.createIntent({ quoteId: QUOTE_ID });
+
+      expect(mockCommissionsService.getRate).toHaveBeenCalledWith(
+        'insurer-uuid',
+        'KASKO',
+      );
+    });
+
+    it('uses commission_matrix rate for applicationFeeAmount calculation', async () => {
+      mockPaymentsRepo.findByIdempotencyKey.mockResolvedValue(null);
+      mockQuotesRepo.findOneById.mockResolvedValue(makeQuote());
+      mockTenantsRepo.findById.mockResolvedValue(makeTenant());
+      mockCommissionsService.getRate.mockResolvedValue(0.06);
+      mockStripeService.createPaymentIntent.mockResolvedValue({
+        id: 'pi_test',
+        client_secret: 'pi_secret',
+      } as Partial<Stripe.PaymentIntent>);
+      mockPaymentsRepo.save.mockResolvedValue({} as Payment);
+
+      await service.createIntent({ quoteId: QUOTE_ID });
+
+      // amountCents = 45000; feeCents = round(45000 * 0.06) = 2700
+      expect(mockStripeService.createPaymentIntent).toHaveBeenCalledWith(
+        expect.objectContaining({ applicationFeeAmount: 2700 }),
+      );
+    });
+
+    it('defaults to GO product_type when quote coverDetails has none', async () => {
+      mockPaymentsRepo.findByIdempotencyKey.mockResolvedValue(null);
+      mockQuotesRepo.findOneById.mockResolvedValue(makeQuote()); // coverDetails = {}
+      mockTenantsRepo.findById.mockResolvedValue(makeTenant());
+      mockStripeService.createPaymentIntent.mockResolvedValue({
+        id: 'pi_test',
+        client_secret: 'pi_secret',
+      } as Partial<Stripe.PaymentIntent>);
+      mockPaymentsRepo.save.mockResolvedValue({} as Payment);
+
+      await service.createIntent({ quoteId: QUOTE_ID });
+
+      expect(mockCommissionsService.getRate).toHaveBeenCalledWith(
+        'insurer-uuid',
+        'GO',
       );
     });
 

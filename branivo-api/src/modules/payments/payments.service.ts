@@ -14,6 +14,7 @@ import { PaymentStatus } from './entities/payment.entity';
 import { StripeService } from './stripe.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { PaymentIntentResponseDto } from './dto/payment-intent-response.dto';
+import { CommissionsService } from '../commissions/commissions.service';
 
 @Injectable()
 export class PaymentsService {
@@ -26,6 +27,7 @@ export class PaymentsService {
     private readonly stripeService: StripeService,
     private readonly tenantContext: TenantContext,
     private readonly config: ConfigService,
+    private readonly commissionsService: CommissionsService,
   ) {}
 
   async createIntent(
@@ -52,11 +54,13 @@ export class PaymentsService {
       throw new BadRequestException('Quote is not available for purchase');
     }
 
-    // 3. Изчисли application_fee_amount
-    const platformFeePct = parseFloat(
-      this.config.get<string>('PLATFORM_FEE_PCT') ?? '0.05',
+    // 3. Изчисли application_fee_amount от commission_matrix
+    const productType =
+      (quote.coverDetails['product_type'] as string | undefined) ?? 'GO';
+    const platformFeePct = await this.commissionsService.getRate(
+      quote.insurerId,
+      productType,
     );
-    // TODO (Story 5.1): заредена commission_matrix overrides platformFeePct
     const amountCents = Math.round(quote.price * 100);
     const feeCents = Math.round(amountCents * platformFeePct);
 

@@ -64,8 +64,9 @@ export class LogisticsService {
 
     // 4. Избери адаптер по tenant config
     const preferredProvider =
-      (tenant.features['preferredLogisticsProvider'] as unknown as string | undefined) ??
-      'speedy';
+      (tenant.features['preferredLogisticsProvider'] as unknown as
+        | string
+        | undefined) ?? 'speedy';
     const primaryAdapter: LogisticsAdapter =
       preferredProvider === 'econt' ? this.econtAdapter : this.speedyAdapter;
     const providerName: 'speedy' | 'econt' =

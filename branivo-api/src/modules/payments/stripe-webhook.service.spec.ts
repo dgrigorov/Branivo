@@ -73,7 +73,9 @@ const mockQuotesRepo = {
 };
 
 const mockTenantsRepo = {
-  findById: jest.fn().mockResolvedValue({ features: { sticker_delivery: false } }),
+  findById: jest
+    .fn()
+    .mockResolvedValue({ features: { sticker_delivery: false } }),
 };
 
 const mockLogisticsQueue = {
