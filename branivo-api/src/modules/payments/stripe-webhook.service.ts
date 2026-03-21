@@ -191,7 +191,10 @@ export class StripeWebhookService {
 
     // 12. Потвърди pending commission event (AC: #4)
     try {
-      await this.commissionsService.confirmPendingEvent(payment.id, payment.tenantId);
+      await this.commissionsService.confirmPendingEvent(
+        payment.id,
+        payment.tenantId,
+      );
     } catch (confirmErr) {
       this.logger.error(
         `Failed to confirm pending commission event for payment ${payment.id}`,
@@ -229,7 +232,10 @@ export class StripeWebhookService {
     // НЕ активирай полица (AC4)
     // Маркирай pending commission event като failed (AC: #4)
     try {
-      await this.commissionsService.failPendingEvent(payment.id, payment.tenantId);
+      await this.commissionsService.failPendingEvent(
+        payment.id,
+        payment.tenantId,
+      );
     } catch (failErr) {
       this.logger.error(
         `Failed to fail pending commission event for payment ${payment.id}`,

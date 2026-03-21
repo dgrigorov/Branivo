@@ -45,15 +45,17 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedCommissionMatrix();
     await this.seedPolicies();
     await this.seedDemoCommissions();
+    await this.seedDemoInvoices();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
 
   private async seedTenant(): Promise<void> {
     await this.dataSource.query(
-      `INSERT INTO tenants (id, slug, name, status, plan, features)
+      `INSERT INTO tenants (id, slug, name, status, plan, features, monthly_fee, activated_at)
        VALUES ($1, 'demo', 'Demo Broker', 'active', 'starter',
-         '{"fleet": false, "api_access": false, "custom_domain": true, "sticker_delivery": true}')`,
+         '{"fleet": false, "api_access": false, "custom_domain": true, "sticker_delivery": true}',
+         99.00, NOW() - INTERVAL '3 months')`,
       [DEMO_TENANT_ID],
     );
   }
@@ -217,6 +219,27 @@ export class SeedService implements OnApplicationBootstrap {
       [DEMO_TENANT_ID, payment.id, payment.quote_id, insurerId],
     );
     this.logger.log('Policies seeded.');
+  }
+
+  private async seedDemoInvoices(): Promise<void> {
+    // Two paid invoices for the last two months
+    await this.dataSource.query(
+      `INSERT INTO invoices
+         (id, tenant_id, period_start, period_end, policies_count, total_premium,
+          platform_fee, subscription_fee, amount_due, is_pro_rata, status)
+       VALUES
+         (gen_random_uuid(), $1,
+          date_trunc('month', NOW() - INTERVAL '2 months')::date,
+          (date_trunc('month', NOW() - INTERVAL '1 month') - INTERVAL '1 day')::date,
+          5, 2250.00, 112.50, 99.00, 211.50, false, 'paid'),
+         (gen_random_uuid(), $1,
+          date_trunc('month', NOW() - INTERVAL '1 month')::date,
+          (date_trunc('month', NOW()) - INTERVAL '1 day')::date,
+          8, 3600.00, 180.00, 99.00, 279.00, false, 'paid')
+       ON CONFLICT DO NOTHING`,
+      [DEMO_TENANT_ID],
+    );
+    this.logger.log('Demo invoices seeded.');
   }
 
   private async seedDemoCommissions(): Promise<void> {

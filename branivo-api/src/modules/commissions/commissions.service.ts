@@ -112,7 +112,10 @@ export class CommissionsService {
     await this.commissionsRepo.createPendingEvent(data);
   }
 
-  async confirmPendingEvent(paymentId: string, tenantId: string): Promise<void> {
+  async confirmPendingEvent(
+    paymentId: string,
+    tenantId: string,
+  ): Promise<void> {
     await this.commissionsRepo.confirmPendingEvent(paymentId, tenantId);
   }
 

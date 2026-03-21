@@ -109,7 +109,10 @@ export class CommissionsRepository {
     return this.pendingRepo.save(event);
   }
 
-  async confirmPendingEvent(paymentId: string, tenantId: string): Promise<void> {
+  async confirmPendingEvent(
+    paymentId: string,
+    tenantId: string,
+  ): Promise<void> {
     await this.dataSource.query(
       `UPDATE pending_commission_events
        SET status = 'confirmed', updated_at = NOW()

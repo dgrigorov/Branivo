@@ -7,6 +7,7 @@ export const QUEUE_NOTIFICATIONS = 'notifications';
 export const QUEUE_LOGISTICS = 'logistics';
 export const QUEUE_OCR_PROCESSING = 'ocr-processing';
 export const QUEUE_WEBHOOK_PROCESSING = 'webhook-processing';
+export const QUEUE_BILLING = 'billing';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ export const QUEUE_WEBHOOK_PROCESSING = 'webhook-processing';
       { name: QUEUE_NOTIFICATIONS },
       { name: QUEUE_LOGISTICS },
       { name: QUEUE_WEBHOOK_PROCESSING },
+      { name: QUEUE_BILLING },
     ),
   ],
   exports: [BullModule],

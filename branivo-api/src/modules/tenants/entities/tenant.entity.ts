@@ -37,6 +37,18 @@ export class Tenant {
   @Column({ name: 'features', type: 'jsonb', default: '{}' })
   features!: Record<string, boolean>;
 
+  @Column({
+    name: 'monthly_fee',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
+  monthlyFee!: number;
+
+  @Column({ name: 'activated_at', type: 'timestamptz', nullable: true })
+  activatedAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
