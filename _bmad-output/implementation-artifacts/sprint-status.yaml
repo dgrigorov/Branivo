@@ -80,7 +80,7 @@ development_status:
   4-1-parallel-quote-aggregation: done
   4-2-policy-purchase-with-stripe-3ds: done
   4-3-policy-activation-via-stripe-webhook: done
-  4-4-policy-document-delivery: review
+  4-4-policy-document-delivery: done
   4-5-sticker-delivery-integration: backlog
   epic-4-retrospective: optional
 
