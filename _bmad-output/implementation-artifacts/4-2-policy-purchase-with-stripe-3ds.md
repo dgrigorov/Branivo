@@ -1,6 +1,6 @@
 # Story 4.2: Policy Purchase with Stripe 3DS
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -863,6 +863,7 @@ claude-sonnet-4-6
 ### Completion Notes List
 
 - Имплементирани всички 21 задачи: Backend (migration, entity, repository, StripeService, PaymentsService, PaymentsController, DTOs, PaymentsModule), Flutter (flutter_stripe setup, PaymentApiRepository, PaymentBloc, PaymentScreen, route), Next.js (Stripe SDK, usePayment hook, payment page, success page)
+- Code review fixes: H1 — paymentId consistent Stripe PI ID в idempotency path; H2 — RejectingGuard хвърля 401 (не 403); H3 — seed.service.ts добавен в File List; M1 — try/catch около DB save след Stripe PI; M2 — randomBytes вместо Math.random() в generatePolicyNumber; M3 — stripeEventId включен в log message
 - `stripe` v20.4.1 API версия коригирана от `2024-06-20` на `2026-02-25.clover` за съответствие с инсталираната версия
 - `QuotesRepository.findOneById()` добавен + QuotesModule exports обновен да включва QuotesRepository
 - `flutter_stripe` v10.1.1 добавен; iOS Podfile обновен (`platform :ios, '13.0'`); Stripe.publishableKey инициализиран в main()
@@ -873,6 +874,7 @@ claude-sonnet-4-6
 ### File List
 
 branivo-api/src/infrastructure/database/migrations/1710000014000-CreatePaymentsTable.ts
+branivo-api/src/infrastructure/database/seed.service.ts
 branivo-api/src/modules/payments/entities/payment.entity.ts
 branivo-api/src/modules/payments/payments.repository.ts
 branivo-api/src/modules/payments/stripe.service.ts

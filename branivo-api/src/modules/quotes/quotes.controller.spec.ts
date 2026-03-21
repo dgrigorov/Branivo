@@ -70,7 +70,7 @@ describe('QuotesController', () => {
 
   describe('POST /api/v1/quotes', () => {
     it('returns 201 with quote session data', async () => {
-      const body = await request(app.getHttpServer())
+      const body = await request(app.getHttpServer() as import('http').Server)
         .post('/api/v1/quotes')
         .send({ sessionToken: SESSION_TOKEN })
         .expect(201);
@@ -82,7 +82,7 @@ describe('QuotesController', () => {
     });
 
     it('returns 400 when sessionToken is missing', async () => {
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .post('/api/v1/quotes')
         .send({})
         .expect(400);
@@ -91,7 +91,7 @@ describe('QuotesController', () => {
 
   describe('GET /api/v1/quotes/:sessionToken', () => {
     it('returns 200 with offers array', async () => {
-      const body = await request(app.getHttpServer())
+      const body = await request(app.getHttpServer() as import('http').Server)
         .get(`/api/v1/quotes/${SESSION_TOKEN}`)
         .expect(200);
 
@@ -103,7 +103,7 @@ describe('QuotesController', () => {
     });
 
     it('response does NOT contain api_key_enc', async () => {
-      const body = await request(app.getHttpServer())
+      const body = await request(app.getHttpServer() as import('http').Server)
         .get(`/api/v1/quotes/${SESSION_TOKEN}`)
         .expect(200);
 

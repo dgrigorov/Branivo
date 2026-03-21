@@ -110,6 +110,7 @@ describe('PaymentsService', () => {
     it('returns existing payment without new Stripe call if idempotency key exists', async () => {
       const existingPayment = {
         id: 'payment-uuid',
+        stripePaymentIntentId: 'pi_existing_intent',
         stripeClientSecret: 'pi_test_secret_existing',
         amount: 450,
         currency: 'BGN',
@@ -125,7 +126,7 @@ describe('PaymentsService', () => {
       expect(mockStripeService.createPaymentIntent).not.toHaveBeenCalled();
       expect(result).toEqual({
         clientSecret: 'pi_test_secret_existing',
-        paymentId: 'payment-uuid',
+        paymentId: 'pi_existing_intent', // H1 fix: consistent Stripe PI ID
         amount: 450,
         currency: 'BGN',
       });

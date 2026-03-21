@@ -1,4 +1,5 @@
 import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import Redis from 'ioredis';
 import { AnonymousSessionsService } from './anonymous-sessions.service';
 import { UpdateAnonSessionDto } from './dto/update-anon-session.dto';
 
@@ -19,7 +20,7 @@ const mockRedis = {
 };
 
 function buildService(): AnonymousSessionsService {
-  return new AnonymousSessionsService(mockRedis as any);
+  return new AnonymousSessionsService(mockRedis as unknown as Redis);
 }
 
 describe('AnonymousSessionsService', () => {

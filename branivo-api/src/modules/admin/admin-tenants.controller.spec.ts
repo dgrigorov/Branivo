@@ -140,21 +140,23 @@ describe('AdminTenantsController', () => {
     };
 
     it('returns 401 without authentication', async () => {
-      await request(unauthApp.getHttpServer())
+      await request(unauthApp.getHttpServer() as import('http').Server)
         .post('/admin/tenants/invite')
         .send(validPayload)
         .expect(401);
     });
 
     it('returns 403 for broker_admin role', async () => {
-      await request(brokerApp.getHttpServer())
+      await request(brokerApp.getHttpServer() as import('http').Server)
         .post('/admin/tenants/invite')
         .send(validPayload)
         .expect(403);
     });
 
     it('returns 201 for super_admin role', async () => {
-      const res = await request(superAdminApp.getHttpServer())
+      const res = await request(
+        superAdminApp.getHttpServer() as import('http').Server,
+      )
         .post('/admin/tenants/invite')
         .send(validPayload)
         .expect(201);
@@ -168,7 +170,9 @@ describe('AdminTenantsController', () => {
 
   describe('GET /admin/tenants', () => {
     it('returns 200 paginated list for super_admin', async () => {
-      const res = await request(superAdminApp.getHttpServer())
+      const res = await request(
+        superAdminApp.getHttpServer() as import('http').Server,
+      )
         .get('/admin/tenants')
         .expect(200);
 
@@ -176,7 +180,7 @@ describe('AdminTenantsController', () => {
     });
 
     it('returns 401 without auth', async () => {
-      await request(unauthApp.getHttpServer())
+      await request(unauthApp.getHttpServer() as import('http').Server)
         .get('/admin/tenants')
         .expect(401);
     });
@@ -184,7 +188,9 @@ describe('AdminTenantsController', () => {
 
   describe('GET /admin/tenants/onboarding/:token', () => {
     it('returns 200 without authentication (public endpoint)', async () => {
-      const res = await request(unauthApp.getHttpServer())
+      const res = await request(
+        unauthApp.getHttpServer() as import('http').Server,
+      )
         .get('/admin/tenants/onboarding/valid-token')
         .expect(200);
 
@@ -194,7 +200,9 @@ describe('AdminTenantsController', () => {
 
   describe('POST /admin/tenants/onboarding/:token/stripe-connect', () => {
     it('returns 201 without authentication (public broker endpoint)', async () => {
-      const res = await request(unauthApp.getHttpServer())
+      const res = await request(
+        unauthApp.getHttpServer() as import('http').Server,
+      )
         .post('/admin/tenants/onboarding/valid-token/stripe-connect')
         .expect(201);
 
@@ -206,7 +214,7 @@ describe('AdminTenantsController', () => {
 
   describe('POST /admin/tenants/onboarding/:token/verify-kfn', () => {
     it('returns 201 without authentication (public broker endpoint)', async () => {
-      await request(unauthApp.getHttpServer())
+      await request(unauthApp.getHttpServer() as import('http').Server)
         .post('/admin/tenants/onboarding/valid-token/verify-kfn')
         .send({ kfn_license: '12345' })
         .expect(201);
@@ -221,7 +229,9 @@ describe('AdminTenantsController', () => {
 
   describe('GET /admin/tenants response — sensitive data', () => {
     it('response never contains stripe_webhook_secret or sensitive data', async () => {
-      const res = await request(superAdminApp.getHttpServer())
+      const res = await request(
+        superAdminApp.getHttpServer() as import('http').Server,
+      )
         .get('/admin/tenants')
         .expect(200);
 
@@ -236,21 +246,21 @@ describe('AdminTenantsController', () => {
     const VALID_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
     it('returns 401 without authentication', async () => {
-      await request(unauthApp.getHttpServer())
+      await request(unauthApp.getHttpServer() as import('http').Server)
         .patch(`/admin/tenants/${VALID_UUID}/status`)
         .send({ status: 'suspended' })
         .expect(401);
     });
 
     it('returns 403 for broker_admin role', async () => {
-      await request(brokerApp.getHttpServer())
+      await request(brokerApp.getHttpServer() as import('http').Server)
         .patch(`/admin/tenants/${VALID_UUID}/status`)
         .send({ status: 'suspended' })
         .expect(403);
     });
 
     it('returns 204 for super_admin with valid active→suspended transition', async () => {
-      await request(superAdminApp.getHttpServer())
+      await request(superAdminApp.getHttpServer() as import('http').Server)
         .patch(`/admin/tenants/${VALID_UUID}/status`)
         .send({ status: 'suspended' })
         .expect(204);
@@ -263,21 +273,21 @@ describe('AdminTenantsController', () => {
     });
 
     it('returns 400 for invalid UUID in :id param', async () => {
-      await request(superAdminApp.getHttpServer())
+      await request(superAdminApp.getHttpServer() as import('http').Server)
         .patch('/admin/tenants/not-a-uuid/status')
         .send({ status: 'suspended' })
         .expect(400);
     });
 
     it('returns 400 for invalid status value', async () => {
-      await request(superAdminApp.getHttpServer())
+      await request(superAdminApp.getHttpServer() as import('http').Server)
         .patch(`/admin/tenants/${VALID_UUID}/status`)
         .send({ status: 'invited' })
         .expect(400);
     });
 
     it('returns 400 for missing status field', async () => {
-      await request(superAdminApp.getHttpServer())
+      await request(superAdminApp.getHttpServer() as import('http').Server)
         .patch(`/admin/tenants/${VALID_UUID}/status`)
         .send({})
         .expect(400);
@@ -286,14 +296,14 @@ describe('AdminTenantsController', () => {
 
   describe('POST /webhooks/stripe', () => {
     it('returns 400 for missing stripe-signature header', async () => {
-      await request(superAdminApp.getHttpServer())
+      await request(superAdminApp.getHttpServer() as import('http').Server)
         .post('/webhooks/stripe')
         .send(Buffer.from('raw-body'))
         .expect(400);
     });
 
     it('returns 400 for invalid stripe signature', async () => {
-      await request(superAdminApp.getHttpServer())
+      await request(superAdminApp.getHttpServer() as import('http').Server)
         .post('/webhooks/stripe')
         .set('stripe-signature', 'invalid-sig')
         .send(Buffer.from('raw-body'))

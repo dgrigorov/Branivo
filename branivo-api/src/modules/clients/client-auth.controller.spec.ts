@@ -104,7 +104,7 @@ describe('ClientAuthController', () => {
 
       const result = await controller.verifyOtp(
         { phone_number: PHONE, otp_code: '123456' },
-        mockResponse as any,
+        mockResponse as unknown as import('express').Response,
       );
 
       expect(result.access_token).toBe(ACCESS_TOKEN);
@@ -129,7 +129,7 @@ describe('ClientAuthController', () => {
       await expect(
         controller.verifyOtp(
           { phone_number: PHONE, otp_code: '000000' },
-          mockResponse as any,
+          mockResponse as unknown as import('express').Response,
         ),
       ).rejects.toThrow(HttpException);
     });
@@ -148,7 +148,7 @@ describe('ClientAuthController', () => {
 
       await controller.verifyOtp(
         { phone_number: PHONE, otp_code: '123456', session_id: 'session-uuid' },
-        mockResponse as any,
+        mockResponse as unknown as import('express').Response,
       );
 
       expect(mockAnonymousSessionsService.migrateSession).toHaveBeenCalledWith(

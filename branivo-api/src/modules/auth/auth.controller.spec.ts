@@ -62,7 +62,7 @@ describe('AuthController (integration)', () => {
         expires_in: 900,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/auth/login')
         .send({ email: 'broker@example.com', password: 'Password1!' });
 
@@ -76,7 +76,7 @@ describe('AuthController (integration)', () => {
         temp_token: 'temp',
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/auth/login')
         .send({ email: 'broker@example.com', password: 'Password1!' });
 
@@ -88,7 +88,7 @@ describe('AuthController (integration)', () => {
     });
 
     it('returns 400 for invalid email format', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/auth/login')
         .send({ email: 'not-an-email', password: 'pass' });
 
@@ -102,7 +102,7 @@ describe('AuthController (integration)', () => {
         expires_in: 900,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/auth/login')
         .send({ email: 'broker@example.com', password: 'Password1!' });
 
@@ -119,7 +119,7 @@ describe('AuthController (integration)', () => {
         expires_in: 900,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/auth/2fa/verify')
         .send({ temp_token: 'temp', otp_code: '123456' });
 
@@ -128,7 +128,7 @@ describe('AuthController (integration)', () => {
     });
 
     it('returns 400 for non-numeric otp_code', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/auth/2fa/verify')
         .send({ temp_token: 'temp', otp_code: 'abcdef' });
 
@@ -136,7 +136,7 @@ describe('AuthController (integration)', () => {
     });
 
     it('returns 400 for wrong otp_code length', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/auth/2fa/verify')
         .send({ temp_token: 'temp', otp_code: '123' });
 
@@ -152,7 +152,7 @@ describe('AuthController (integration)', () => {
         expires_in: 900,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/auth/refresh')
         .send({ refresh_token: 'rt' });
 
@@ -165,7 +165,7 @@ describe('AuthController (integration)', () => {
     it('returns 200 with message', async () => {
       authServiceMock.logout.mockResolvedValue(undefined);
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/auth/logout')
         .set('Authorization', 'Bearer valid-token');
 

@@ -56,4 +56,11 @@ export class QuotesRepository extends BaseRepository<Quote> {
     await this.setTenantSession();
     await this.quoteRepo.update(id, updates);
   }
+
+  // НЕ tenant-scoped — за webhook context без tenant session
+  async findByIdWithoutScope(id: string): Promise<Quote | null> {
+    return this.quoteRepo.findOne({
+      where: { id, deletedAt: IsNull() },
+    });
+  }
 }

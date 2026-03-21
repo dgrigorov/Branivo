@@ -69,7 +69,7 @@ describe('OcrController (integration)', () => {
         avgConfidence: 0.93,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/ocr/scan')
         .set('X-Session-Token', VALID_SESSION_TOKEN)
         .attach('images', fakeImage, {
@@ -93,7 +93,7 @@ describe('OcrController (integration)', () => {
         status: OcrJobStatus.PROCESSING,
       });
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/ocr/scan')
         .set('X-Session-Token', VALID_SESSION_TOKEN)
         .attach('images', fakeImage, {
@@ -119,7 +119,7 @@ describe('OcrController (integration)', () => {
         ),
       );
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/ocr/scan')
         .set('X-Session-Token', VALID_SESSION_TOKEN)
         .attach('images', fakeImage, {
@@ -135,7 +135,7 @@ describe('OcrController (integration)', () => {
     });
 
     it('returns 400 when X-Session-Token is missing', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/ocr/scan')
         .attach('images', fakeImage, {
           filename: 'p1.jpg',
@@ -159,7 +159,9 @@ describe('OcrController (integration)', () => {
         fields: mockVisionResult,
       });
 
-      const res = await request(app.getHttpServer()).get('/ocr/status/job-789');
+      const res = await request(
+        app.getHttpServer() as import('http').Server,
+      ).get('/ocr/status/job-789');
 
       const body = res.body as OcrStatusResponseDto;
       expect(res.status).toBe(200);
@@ -172,7 +174,9 @@ describe('OcrController (integration)', () => {
         new NotFoundException('OCR job unknown не е намерен'),
       );
 
-      const res = await request(app.getHttpServer()).get('/ocr/status/unknown');
+      const res = await request(
+        app.getHttpServer() as import('http').Server,
+      ).get('/ocr/status/unknown');
 
       expect(res.status).toBe(404);
     });

@@ -105,17 +105,23 @@ describe('UsersController', () => {
   describe('GET /users', () => {
     it('returns 401 when no auth', async () => {
       await buildApp(null);
-      await request(app.getHttpServer()).get('/users').expect(401);
+      await request(app.getHttpServer() as import('http').Server)
+        .get('/users')
+        .expect(401);
     });
 
     it('returns 403 for broker_agent role', async () => {
       await buildApp(brokerAgentUser);
-      await request(app.getHttpServer()).get('/users').expect(403);
+      await request(app.getHttpServer() as import('http').Server)
+        .get('/users')
+        .expect(403);
     });
 
     it('returns 200 with user list for broker_admin', async () => {
       await buildApp(brokerAdminUser);
-      const res = await request(app.getHttpServer()).get('/users').expect(200);
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .get('/users')
+        .expect(200);
 
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body[0]).toHaveProperty('id', OTHER_USER_UUID);
@@ -124,7 +130,9 @@ describe('UsersController', () => {
 
     it('response does NOT contain passwordHash or twoFaSecretEnc', async () => {
       await buildApp(brokerAdminUser);
-      const res = await request(app.getHttpServer()).get('/users').expect(200);
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .get('/users')
+        .expect(200);
 
       expect(res.body[0]).not.toHaveProperty('passwordHash');
       expect(res.body[0]).not.toHaveProperty('twoFaSecretEnc');
@@ -142,7 +150,7 @@ describe('UsersController', () => {
 
     it('returns 403 for broker_agent role', async () => {
       await buildApp(brokerAgentUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .post('/users')
         .send(validBody)
         .expect(403);
@@ -152,7 +160,7 @@ describe('UsersController', () => {
       await buildApp(brokerAdminUser);
       mockUsersService.createBrokerUser.mockResolvedValueOnce(mockUser);
 
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .post('/users')
         .send(validBody)
         .expect(201);
@@ -163,7 +171,7 @@ describe('UsersController', () => {
 
     it('returns 400 for invalid email', async () => {
       await buildApp(brokerAdminUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .post('/users')
         .send({ ...validBody, email: 'not-an-email' })
         .expect(400);
@@ -171,7 +179,7 @@ describe('UsersController', () => {
 
     it('returns 400 for weak password (no uppercase)', async () => {
       await buildApp(brokerAdminUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .post('/users')
         .send({ ...validBody, password: 'weakpassword1!' })
         .expect(400);
@@ -185,7 +193,7 @@ describe('UsersController', () => {
         ),
       );
 
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .post('/users')
         .send(validBody)
         .expect(409);
@@ -195,7 +203,7 @@ describe('UsersController', () => {
   describe('PUT /users/:id/role', () => {
     it('returns 403 for broker_agent role', async () => {
       await buildApp(brokerAgentUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .put('/users/user-uuid/role')
         .send({ role: 'broker_viewer' })
         .expect(403);
@@ -203,7 +211,7 @@ describe('UsersController', () => {
 
     it('returns 200 for broker_admin with valid role', async () => {
       await buildApp(brokerAdminUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .put(`/users/${OTHER_USER_UUID}/role`)
         .send({ role: 'broker_viewer' })
         .expect(200);
@@ -216,7 +224,7 @@ describe('UsersController', () => {
 
     it('returns 400 when super_admin role is in body (fails IsIn validation)', async () => {
       await buildApp(brokerAdminUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .put(`/users/${OTHER_USER_UUID}/role`)
         .send({ role: 'super_admin' })
         .expect(400);
@@ -224,7 +232,7 @@ describe('UsersController', () => {
 
     it('returns 400 when admin tries to change own role', async () => {
       await buildApp(brokerAdminUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .put(`/users/${ADMIN_UUID}/role`)
         .send({ role: 'broker_viewer' })
         .expect(400);
@@ -232,7 +240,7 @@ describe('UsersController', () => {
 
     it('returns 400 when :id is not a valid UUID', async () => {
       await buildApp(brokerAdminUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .put('/users/not-a-uuid/role')
         .send({ role: 'broker_viewer' })
         .expect(400);
@@ -242,14 +250,14 @@ describe('UsersController', () => {
   describe('DELETE /users/:id', () => {
     it('returns 403 for broker_agent', async () => {
       await buildApp(brokerAgentUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .delete(`/users/${OTHER_USER_UUID}`)
         .expect(403);
     });
 
     it('returns 200 for broker_admin', async () => {
       await buildApp(brokerAdminUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .delete(`/users/${OTHER_USER_UUID}`)
         .expect(200);
 
@@ -260,14 +268,14 @@ describe('UsersController', () => {
 
     it('returns 400 when admin tries to delete own account', async () => {
       await buildApp(brokerAdminUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .delete(`/users/${ADMIN_UUID}`)
         .expect(400);
     });
 
     it('returns 400 when :id is not a valid UUID', async () => {
       await buildApp(brokerAdminUser);
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .delete('/users/not-a-uuid')
         .expect(400);
     });
@@ -276,7 +284,7 @@ describe('UsersController', () => {
   describe('GET /users/me', () => {
     it('returns current user info for any authenticated user', async () => {
       await buildApp(brokerAdminUser);
-      const res = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer() as import('http').Server)
         .get('/users/me')
         .expect(200);
 

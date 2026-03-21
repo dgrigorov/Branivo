@@ -42,6 +42,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedVehicles(clientId);
     await this.seedTenantInvitation();
     await this.seedInsurers();
+    await this.seedPolicies();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
@@ -160,5 +161,35 @@ export class SeedService implements OnApplicationBootstrap {
       );
     }
     this.logger.log('Insurers seeded.');
+  }
+
+  private async seedPolicies(): Promise<void> {
+    // Seed demo policies only if payments and quotes exist
+    const payments = await this.dataSource.query<
+      { id: string; quote_id: string; tenant_id: string }[]
+    >(
+      `SELECT id, quote_id, tenant_id FROM payments WHERE tenant_id = $1 LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    if (payments.length === 0) return;
+
+    const payment = payments[0];
+    const insurer = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM insurers WHERE code = 'allianz' LIMIT 1`,
+    );
+    const insurerId = insurer[0]?.id ?? '';
+
+    await this.dataSource.query(
+      `INSERT INTO policies
+         (id, tenant_id, payment_id, quote_id, insurer_id, policy_number,
+          status, stripe_payment_intent_id, premium_amount, commission_amount,
+          commission_pct, currency, metadata)
+       VALUES
+         (gen_random_uuid(), $1, $2, $3, $4, 'DEMO-SEED-001',
+          'active', 'pi_demo_seed_001', 450.00, 22.50, 0.05, 'BGN', '{}')
+       ON CONFLICT (policy_number) DO NOTHING`,
+      [DEMO_TENANT_ID, payment.id, payment.quote_id, insurerId],
+    );
+    this.logger.log('Policies seeded.');
   }
 }

@@ -126,7 +126,9 @@ describe('OcrAnalyticsController (integration)', () => {
 
   describe('GET /ocr/analytics', () => {
     it('returns 200 with analytics data for super_admin', async () => {
-      const res = await request(superAdminApp.getHttpServer())
+      const res = await request(
+        superAdminApp.getHttpServer() as import('http').Server,
+      )
         .get('/ocr/analytics')
         .expect(200);
 
@@ -136,20 +138,20 @@ describe('OcrAnalyticsController (integration)', () => {
     });
 
     it('returns 403 for broker_admin role', async () => {
-      await request(brokerApp.getHttpServer())
+      await request(brokerApp.getHttpServer() as import('http').Server)
         .get('/ocr/analytics')
         .expect(403);
     });
 
     it('returns 401 without authentication', async () => {
-      await request(unauthApp.getHttpServer())
+      await request(unauthApp.getHttpServer() as import('http').Server)
         .get('/ocr/analytics')
         .expect(401);
     });
 
     it('passes query params to service', async () => {
       const TENANT_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
-      await request(superAdminApp.getHttpServer())
+      await request(superAdminApp.getHttpServer() as import('http').Server)
         .get(`/ocr/analytics?tenantId=${TENANT_ID}&days=30`)
         .expect(200);
 
@@ -159,7 +161,7 @@ describe('OcrAnalyticsController (integration)', () => {
     });
 
     it('returns 400 for invalid tenantId (not UUID)', async () => {
-      await request(superAdminApp.getHttpServer())
+      await request(superAdminApp.getHttpServer() as import('http').Server)
         .get('/ocr/analytics?tenantId=not-a-uuid')
         .expect(400);
     });
@@ -167,7 +169,9 @@ describe('OcrAnalyticsController (integration)', () => {
 
   describe('GET /ocr/analytics/trend', () => {
     it('returns 200 with trend data for super_admin', async () => {
-      const res = await request(superAdminApp.getHttpServer())
+      const res = await request(
+        superAdminApp.getHttpServer() as import('http').Server,
+      )
         .get('/ocr/analytics/trend?field=vin')
         .expect(200);
 
@@ -177,13 +181,13 @@ describe('OcrAnalyticsController (integration)', () => {
     });
 
     it('returns 400 when field param is missing', async () => {
-      await request(superAdminApp.getHttpServer())
+      await request(superAdminApp.getHttpServer() as import('http').Server)
         .get('/ocr/analytics/trend')
         .expect(400);
     });
 
     it('returns 403 for broker_admin role', async () => {
-      await request(brokerApp.getHttpServer())
+      await request(brokerApp.getHttpServer() as import('http').Server)
         .get('/ocr/analytics/trend?field=vin')
         .expect(403);
     });

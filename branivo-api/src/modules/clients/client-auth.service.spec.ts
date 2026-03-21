@@ -4,8 +4,13 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import Redis from 'ioredis';
 import { ClientAuthService } from './client-auth.service';
 import { EndClient } from './entities/end-client.entity';
+import { EndClientRepository } from './repositories/end-client.repository';
+import { SmsService } from './sms.service';
 
 const mockRedis = {
   incr: jest.fn(),
@@ -43,11 +48,11 @@ describe('ClientAuthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = new ClientAuthService(
-      mockRedis as any,
-      mockEndClientRepo as any,
-      mockSmsService as any,
-      mockJwtService as any,
-      mockConfig as any,
+      mockRedis as unknown as Redis,
+      mockEndClientRepo as unknown as EndClientRepository,
+      mockSmsService as unknown as SmsService,
+      mockJwtService as unknown as JwtService,
+      mockConfig as unknown as ConfigService,
     );
   });
 

@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   INestApplication,
+  UnauthorizedException,
   ValidationPipe,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -42,7 +43,7 @@ class MockClientJwtAuthGuard implements CanActivate {
 
 class RejectingGuard implements CanActivate {
   canActivate(): boolean {
-    return false;
+    throw new UnauthorizedException(); // H2 fix: throw 401, not return false (403)
   }
 }
 
@@ -53,13 +54,9 @@ describe('PaymentsController — createIntent (integration)', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        ThrottlerModule.forRoot([{ limit: 100, ttl: 60000 }]),
-      ],
+      imports: [ThrottlerModule.forRoot([{ limit: 100, ttl: 60000 }])],
       controllers: [PaymentsController],
-      providers: [
-        { provide: PaymentsService, useValue: mockPaymentsService },
-      ],
+      providers: [{ provide: PaymentsService, useValue: mockPaymentsService }],
     })
       .overrideGuard(ClientJwtAuthGuard)
       .useClass(MockClientJwtAuthGuard)
@@ -75,9 +72,11 @@ describe('PaymentsController — createIntent (integration)', () => {
   });
 
   it('POST /payments/intent — 201 Created with clientSecret and paymentId', async () => {
-    mockPaymentsService.createIntent.mockResolvedValue(mockPaymentIntentResponse);
+    mockPaymentsService.createIntent.mockResolvedValue(
+      mockPaymentIntentResponse,
+    );
 
-    const body = await request(app.getHttpServer())
+    const body = await request(app.getHttpServer() as import('http').Server)
       .post('/payments/intent')
       .send({ quoteId: QUOTE_ID })
       .expect(201);
@@ -93,14 +92,16 @@ describe('PaymentsController — createIntent (integration)', () => {
   });
 
   it('POST /payments/intent (duplicate) — 201 Created idempotent, NO 409', async () => {
-    mockPaymentsService.createIntent.mockResolvedValue(mockPaymentIntentResponse);
+    mockPaymentsService.createIntent.mockResolvedValue(
+      mockPaymentIntentResponse,
+    );
 
-    await request(app.getHttpServer())
+    await request(app.getHttpServer() as import('http').Server)
       .post('/payments/intent')
       .send({ quoteId: QUOTE_ID })
       .expect(201);
 
-    await request(app.getHttpServer())
+    await request(app.getHttpServer() as import('http').Server)
       .post('/payments/intent')
       .send({ quoteId: QUOTE_ID })
       .expect(201);
@@ -108,13 +109,11 @@ describe('PaymentsController — createIntent (integration)', () => {
     expect(mockPaymentsService.createIntent).toHaveBeenCalledTimes(2);
   });
 
-  it('POST /payments/intent without JWT — 403 Forbidden', async () => {
+  it('POST /payments/intent without JWT — 401 Unauthorized', async () => {
     const moduleNoAuth: TestingModule = await Test.createTestingModule({
       imports: [ThrottlerModule.forRoot([{ limit: 100, ttl: 60000 }])],
       controllers: [PaymentsController],
-      providers: [
-        { provide: PaymentsService, useValue: mockPaymentsService },
-      ],
+      providers: [{ provide: PaymentsService, useValue: mockPaymentsService }],
     })
       .overrideGuard(ClientJwtAuthGuard)
       .useClass(RejectingGuard)
@@ -124,16 +123,16 @@ describe('PaymentsController — createIntent (integration)', () => {
     appNoAuth.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await appNoAuth.init();
 
-    await request(appNoAuth.getHttpServer())
+    await request(appNoAuth.getHttpServer() as import('http').Server)
       .post('/payments/intent')
       .send({ quoteId: QUOTE_ID })
-      .expect(403);
+      .expect(401);
 
     await appNoAuth.close();
   });
 
   it('POST /payments/intent with invalid quoteId — 400 Bad Request', async () => {
-    await request(app.getHttpServer())
+    await request(app.getHttpServer() as import('http').Server)
       .post('/payments/intent')
       .send({ quoteId: 'not-a-uuid' })
       .expect(400);

@@ -106,7 +106,7 @@ describe('VehiclesController — validate (integration)', () => {
   it('POST /vehicles/validate 200 — valid VIN, KAT OK, GF clean', async () => {
     mockVehiclesService.validateVehicle.mockResolvedValue(successResult);
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app.getHttpServer() as import('http').Server)
       .post('/vehicles/validate')
       .set('x-session-token', SESSION_TOKEN)
       .send({ vin: VALID_VIN, licensePlate: 'СА1234АА' });
@@ -127,7 +127,7 @@ describe('VehiclesController — validate (integration)', () => {
       }),
     );
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app.getHttpServer() as import('http').Server)
       .post('/vehicles/validate')
       .set('x-session-token', SESSION_TOKEN)
       .send({ vin: VALID_VIN, licensePlate: 'СА1234АА' });
@@ -141,7 +141,7 @@ describe('VehiclesController — validate (integration)', () => {
       new VehicleBlockedByGfException(),
     );
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app.getHttpServer() as import('http').Server)
       .post('/vehicles/validate')
       .set('x-session-token', SESSION_TOKEN)
       .send({ vin: VALID_VIN, licensePlate: 'СА1234АА' });
@@ -159,7 +159,7 @@ describe('VehiclesController — validate (integration)', () => {
     };
     mockVehiclesService.validateVehicle.mockResolvedValue(fallbackResult);
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app.getHttpServer() as import('http').Server)
       .post('/vehicles/validate')
       .set('x-session-token', SESSION_TOKEN)
       .send({ vin: VALID_VIN, licensePlate: 'СА1234АА' });
@@ -173,7 +173,7 @@ describe('VehiclesController — validate (integration)', () => {
   it('POST /vehicles/validate — missing X-Session-Token → 200 (no error)', async () => {
     mockVehiclesService.validateVehicle.mockResolvedValue(successResult);
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app.getHttpServer() as import('http').Server)
       .post('/vehicles/validate')
       .send({ vin: VALID_VIN, licensePlate: 'СА1234АА' });
 
@@ -215,13 +215,15 @@ describe('VehiclesController — CRUD (integration)', () => {
   it('POST /vehicles 201 — saves vehicle successfully', async () => {
     mockVehiclesService.saveVehicle.mockResolvedValue(mockVehicleResponse);
 
-    const res = await request(app.getHttpServer()).post('/vehicles').send({
-      vin: VALID_VIN,
-      licensePlate: 'СА1234АА',
-      make: 'VW',
-      model: 'Golf',
-      year: 2020,
-    });
+    const res = await request(app.getHttpServer() as import('http').Server)
+      .post('/vehicles')
+      .send({
+        vin: VALID_VIN,
+        licensePlate: 'СА1234АА',
+        make: 'VW',
+        model: 'Golf',
+        year: 2020,
+      });
 
     expect(res.status).toBe(201);
     const body = res.body as VehicleResponseDto;
@@ -237,7 +239,9 @@ describe('VehiclesController — CRUD (integration)', () => {
   it('GET /vehicles 200 — returns list of vehicles', async () => {
     mockVehiclesService.listVehicles.mockResolvedValue([mockVehicleResponse]);
 
-    const res = await request(app.getHttpServer()).get('/vehicles');
+    const res = await request(app.getHttpServer() as import('http').Server).get(
+      '/vehicles',
+    );
 
     expect(res.status).toBe(200);
     const body = res.body as VehicleResponseDto[];
@@ -250,7 +254,9 @@ describe('VehiclesController — CRUD (integration)', () => {
   it('GET /vehicles 200 — returns empty list', async () => {
     mockVehiclesService.listVehicles.mockResolvedValue([]);
 
-    const res = await request(app.getHttpServer()).get('/vehicles');
+    const res = await request(app.getHttpServer() as import('http').Server).get(
+      '/vehicles',
+    );
 
     expect(res.status).toBe(200);
     const body = res.body as VehicleResponseDto[];
@@ -261,7 +267,7 @@ describe('VehiclesController — CRUD (integration)', () => {
   it('GET /vehicles/:id 200 — returns single vehicle', async () => {
     mockVehiclesService.getVehicle.mockResolvedValue(mockVehicleResponse);
 
-    const res = await request(app.getHttpServer()).get(
+    const res = await request(app.getHttpServer() as import('http').Server).get(
       `/vehicles/${VEHICLE_ID}`,
     );
 
@@ -276,7 +282,7 @@ describe('VehiclesController — CRUD (integration)', () => {
       new NotFoundException('МПС не е намерено'),
     );
 
-    const res = await request(app.getHttpServer()).get(
+    const res = await request(app.getHttpServer() as import('http').Server).get(
       `/vehicles/non-existent-id`,
     );
 
@@ -307,7 +313,9 @@ describe('VehiclesController — CRUD unauthorized', () => {
   });
 
   it('GET /vehicles 403 — guard rejects (no valid JWT)', async () => {
-    const res = await request(app.getHttpServer()).get('/vehicles');
+    const res = await request(app.getHttpServer() as import('http').Server).get(
+      '/vehicles',
+    );
     expect(res.status).toBe(403);
   });
 });

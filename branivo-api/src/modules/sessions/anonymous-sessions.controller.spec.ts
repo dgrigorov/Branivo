@@ -64,7 +64,7 @@ describe('AnonymousSessionsController (integration)', () => {
         expires_at: '2026-03-21T10:00:00.000Z',
       });
 
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .post('/sessions/anonymous')
         .expect(201)
         .expect((res: { body: { session_id: string; expires_at: string } }) => {
@@ -78,7 +78,7 @@ describe('AnonymousSessionsController (integration)', () => {
     it('returns 404 for non-existing session ID', async () => {
       mockSessionsService.getSession.mockResolvedValueOnce(null);
 
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .get(`/sessions/anonymous/${SESSION_ID}`)
         .expect(404);
     });
@@ -90,7 +90,7 @@ describe('AnonymousSessionsController (integration)', () => {
         created_at: '2026-03-19T10:00:00.000Z',
       });
 
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .get(`/sessions/anonymous/${SESSION_ID}`)
         .expect(200)
         .expect((res: { body: { session_id: string } }) => {
@@ -103,7 +103,7 @@ describe('AnonymousSessionsController (integration)', () => {
     it('returns 200 with valid body', async () => {
       mockSessionsService.updateSessionData.mockResolvedValueOnce(undefined);
 
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .put(`/sessions/anonymous/${SESSION_ID}/data`)
         .send({
           vehicle_data: {
@@ -125,7 +125,7 @@ describe('AnonymousSessionsController (integration)', () => {
         created_at: '2026-03-19T10:00:00.000Z',
       });
 
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as import('http').Server)
         .post(`/sessions/anonymous/${SESSION_ID}/migrate`)
         .expect(200);
     });

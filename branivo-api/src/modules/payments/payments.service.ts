@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
 import { QuotesRepository } from '../quotes/quotes.repository';
@@ -12,6 +17,8 @@ import { PaymentIntentResponseDto } from './dto/payment-intent-response.dto';
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private readonly paymentsRepo: PaymentsRepository,
     private readonly quotesRepo: QuotesRepository,
@@ -33,7 +40,7 @@ export class PaymentsService {
     if (existing) {
       return {
         clientSecret: existing.stripeClientSecret,
-        paymentId: existing.id,
+        paymentId: existing.stripePaymentIntentId, // H1 fix: consistent Stripe PI ID
         amount: Number(existing.amount),
         currency: existing.currency,
       };
@@ -73,21 +80,33 @@ export class PaymentsService {
       },
     });
 
-    // 6. Запази в DB
-    await this.paymentsRepo.save({
-      tenantId,
-      quoteId: dto.quoteId,
-      endClientId: dto.endClientId ?? null,
-      stripePaymentIntentId: intent.id,
-      idempotencyKey,
-      amount: quote.price,
-      currency: quote.currency ?? 'BGN',
-      applicationFeeAmount: feeCents / 100,
-      platformFeePct,
-      status: PaymentStatus.PENDING,
-      stripeClientSecret: intent.client_secret!,
-      metadata: { insurerCode: quote.insurer?.code ?? '' },
-    });
+    // 6. Запази в DB — wrap в try/catch: ако DB fail-не след успешен Stripe call,
+    // logни PI ID за ръчно възстановяване (M1 fix)
+    try {
+      await this.paymentsRepo.save({
+        tenantId,
+        quoteId: dto.quoteId,
+        endClientId: dto.endClientId ?? null,
+        stripePaymentIntentId: intent.id,
+        idempotencyKey,
+        amount: quote.price,
+        currency: quote.currency ?? 'BGN',
+        applicationFeeAmount: feeCents / 100,
+        platformFeePct,
+        status: PaymentStatus.PENDING,
+        stripeClientSecret: intent.client_secret!,
+        metadata: { insurerCode: quote.insurer?.code ?? '' },
+      });
+    } catch (dbError) {
+      this.logger.error(
+        `DB save failed after Stripe PI ${intent.id} was created. ` +
+          `Recoverable via idempotency key: ${idempotencyKey}`,
+        dbError instanceof Error ? dbError.stack : String(dbError),
+      );
+      throw new InternalServerErrorException(
+        'Payment processing error — please retry',
+      );
+    }
 
     return {
       clientSecret: intent.client_secret!,
