@@ -81,7 +81,7 @@ development_status:
   4-2-policy-purchase-with-stripe-3ds: done
   4-3-policy-activation-via-stripe-webhook: done
   4-4-policy-document-delivery: done
-  4-5-sticker-delivery-integration: review
+  4-5-sticker-delivery-integration: done
   epic-4-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────
