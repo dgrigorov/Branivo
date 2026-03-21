@@ -22,7 +22,19 @@ class PolicyWalletBloc extends Bloc<PolicyWalletEvent, PolicyWalletState> {
     emit(const PolicyWalletLoading());
     try {
       final policies = await _policyRepository.getPolicies();
-      emit(PolicyWalletLoaded(policies: policies));
+
+      // Fetch shipment info for all policies in parallel
+      final shipmentEntries = await Future.wait(
+        policies.map((p) async {
+          final shipment = await _policyRepository.getShipment(p.policyId);
+          return MapEntry(p.policyId, shipment);
+        }),
+      );
+      final shipments = Map<String, Map<String, dynamic>?>.fromEntries(
+        shipmentEntries,
+      );
+
+      emit(PolicyWalletLoaded(policies: policies, shipments: shipments));
     } catch (_) {
       emit(const PolicyWalletError(message: 'Неуспешно зареждане на полиците'));
     }
@@ -34,13 +46,16 @@ class PolicyWalletBloc extends Bloc<PolicyWalletEvent, PolicyWalletState> {
   ) async {
     final currentState = state;
     List<PolicyDocument> policies = [];
+    Map<String, Map<String, dynamic>?> shipments = const {};
     if (currentState is PolicyWalletLoaded) {
       policies = currentState.policies;
+      shipments = currentState.shipments;
     }
 
     emit(PolicyDocumentOpening(
       policies: policies,
       openingPolicyId: '${event.policyId}-${event.documentType}',
+      shipments: shipments,
     ));
 
     try {
@@ -53,9 +68,9 @@ class PolicyWalletBloc extends Bloc<PolicyWalletEvent, PolicyWalletState> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
-      emit(PolicyWalletLoaded(policies: policies));
+      emit(PolicyWalletLoaded(policies: policies, shipments: shipments));
     } catch (_) {
-      emit(PolicyWalletLoaded(policies: policies));
+      emit(PolicyWalletLoaded(policies: policies, shipments: shipments));
     }
   }
 }

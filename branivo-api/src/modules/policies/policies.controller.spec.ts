@@ -4,7 +4,9 @@ import { NotFoundException } from '@nestjs/common';
 import { PoliciesController } from './policies.controller';
 import { PoliciesRepository } from './policies.repository';
 import { S3Service } from '../../infrastructure/s3/s3.service';
+import { ShipmentsRepository } from '../logistics/shipments.repository';
 import { Policy, PolicyStatus } from './entities/policy.entity';
+import { Shipment } from '../logistics/entities/shipment.entity';
 
 const mockPolicyWithDocs: Partial<Policy> = {
   id: 'policy-id-1',
@@ -24,10 +26,27 @@ const mockPolicyNoDocs: Partial<Policy> = {
   greenCardPdfS3Key: undefined,
 };
 
+const mockPolicyForShipment: Partial<Policy> = {
+  id: 'policy-id-3',
+  tenantId: 'tenant-id-1',
+  policyNumber: 'TEST-003',
+  status: PolicyStatus.ACTIVE,
+};
+
+const mockShipment: Partial<Shipment> = {
+  id: 'shipment-id-1',
+  provider: 'speedy',
+  trackingNumber: 'SPEEDY-ABC123',
+  estimatedDeliveryDate: new Date('2026-03-25'),
+  status: 'dispatched',
+  createdAt: new Date('2026-03-22T10:00:00.000Z'),
+};
+
 describe('PoliciesController', () => {
   let controller: PoliciesController;
   let mockPoliciesRepo: jest.Mocked<PoliciesRepository>;
   let mockS3Service: jest.Mocked<S3Service>;
+  let mockShipmentsRepo: jest.Mocked<ShipmentsRepository>;
 
   beforeEach(async () => {
     mockPoliciesRepo = {
@@ -40,11 +59,16 @@ describe('PoliciesController', () => {
         .mockResolvedValue('https://s3.example.com/signed-url'),
     } as unknown as jest.Mocked<S3Service>;
 
+    mockShipmentsRepo = {
+      findByPolicyIdForTenant: jest.fn(),
+    } as unknown as jest.Mocked<ShipmentsRepository>;
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PoliciesController],
       providers: [
         { provide: PoliciesRepository, useValue: mockPoliciesRepo },
         { provide: S3Service, useValue: mockS3Service },
+        { provide: ShipmentsRepository, useValue: mockShipmentsRepo },
       ],
     }).compile();
 
@@ -92,6 +116,45 @@ describe('PoliciesController', () => {
       expect(mockS3Service.generatePresignedUrl).toHaveBeenCalledWith(
         mockPolicyWithDocs.greenCardPdfS3Key,
         900,
+      );
+    });
+  });
+
+  describe('GET /policies/:id/shipment', () => {
+    it('returns 200 with shipment data when shipment exists', async () => {
+      mockPoliciesRepo.findByIdForTenant.mockResolvedValue(
+        mockPolicyForShipment as Policy,
+      );
+      mockShipmentsRepo.findByPolicyIdForTenant.mockResolvedValue(
+        mockShipment as Shipment,
+      );
+
+      const result = await controller.getShipment('policy-id-3');
+
+      expect(result.shipmentId).toBe('shipment-id-1');
+      expect(result.provider).toBe('speedy');
+      expect(result.trackingNumber).toBe('SPEEDY-ABC123');
+      expect(result.status).toBe('dispatched');
+      expect(result.estimatedDeliveryDate).toBe('2026-03-25');
+      expect(result.createdAt).toBeDefined();
+    });
+
+    it('returns 404 when no shipment exists for this policy', async () => {
+      mockPoliciesRepo.findByIdForTenant.mockResolvedValue(
+        mockPolicyForShipment as Policy,
+      );
+      mockShipmentsRepo.findByPolicyIdForTenant.mockResolvedValue(null);
+
+      await expect(controller.getShipment('policy-id-3')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('returns 404 when policy is not found', async () => {
+      mockPoliciesRepo.findByIdForTenant.mockResolvedValue(null);
+
+      await expect(controller.getShipment('nonexistent')).rejects.toThrow(
+        NotFoundException,
       );
     });
   });

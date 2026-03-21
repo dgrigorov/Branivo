@@ -28,6 +28,15 @@ class PolicyDocument extends HiveObject {
   @HiveField(7)
   DateTime cachedAt;
 
+  @HiveField(8)
+  String? trackingNumber;
+
+  @HiveField(9)
+  String? estimatedDeliveryDate;
+
+  @HiveField(10)
+  String? shipmentStatus;
+
   PolicyDocument({
     required this.policyId,
     required this.policyNumber,
@@ -37,6 +46,9 @@ class PolicyDocument extends HiveObject {
     required this.premiumAmount,
     required this.currency,
     required this.cachedAt,
+    this.trackingNumber,
+    this.estimatedDeliveryDate,
+    this.shipmentStatus,
   });
 
   factory PolicyDocument.fromJson(Map<String, dynamic> json) {

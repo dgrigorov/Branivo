@@ -12,10 +12,12 @@ import { PdfGenerationProcessor } from './pdf-generation.processor';
 import { PdfGenerationService } from './pdf-generation.service';
 import { Policy } from './entities/policy.entity';
 import { PolicyEvent } from './entities/policy-event.entity';
+import { Shipment } from '../logistics/entities/shipment.entity';
+import { ShipmentsRepository } from '../logistics/shipments.repository';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Policy, PolicyEvent]),
+    TypeOrmModule.forFeature([Policy, PolicyEvent, Shipment]),
     TenantContextModule,
     QueueModule,
     S3Module,
@@ -28,6 +30,7 @@ import { PolicyEvent } from './entities/policy-event.entity';
     PolicyEventsRepository,
     PdfGenerationProcessor,
     PdfGenerationService,
+    ShipmentsRepository,
   ],
   exports: [
     PoliciesService,

@@ -4,7 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import Stripe from 'stripe';
-import { QUEUE_PDF_GENERATION } from '../../infrastructure/queues/queue.module';
+import {
+  QUEUE_LOGISTICS,
+  QUEUE_PDF_GENERATION,
+} from '../../infrastructure/queues/queue.module';
 import { StripeService } from './stripe.service';
 import { PaymentsRepository } from './payments.repository';
 import { PaymentStatus } from './entities/payment.entity';
@@ -13,6 +16,9 @@ import { PolicyEventsRepository } from '../policies/policy-events.repository';
 import { PolicyStatus } from '../policies/entities/policy.entity';
 import { PolicyEventType } from '../policies/entities/policy-event.entity';
 import { QuotesRepository } from '../quotes/quotes.repository';
+import { TenantsRepository } from '../tenants/tenants.repository';
+import { StickerDeliveryJobPayload } from '../logistics/interfaces/sticker-delivery-job.payload';
+import { DeliveryAddress } from '../logistics/interfaces/delivery-address.interface';
 
 export interface PdfGenerationJobPayload {
   policyId: string;
@@ -31,9 +37,12 @@ export class StripeWebhookService {
     private readonly policiesRepo: PoliciesRepository,
     private readonly policyEventsRepo: PolicyEventsRepository,
     private readonly quotesRepo: QuotesRepository,
+    private readonly tenantsRepo: TenantsRepository,
     private readonly config: ConfigService,
     @InjectQueue(QUEUE_PDF_GENERATION)
     private readonly pdfQueue: Queue<PdfGenerationJobPayload>,
+    @InjectQueue(QUEUE_LOGISTICS)
+    private readonly logisticsQueue: Queue<StickerDeliveryJobPayload>,
   ) {}
 
   constructEvent(rawBody: Buffer, signature: string): Stripe.Event {
@@ -91,7 +100,12 @@ export class StripeWebhookService {
     // 6. Генерирай policy_number
     const policyNumber = this.generatePolicyNumber(payment.tenantId);
 
-    // 7. Създай или вземи policy record
+    // 7. Извлечи deliveryAddress от payment metadata
+    const deliveryAddress =
+      (payment.metadata?.['deliveryAddress'] as DeliveryAddress | undefined) ??
+      null;
+
+    // 8. Създай или вземи policy record
     let policy = existingPolicy;
     if (!policy) {
       policy = await this.policiesRepo.saveWithoutTenantScope({
@@ -107,6 +121,7 @@ export class StripeWebhookService {
         commissionAmount, // IMMUTABLE snapshot
         commissionPct: platformFeePct, // IMMUTABLE snapshot
         currency: payment.currency,
+        deliveryAddress,
         metadata: { stripeEventId },
       });
     } else {
@@ -151,6 +166,27 @@ export class StripeWebhookService {
       stripeEventId,
     });
 
+    // 11. Queue sticker delivery job (AC1 — само ако feature flag е enabled)
+    const tenant = await this.tenantsRepo.findById(payment.tenantId);
+    if (
+      tenant?.features?.['sticker_delivery'] === true &&
+      policy.deliveryAddress
+    ) {
+      await this.logisticsQueue.add(
+        'logistics:sticker-create',
+        {
+          policyId: policy.id,
+          tenantId: payment.tenantId,
+          policyNumber: policy.policyNumber,
+        },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: 100,
+        },
+      );
+    }
+
     this.logger.log(
       `Policy activated: ${policy.id} for tenant: ${payment.tenantId}`,
     );
@@ -182,7 +218,6 @@ export class StripeWebhookService {
     this.logger.log(
       `Payment failed for intent: ${intent.id} (event: ${stripeEventId}), no policy activation`,
     );
-    // TODO (Story 4.4): Queue notification job за клиента
   }
 
   private generatePolicyNumber(tenantId: string): string {

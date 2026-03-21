@@ -17,6 +17,7 @@ import { OcrModule } from './modules/ocr/ocr.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { PoliciesModule } from './modules/policies/policies.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { LogisticsModule } from './modules/logistics/logistics.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { UsersModule } from './modules/users/users.module';
@@ -53,6 +54,7 @@ import { HealthModule } from './health/health.module';
     QuotesModule,
     PoliciesModule,
     PaymentsModule,
+    LogisticsModule,
     NotificationsModule,
     BillingModule,
     UsersModule,

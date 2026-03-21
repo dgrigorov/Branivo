@@ -18,6 +18,15 @@ interface PolicyDocumentUrls {
   expiresAt: string;
 }
 
+interface ShipmentInfo {
+  shipmentId: string;
+  provider: 'speedy' | 'econt' | 'manual';
+  trackingNumber: string | null;
+  estimatedDeliveryDate: string | null;
+  status: 'pending' | 'dispatched' | 'delivered' | 'failed';
+  createdAt: string;
+}
+
 async function fetchPolicies(token: string): Promise<PolicyDocument[]> {
   const res = await fetch('/api/v1/policies', {
     headers: { Authorization: `Bearer ${token}` },
@@ -38,8 +47,34 @@ async function fetchDocumentUrls(
   return res.json() as Promise<PolicyDocumentUrls>;
 }
 
+async function fetchShipment(
+  policyId: string,
+  token: string,
+): Promise<ShipmentInfo | null> {
+  const res = await fetch(`/api/v1/policies/${policyId}/shipment`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) return null;
+  return res.json() as Promise<ShipmentInfo>;
+}
+
+const SHIPMENT_STATUS_LABELS: Record<ShipmentInfo['status'], string> = {
+  pending: 'Изчакване',
+  dispatched: 'Изпратен',
+  delivered: 'Доставен',
+  failed: 'Неуспешен',
+};
+
+const PROVIDER_LABELS: Record<ShipmentInfo['provider'], string> = {
+  speedy: 'Speedy',
+  econt: 'Econt',
+  manual: 'Ръчна обработка',
+};
+
 export default function PolicyWalletPage() {
   const [policies, setPolicies] = useState<PolicyDocument[]>([]);
+  const [shipments, setShipments] = useState<Record<string, ShipmentInfo | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -49,8 +84,22 @@ export default function PolicyWalletPage() {
       typeof window !== 'undefined'
         ? (localStorage.getItem('client_token') ?? '')
         : '';
+
     fetchPolicies(token)
-      .then(setPolicies)
+      .then(async (loadedPolicies) => {
+        setPolicies(loadedPolicies);
+        const shipmentResults = await Promise.all(
+          loadedPolicies.map(async (p) => ({
+            id: p.id,
+            shipment: await fetchShipment(p.id, token),
+          })),
+        );
+        const shipmentMap: Record<string, ShipmentInfo | null> = {};
+        for (const { id, shipment } of shipmentResults) {
+          shipmentMap[id] = shipment;
+        }
+        setShipments(shipmentMap);
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -103,50 +152,98 @@ export default function PolicyWalletPage() {
         <p className="text-gray-500">Нямате активни полици.</p>
       ) : (
         <ul className="space-y-4">
-          {policies.map((policy) => (
-            <li
-              key={policy.id}
-              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="font-semibold">{policy.policyNumber}</span>
-                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                  {policy.status}
-                </span>
-              </div>
-              <p className="mb-1 text-sm text-gray-600">
-                {policy.premiumAmount} {policy.currency}
-              </p>
-              {policy.coverageStartDate && policy.coverageEndDate && (
-                <p className="mb-3 text-xs text-gray-400">
-                  {policy.coverageStartDate} — {policy.coverageEndDate}
+          {policies.map((policy) => {
+            const shipment = shipments[policy.id];
+            return (
+              <li
+                key={policy.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-semibold">{policy.policyNumber}</span>
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                    {policy.status}
+                  </span>
+                </div>
+                <p className="mb-1 text-sm text-gray-600">
+                  {policy.premiumAmount} {policy.currency}
                 </p>
-              )}
-              <p className="mb-2 text-xs text-gray-400">
-                Линкът е валиден 15 мин след зареждане
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => void openDocument(policy.id, 'policy')}
-                  disabled={openingId === `${policy.id}-policy`}
-                  className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {openingId === `${policy.id}-policy`
-                    ? 'Зарежда...'
-                    : 'Изтегли Полица'}
-                </button>
-                <button
-                  onClick={() => void openDocument(policy.id, 'green-card')}
-                  disabled={openingId === `${policy.id}-green-card`}
-                  className="rounded bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-50"
-                >
-                  {openingId === `${policy.id}-green-card`
-                    ? 'Зарежда...'
-                    : 'Изтегли Зелена карта'}
-                </button>
-              </div>
-            </li>
-          ))}
+                {policy.coverageStartDate && policy.coverageEndDate && (
+                  <p className="mb-3 text-xs text-gray-400">
+                    {policy.coverageStartDate} — {policy.coverageEndDate}
+                  </p>
+                )}
+
+                {/* Sticker delivery tracking */}
+                {shipment !== undefined && (
+                  <div
+                    data-testid="shipment-tracking"
+                    className="mb-3 rounded-lg border border-blue-100 bg-blue-50 p-3"
+                  >
+                    <p className="mb-1 text-xs font-semibold text-blue-800">
+                      Доставка на стикер
+                    </p>
+                    {shipment === null ? (
+                      <p className="text-xs text-gray-500">
+                        Информация за доставката не е налична.
+                      </p>
+                    ) : shipment.provider === 'manual' ? (
+                      <p className="text-xs text-amber-700">
+                        Доставката ще бъде обработена ръчно от брокера.
+                      </p>
+                    ) : (
+                      <div className="space-y-0.5 text-xs text-blue-700">
+                        <p>
+                          <span className="font-medium">Статус:</span>{' '}
+                          {SHIPMENT_STATUS_LABELS[shipment.status]}
+                        </p>
+                        <p>
+                          <span className="font-medium">Куриер:</span>{' '}
+                          {PROVIDER_LABELS[shipment.provider]}
+                        </p>
+                        {shipment.trackingNumber && (
+                          <p>
+                            <span className="font-medium">Tracking №:</span>{' '}
+                            {shipment.trackingNumber}
+                          </p>
+                        )}
+                        {shipment.estimatedDeliveryDate && (
+                          <p>
+                            <span className="font-medium">Очаквана доставка:</span>{' '}
+                            {shipment.estimatedDeliveryDate}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <p className="mb-2 text-xs text-gray-400">
+                  Линкът е валиден 15 мин след зареждане
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => void openDocument(policy.id, 'policy')}
+                    disabled={openingId === `${policy.id}-policy`}
+                    className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {openingId === `${policy.id}-policy`
+                      ? 'Зарежда...'
+                      : 'Изтегли Полица'}
+                  </button>
+                  <button
+                    onClick={() => void openDocument(policy.id, 'green-card')}
+                    disabled={openingId === `${policy.id}-green-card`}
+                    className="rounded bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {openingId === `${policy.id}-green-card`
+                      ? 'Зарежда...'
+                      : 'Изтегли Зелена карта'}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

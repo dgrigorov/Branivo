@@ -15,10 +15,12 @@ class PolicyWalletLoading extends PolicyWalletState {
 class PolicyWalletLoaded extends PolicyWalletState {
   final List<PolicyDocument> policies;
   final bool isOffline;
+  final Map<String, Map<String, dynamic>?> shipments;
 
   const PolicyWalletLoaded({
     required this.policies,
     this.isOffline = false,
+    this.shipments = const {},
   });
 }
 
@@ -31,9 +33,11 @@ class PolicyWalletError extends PolicyWalletState {
 class PolicyDocumentOpening extends PolicyWalletState {
   final List<PolicyDocument> policies;
   final String openingPolicyId;
+  final Map<String, Map<String, dynamic>?> shipments;
 
   const PolicyDocumentOpening({
     required this.policies,
     required this.openingPolicyId,
+    this.shipments = const {},
   });
 }

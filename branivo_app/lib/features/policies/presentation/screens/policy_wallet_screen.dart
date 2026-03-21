@@ -43,12 +43,15 @@ class _PolicyWalletScreenState extends State<PolicyWalletScreen> {
 
           List<PolicyDocument> policies = [];
           String? openingId;
+          Map<String, Map<String, dynamic>?> shipments = const {};
 
           if (state is PolicyWalletLoaded) {
             policies = state.policies;
+            shipments = state.shipments;
           } else if (state is PolicyDocumentOpening) {
             policies = state.policies;
             openingId = state.openingPolicyId;
+            shipments = state.shipments;
           }
 
           if (policies.isEmpty) {
@@ -60,6 +63,7 @@ class _PolicyWalletScreenState extends State<PolicyWalletScreen> {
             itemCount: policies.length,
             itemBuilder: (context, index) {
               final policy = policies[index];
+              final shipment = shipments[policy.policyId];
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: Padding(
@@ -112,6 +116,11 @@ class _PolicyWalletScreenState extends State<PolicyWalletScreen> {
                             color: Colors.grey,
                           ),
                         ),
+                      ],
+                      // Sticker delivery tracking section
+                      if (shipments.containsKey(policy.policyId)) ...[
+                        const SizedBox(height: 8),
+                        _buildShipmentSection(shipment),
                       ],
                       const SizedBox(height: 4),
                       const Text(
@@ -184,5 +193,86 @@ class _PolicyWalletScreenState extends State<PolicyWalletScreen> {
         },
       ),
     );
+  }
+
+  Widget _buildShipmentSection(Map<String, dynamic>? shipment) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Доставка на стикер',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: Colors.blue.shade800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          if (shipment == null)
+            const Text(
+              'Информация за доставката не е налична.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            )
+          else if (shipment['provider'] == 'manual')
+            Text(
+              'Доставката ще бъде обработена ръчно от брокера.',
+              style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+            )
+          else ...[
+            Text(
+              'Статус: ${_shipmentStatusLabel(shipment['status'] as String? ?? '')}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            Text(
+              'Куриер: ${_providerLabel(shipment['provider'] as String? ?? '')}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            if (shipment['trackingNumber'] != null)
+              Text(
+                'Tracking №: ${shipment['trackingNumber'] as String}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            if (shipment['estimatedDeliveryDate'] != null)
+              Text(
+                'Очаквана доставка: ${shipment['estimatedDeliveryDate'] as String}',
+                style: const TextStyle(fontSize: 12),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _shipmentStatusLabel(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Изчакване';
+      case 'dispatched':
+        return 'Изпратен';
+      case 'delivered':
+        return 'Доставен';
+      case 'failed':
+        return 'Неуспешен';
+      default:
+        return status;
+    }
+  }
+
+  String _providerLabel(String provider) {
+    switch (provider) {
+      case 'speedy':
+        return 'Speedy';
+      case 'econt':
+        return 'Econt';
+      default:
+        return 'Ръчна обработка';
+    }
   }
 }

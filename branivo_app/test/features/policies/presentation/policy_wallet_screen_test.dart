@@ -46,6 +46,8 @@ void main() {
 
   setUp(() {
     mockRepo = MockPolicyRepository();
+    // Default: getShipment returns null (no shipment)
+    when(() => mockRepo.getShipment(any())).thenAnswer((_) async => null);
   });
 
   group('PolicyWalletScreen', () {
@@ -138,6 +140,73 @@ void main() {
 
       expect(find.text('Отвори Полица'), findsNWidgets(2));
       expect(find.text('Отвори Зелена карта'), findsNWidgets(2));
+    });
+
+    testWidgets('renders shipment tracking info when shipment exists',
+        (tester) async {
+      final policy = makeMockPolicy(id: 'p1', policyNumber: 'POL-SHIP-001');
+      when(() => mockRepo.getPolicies()).thenAnswer((_) async => [policy]);
+      when(() => mockRepo.getShipment('p1')).thenAnswer(
+        (_) async => {
+          'shipmentId': 'ship-1',
+          'provider': 'speedy',
+          'trackingNumber': 'SPEEDY-XYZ',
+          'estimatedDeliveryDate': '2026-03-25',
+          'status': 'dispatched',
+          'createdAt': '2026-03-22T10:00:00.000Z',
+        },
+      );
+      final bloc = PolicyWalletBloc(policyRepository: mockRepo);
+      addTearDown(bloc.close);
+
+      await pumpAndAwait(tester, buildTestWidget(bloc));
+
+      expect(find.text('Доставка на стикер'), findsOneWidget);
+      expect(find.textContaining('SPEEDY-XYZ'), findsOneWidget);
+      expect(find.textContaining('2026-03-25'), findsOneWidget);
+    });
+
+    testWidgets('renders manual handling message when provider is manual',
+        (tester) async {
+      final policy = makeMockPolicy(id: 'p1', policyNumber: 'POL-MANUAL-001');
+      when(() => mockRepo.getPolicies()).thenAnswer((_) async => [policy]);
+      when(() => mockRepo.getShipment('p1')).thenAnswer(
+        (_) async => {
+          'shipmentId': 'ship-2',
+          'provider': 'manual',
+          'trackingNumber': null,
+          'estimatedDeliveryDate': null,
+          'status': 'pending',
+          'createdAt': '2026-03-22T10:00:00.000Z',
+        },
+      );
+      final bloc = PolicyWalletBloc(policyRepository: mockRepo);
+      addTearDown(bloc.close);
+
+      await pumpAndAwait(tester, buildTestWidget(bloc));
+
+      expect(
+        find.text('Доставката ще бъде обработена ръчно от брокера.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('renders offline fallback message when no shipment (null)',
+        (tester) async {
+      final policy = makeMockPolicy(id: 'p1');
+      when(() => mockRepo.getPolicies()).thenAnswer((_) async => [policy]);
+      when(() => mockRepo.getShipment('p1')).thenAnswer((_) async => null);
+      final bloc = PolicyWalletBloc(policyRepository: mockRepo);
+      addTearDown(bloc.close);
+
+      await pumpAndAwait(tester, buildTestWidget(bloc));
+
+      // With null shipment, the shipment section still renders (containsKey returns true,
+      // shipment is null → shows unavailable message)
+      expect(
+        find.text('Информация за доставката не е налична.'),
+        findsOneWidget,
+      );
     });
   });
 }

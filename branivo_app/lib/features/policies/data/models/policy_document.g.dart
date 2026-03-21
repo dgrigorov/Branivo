@@ -25,13 +25,16 @@ class PolicyDocumentAdapter extends TypeAdapter<PolicyDocument> {
       premiumAmount: fields[5] as double,
       currency: fields[6] as String,
       cachedAt: fields[7] as DateTime,
+      trackingNumber: fields[8] as String?,
+      estimatedDeliveryDate: fields[9] as String?,
+      shipmentStatus: fields[10] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, PolicyDocument obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.policyId)
       ..writeByte(1)
@@ -47,7 +50,13 @@ class PolicyDocumentAdapter extends TypeAdapter<PolicyDocument> {
       ..writeByte(6)
       ..write(obj.currency)
       ..writeByte(7)
-      ..write(obj.cachedAt);
+      ..write(obj.cachedAt)
+      ..writeByte(8)
+      ..write(obj.trackingNumber)
+      ..writeByte(9)
+      ..write(obj.estimatedDeliveryDate)
+      ..writeByte(10)
+      ..write(obj.shipmentStatus);
   }
 
   @override

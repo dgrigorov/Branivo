@@ -95,7 +95,12 @@ export class PaymentsService {
         platformFeePct,
         status: PaymentStatus.PENDING,
         stripeClientSecret: intent.client_secret!,
-        metadata: { insurerCode: quote.insurer?.code ?? '' },
+        metadata: {
+          insurerCode: quote.insurer?.code ?? '',
+          ...(dto.deliveryAddress
+            ? { deliveryAddress: dto.deliveryAddress }
+            : {}),
+        },
       });
     } catch (dbError) {
       this.logger.error(

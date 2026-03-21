@@ -11,7 +11,11 @@ import { PolicyEventsRepository } from '../policies/policy-events.repository';
 import { PolicyStatus } from '../policies/entities/policy.entity';
 import { PolicyEventType } from '../policies/entities/policy-event.entity';
 import { QuotesRepository } from '../quotes/quotes.repository';
-import { QUEUE_PDF_GENERATION } from '../../infrastructure/queues/queue.module';
+import { TenantsRepository } from '../tenants/tenants.repository';
+import {
+  QUEUE_LOGISTICS,
+  QUEUE_PDF_GENERATION,
+} from '../../infrastructure/queues/queue.module';
 
 const TENANT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
 const PAYMENT_ID = 'payment-uuid-111';
@@ -68,6 +72,14 @@ const mockQuotesRepo = {
   findByIdWithoutScope: jest.fn().mockResolvedValue({ insurerId: INSURER_ID }),
 };
 
+const mockTenantsRepo = {
+  findById: jest.fn().mockResolvedValue({ features: { sticker_delivery: false } }),
+};
+
+const mockLogisticsQueue = {
+  add: jest.fn(),
+};
+
 describe('StripeWebhookService', () => {
   let service: StripeWebhookService;
 
@@ -82,10 +94,15 @@ describe('StripeWebhookService', () => {
         { provide: PoliciesRepository, useValue: mockPoliciesRepo },
         { provide: PolicyEventsRepository, useValue: mockPolicyEventsRepo },
         { provide: QuotesRepository, useValue: mockQuotesRepo },
+        { provide: TenantsRepository, useValue: mockTenantsRepo },
         { provide: ConfigService, useValue: mockConfig },
         {
           provide: getQueueToken(QUEUE_PDF_GENERATION),
           useValue: mockPdfQueue,
+        },
+        {
+          provide: getQueueToken(QUEUE_LOGISTICS),
+          useValue: mockLogisticsQueue,
         },
       ],
     }).compile();
@@ -126,7 +143,13 @@ describe('StripeWebhookService', () => {
     it('Тест 1: activates policy, creates events, queues PDF', async () => {
       mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(mockPayment);
       mockPoliciesRepo.findByStripeIntentId.mockResolvedValue(null);
-      const savedPolicy = { id: POLICY_ID, status: PolicyStatus.ACTIVE };
+      const savedPolicy = {
+        id: POLICY_ID,
+        tenantId: TENANT_ID,
+        policyNumber: 'DEMO-001',
+        status: PolicyStatus.ACTIVE,
+        deliveryAddress: null,
+      };
       mockPoliciesRepo.saveWithoutTenantScope.mockResolvedValue(savedPolicy);
       mockPolicyEventsRepo.createEvent.mockResolvedValue({});
       mockPdfQueue.add.mockResolvedValue({});
@@ -219,6 +242,8 @@ describe('StripeWebhookService', () => {
       mockPoliciesRepo.findByStripeIntentId.mockResolvedValue(null);
       mockPoliciesRepo.saveWithoutTenantScope.mockResolvedValue({
         id: POLICY_ID,
+        policyNumber: 'DEMO-001',
+        deliveryAddress: null,
       });
       mockPolicyEventsRepo.createEvent.mockResolvedValue({});
       mockPdfQueue.add.mockResolvedValue({});

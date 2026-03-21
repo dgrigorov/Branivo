@@ -51,7 +51,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.dataSource.query(
       `INSERT INTO tenants (id, slug, name, status, plan, features)
        VALUES ($1, 'demo', 'Demo Broker', 'active', 'starter',
-         '{"fleet": false, "api_access": false, "custom_domain": true}')`,
+         '{"fleet": false, "api_access": false, "custom_domain": true, "sticker_delivery": true}')`,
       [DEMO_TENANT_ID],
     );
   }

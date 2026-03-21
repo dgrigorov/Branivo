@@ -72,4 +72,18 @@ class PolicyRepository {
     );
     return PolicyDocumentUrls.fromJson(response.data!);
   }
+
+  /// Fetch shipment tracking info for a policy. Returns null if no shipment exists.
+  Future<Map<String, dynamic>?> getShipment(String policyId) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/policies/$policyId/shipment',
+        options: Options(headers: {'Authorization': 'Bearer $bearerToken'}),
+      );
+      return response.data;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
 }

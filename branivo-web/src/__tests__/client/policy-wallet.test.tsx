@@ -28,6 +28,19 @@ const mockDocumentUrls = {
   expiresAt: new Date(Date.now() + 900_000).toISOString(),
 };
 
+const mockShipment = {
+  shipmentId: 'shipment-id-1',
+  provider: 'speedy',
+  trackingNumber: 'SPEEDY-ABC123',
+  estimatedDeliveryDate: '2026-03-25',
+  status: 'dispatched',
+  createdAt: '2026-03-22T10:00:00.000Z',
+};
+
+/** Returns a 404 Response mock for shipment endpoint */
+const notFoundResponse = (): Response =>
+  ({ ok: false, status: 404, json: () => Promise.resolve(null) }) as Response;
+
 describe('PolicyWalletPage', () => {
   const localStorageMock: Record<string, string> = {};
 
@@ -47,10 +60,13 @@ describe('PolicyWalletPage', () => {
   });
 
   it('renders policy list after loading', async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ data: mockPolicies }),
-    } as Response);
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: mockPolicies }),
+      } as Response)
+      .mockResolvedValue(notFoundResponse()); // shipment fetches
 
     render(<PolicyWalletPage />);
 
@@ -61,10 +77,13 @@ describe('PolicyWalletPage', () => {
   });
 
   it('renders download buttons for each policy', async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ data: mockPolicies }),
-    } as Response);
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: mockPolicies }),
+      } as Response)
+      .mockResolvedValue(notFoundResponse());
 
     render(<PolicyWalletPage />);
 
@@ -96,6 +115,7 @@ describe('PolicyWalletPage', () => {
         ok: true,
         json: () => Promise.resolve({ data: [mockPolicies[0]] }),
       } as Response)
+      .mockResolvedValueOnce(notFoundResponse()) // shipment fetch
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockDocumentUrls),
@@ -127,6 +147,52 @@ describe('PolicyWalletPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+  });
+
+  it('renders shipment tracking info when shipment exists', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [mockPolicies[0]] }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockShipment),
+      } as Response);
+
+    render(<PolicyWalletPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('shipment-tracking')).toBeInTheDocument();
+      expect(screen.getByText('SPEEDY-ABC123')).toBeInTheDocument();
+      expect(screen.getByText('2026-03-25')).toBeInTheDocument();
+    });
+  });
+
+  it('shows manual handling message when provider is manual', async () => {
+    const manualShipment = { ...mockShipment, provider: 'manual', trackingNumber: null };
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [mockPolicies[0]] }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(manualShipment),
+      } as Response);
+
+    render(<PolicyWalletPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Доставката ще бъде обработена ръчно от брокера.'),
+      ).toBeInTheDocument();
     });
   });
 });

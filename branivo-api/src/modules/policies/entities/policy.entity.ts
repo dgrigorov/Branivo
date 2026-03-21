@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { DeliveryAddress } from '../../../modules/logistics/interfaces/delivery-address.interface';
 
 export enum PolicyStatus {
   PENDING = 'pending',
@@ -77,6 +78,9 @@ export class Policy {
 
   @Column({ name: 'documents_emailed_at', type: 'timestamptz', nullable: true })
   documentsEmailedAt?: Date;
+
+  @Column({ name: 'delivery_address', type: 'jsonb', nullable: true })
+  deliveryAddress!: DeliveryAddress | null;
 
   @Column({ name: 'metadata', type: 'jsonb', default: {} })
   metadata!: Record<string, unknown>;
