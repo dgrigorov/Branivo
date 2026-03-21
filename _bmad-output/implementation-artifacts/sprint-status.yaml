@@ -91,7 +91,7 @@ development_status:
   5-1-commission-matrix-configuration: done
   5-2-broker-commission-dashboard: done
   5-3-monthly-invoicing-job: done
-  5-4-stripe-account-revocation-handling: backlog
+  5-4-stripe-account-revocation-handling: done
   epic-5-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────

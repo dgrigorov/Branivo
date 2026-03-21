@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bull';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
+import { DataSource } from 'typeorm';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { StripeService } from './stripe.service';
 import { PaymentsRepository } from './payments.repository';
@@ -17,8 +18,10 @@ import {
   QUEUE_PDF_GENERATION,
 } from '../../infrastructure/queues/queue.module';
 import { CommissionsService } from '../commissions/commissions.service';
+import { EmailService } from '../../infrastructure/email/email.service';
 
 const TENANT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
+const STRIPE_ACCOUNT_ID = 'acct_test_001';
 const PAYMENT_ID = 'payment-uuid-111';
 const POLICY_ID = 'policy-uuid-222';
 const QUOTE_ID = 'quote-uuid-333';
@@ -77,6 +80,17 @@ const mockTenantsRepo = {
   findById: jest
     .fn()
     .mockResolvedValue({ features: { sticker_delivery: false } }),
+  findByStripeAccountId: jest.fn(),
+  updateStatus: jest.fn(),
+};
+
+const mockDataSource = {
+  transaction: jest.fn(),
+  query: jest.fn(),
+};
+
+const mockEmailService = {
+  sendStripeRevocationEmail: jest.fn(),
 };
 
 const mockLogisticsQueue = {
@@ -105,6 +119,8 @@ describe('StripeWebhookService', () => {
         { provide: TenantsRepository, useValue: mockTenantsRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: CommissionsService, useValue: mockCommissionsService },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: EmailService, useValue: mockEmailService },
         {
           provide: getQueueToken(QUEUE_PDF_GENERATION),
           useValue: mockPdfQueue,
@@ -313,6 +329,138 @@ describe('StripeWebhookService', () => {
 
       await expect(service.handleEvent(event)).resolves.not.toThrow();
       expect(mockPaymentsRepo.findByStripeIntentId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleAccountUpdated — account.updated (AC1, AC4, AC5)', () => {
+    const mockTenant = {
+      id: TENANT_ID,
+      name: 'Demo Broker',
+      status: 'active',
+      stripeAccountId: STRIPE_ACCOUNT_ID,
+    };
+
+    const makeAccountEvent = (chargesEnabled: boolean): Stripe.Event =>
+      ({
+        id: STRIPE_EVENT_ID,
+        type: 'account.updated',
+        data: {
+          object: {
+            id: STRIPE_ACCOUNT_ID,
+            charges_enabled: chargesEnabled,
+          },
+        },
+      }) as unknown as Stripe.Event;
+
+    beforeEach(() => {
+      mockDataSource.transaction.mockImplementation(
+        async (cb: (manager: typeof mockDataSource) => Promise<void>) => {
+          await cb(mockDataSource);
+        },
+      );
+      mockDataSource.query.mockResolvedValue([{ email: 'broker@demo.com' }]);
+      mockEmailService.sendStripeRevocationEmail.mockResolvedValue(undefined);
+      mockTenantsRepo.updateStatus.mockResolvedValue(undefined);
+    });
+
+    it('AC1: charges_enabled=false → updateStatus("stripe_revoked") + audit_log + email', async () => {
+      mockTenantsRepo.findByStripeAccountId.mockResolvedValue({
+        ...mockTenant,
+        status: 'active',
+      });
+
+      await service.handleEvent(makeAccountEvent(false));
+
+      expect(mockTenantsRepo.updateStatus).toHaveBeenCalledWith(
+        TENANT_ID,
+        'stripe_revoked',
+      );
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(mockEmailService.sendStripeRevocationEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ isRevoked: true, to: 'broker@demo.com' }),
+      );
+    });
+
+    it('AC4: charges_enabled=true → updateStatus("active") + audit_log + email (reinstatement)', async () => {
+      mockTenantsRepo.findByStripeAccountId.mockResolvedValue({
+        ...mockTenant,
+        status: 'stripe_revoked',
+      });
+
+      await service.handleEvent(makeAccountEvent(true));
+
+      expect(mockTenantsRepo.updateStatus).toHaveBeenCalledWith(
+        TENANT_ID,
+        'active',
+      );
+      expect(mockEmailService.sendStripeRevocationEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ isRevoked: false }),
+      );
+    });
+
+    it('Idempotency: already stripe_revoked + new revocation event → no update or email', async () => {
+      mockTenantsRepo.findByStripeAccountId.mockResolvedValue({
+        ...mockTenant,
+        status: 'stripe_revoked',
+      });
+
+      await service.handleEvent(makeAccountEvent(false));
+
+      expect(mockTenantsRepo.updateStatus).not.toHaveBeenCalled();
+      expect(mockEmailService.sendStripeRevocationEmail).not.toHaveBeenCalled();
+    });
+
+    it('Tenant not found → warn log, no error, no updateStatus', async () => {
+      mockTenantsRepo.findByStripeAccountId.mockResolvedValue(null);
+
+      await expect(
+        service.handleEvent(makeAccountEvent(false)),
+      ).resolves.not.toThrow();
+      expect(mockTenantsRepo.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('AC5: audit_log INSERT called with correct parameters on revocation', async () => {
+      mockTenantsRepo.findByStripeAccountId.mockResolvedValue({
+        ...mockTenant,
+        status: 'active',
+      });
+
+      await service.handleEvent(makeAccountEvent(false));
+
+      const auditLogCall = (
+        mockDataSource.query.mock.calls as Array<[string, unknown[]]>
+      ).find(([sql]) => sql.includes('INSERT INTO audit_log'));
+      expect(auditLogCall).toBeDefined();
+      const [, auditParams] = auditLogCall!;
+      expect(auditParams[0]).toBe(TENANT_ID);
+      expect(auditParams[1]).toBe('stripe_account_revoked');
+      expect(auditParams[2]).toBe(TENANT_ID);
+      const metadata = JSON.parse(auditParams[3] as string) as Record<
+        string,
+        unknown
+      >;
+      expect(metadata).toMatchObject({
+        stripeEventId: STRIPE_EVENT_ID,
+        stripeAccountId: STRIPE_ACCOUNT_ID,
+        chargesEnabled: false,
+      });
+    });
+
+    it('No broker_admin email found → logs warn, skips email, no error', async () => {
+      mockTenantsRepo.findByStripeAccountId.mockResolvedValue({
+        ...mockTenant,
+        status: 'active',
+      });
+      // Override: no broker_admin found in users table
+      mockDataSource.query
+        .mockResolvedValueOnce(undefined) // SET LOCAL inside transaction
+        .mockResolvedValueOnce(undefined) // INSERT INTO audit_log inside transaction
+        .mockResolvedValueOnce([]); // SELECT email → empty
+
+      await expect(
+        service.handleEvent(makeAccountEvent(false)),
+      ).resolves.not.toThrow();
+      expect(mockEmailService.sendStripeRevocationEmail).not.toHaveBeenCalled();
     });
   });
 });

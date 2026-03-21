@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { PaymentsService } from './payments.service';
@@ -87,6 +87,7 @@ const mockConfig = {
 
 const mockCommissionsService = {
   getRate: jest.fn().mockResolvedValue(0.05),
+  createPendingEvent: jest.fn().mockResolvedValue(undefined),
 };
 
 describe('PaymentsService', () => {
@@ -146,7 +147,9 @@ describe('PaymentsService', () => {
         id: 'pi_test_new',
         client_secret: 'pi_test_new_secret',
       } as Partial<Stripe.PaymentIntent>);
-      mockPaymentsRepo.save.mockResolvedValue({} as Payment);
+      mockPaymentsRepo.save.mockResolvedValue({
+        id: 'payment-new-uuid',
+      } as Payment);
 
       const result = await service.createIntent({ quoteId: QUOTE_ID });
 
@@ -163,6 +166,13 @@ describe('PaymentsService', () => {
       );
       expect(result.clientSecret).toBe('pi_test_new_secret');
       expect(result.paymentId).toBe('pi_test_new');
+      expect(mockCommissionsService.createPendingEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          paymentId: 'payment-new-uuid',
+          commissionPct: 0.05,
+        }),
+      );
     });
 
     it('throws BadRequestException when quote status is not success', async () => {
@@ -184,6 +194,35 @@ describe('PaymentsService', () => {
       await expect(service.createIntent({ quoteId: QUOTE_ID })).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('AC2: throws ForbiddenException when tenant status is stripe_revoked', async () => {
+      mockPaymentsRepo.findByIdempotencyKey.mockResolvedValue(null);
+      mockQuotesRepo.findOneById.mockResolvedValue(makeQuote());
+      const revokedTenant = { ...makeTenant(), status: 'stripe_revoked' };
+      mockTenantsRepo.findById.mockResolvedValue(revokedTenant);
+
+      await expect(service.createIntent({ quoteId: QUOTE_ID })).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.createIntent({ quoteId: QUOTE_ID })).rejects.toThrow(
+        'Broker account is suspended. New purchases are not available.',
+      );
+    });
+
+    it('AC2: proceeds normally when tenant status is active', async () => {
+      mockPaymentsRepo.findByIdempotencyKey.mockResolvedValue(null);
+      mockQuotesRepo.findOneById.mockResolvedValue(makeQuote());
+      mockTenantsRepo.findById.mockResolvedValue(makeTenant());
+      mockStripeService.createPaymentIntent.mockResolvedValue({
+        id: 'pi_test_active',
+        client_secret: 'pi_secret_active',
+      } as Partial<Stripe.PaymentIntent>);
+      mockPaymentsRepo.save.mockResolvedValue({} as Payment);
+
+      await expect(
+        service.createIntent({ quoteId: QUOTE_ID }),
+      ).resolves.not.toThrow();
     });
 
     it('calls commissionsService.getRate with insurerId and productType', async () => {

@@ -4,10 +4,12 @@ import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import Stripe from 'stripe';
+import { DataSource } from 'typeorm';
 import {
   QUEUE_LOGISTICS,
   QUEUE_PDF_GENERATION,
 } from '../../infrastructure/queues/queue.module';
+import { EmailService } from '../../infrastructure/email/email.service';
 import { StripeService } from './stripe.service';
 import { PaymentsRepository } from './payments.repository';
 import { PaymentStatus } from './entities/payment.entity';
@@ -17,6 +19,7 @@ import { PolicyStatus } from '../policies/entities/policy.entity';
 import { PolicyEventType } from '../policies/entities/policy-event.entity';
 import { QuotesRepository } from '../quotes/quotes.repository';
 import { TenantsRepository } from '../tenants/tenants.repository';
+import type { TenantStatus } from '../tenants/entities/tenant.entity';
 import { StickerDeliveryJobPayload } from '../logistics/interfaces/sticker-delivery-job.payload';
 import { DeliveryAddress } from '../logistics/interfaces/delivery-address.interface';
 import { CommissionsService } from '../commissions/commissions.service';
@@ -41,6 +44,8 @@ export class StripeWebhookService {
     private readonly tenantsRepo: TenantsRepository,
     private readonly config: ConfigService,
     private readonly commissionsService: CommissionsService,
+    private readonly dataSource: DataSource,
+    private readonly emailService: EmailService,
     @InjectQueue(QUEUE_PDF_GENERATION)
     private readonly pdfQueue: Queue<PdfGenerationJobPayload>,
     @InjectQueue(QUEUE_LOGISTICS)
@@ -60,9 +65,93 @@ export class StripeWebhookService {
       case 'payment_intent.payment_failed':
         await this.handlePaymentFailed(event.id, event.data.object);
         break;
+      case 'account.updated':
+        await this.handleAccountUpdated(event.id, event.data.object);
+        break;
       default:
         this.logger.debug(`Unhandled Stripe event type: ${event.type}`);
     }
+  }
+
+  private async handleAccountUpdated(
+    stripeEventId: string,
+    account: Stripe.Account,
+  ): Promise<void> {
+    this.logger.log(
+      `Processing account.updated for stripeAccountId: ${account.id}`,
+    );
+
+    // 1. Find tenant by stripeAccountId
+    const tenant = await this.tenantsRepo.findByStripeAccountId(account.id);
+    if (!tenant) {
+      this.logger.warn(
+        `No tenant found for stripeAccountId: ${account.id} — skipping`,
+      );
+      return;
+    }
+
+    // 2. Determine new status
+    const newStatus: TenantStatus = account.charges_enabled
+      ? 'active'
+      : 'stripe_revoked';
+
+    // 3. Idempotency — skip if already in target status
+    if (tenant.status === newStatus) {
+      this.logger.log(
+        `Tenant ${tenant.id} already in status ${newStatus} — skipping`,
+      );
+      return;
+    }
+
+    // 4. Update tenant status
+    await this.tenantsRepo.updateStatus(tenant.id, newStatus);
+
+    // 5. Write audit_log (IMMUTABLE — INSERT only, with RLS context)
+    const action = account.charges_enabled
+      ? 'stripe_account_reinstated'
+      : 'stripe_account_revoked';
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query(`SET LOCAL app.current_tenant_id = $1`, [tenant.id]);
+      await manager.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+         VALUES ($1, NULL, $2, 'tenant', $3, $4, NOW())`,
+        [
+          tenant.id,
+          action,
+          tenant.id,
+          JSON.stringify({
+            stripeEventId,
+            stripeAccountId: account.id,
+            chargesEnabled: account.charges_enabled,
+          }),
+        ],
+      );
+    });
+
+    // 6. Find broker_admin email and send notification
+    const brokerAdminRows = await this.dataSource.query<
+      Array<{ email: string }>
+    >(
+      `SELECT email FROM users WHERE tenant_id = $1 AND role = 'broker_admin' LIMIT 1`,
+      [tenant.id],
+    );
+    const brokerEmail = brokerAdminRows[0]?.email;
+    if (brokerEmail) {
+      await this.emailService.sendStripeRevocationEmail({
+        to: brokerEmail,
+        tenantName: tenant.name,
+        isRevoked: !account.charges_enabled,
+        stripeAccountId: account.id,
+      });
+    } else {
+      this.logger.warn(
+        `No broker_admin email found for tenant ${tenant.id} — skipping revocation email`,
+      );
+    }
+
+    this.logger.log(
+      `Tenant ${tenant.id} status updated to ${newStatus} (event: ${stripeEventId})`,
+    );
   }
 
   private async handlePaymentSucceeded(

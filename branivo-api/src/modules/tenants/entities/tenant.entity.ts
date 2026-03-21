@@ -6,6 +6,13 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+export type TenantStatus =
+  | 'invited'
+  | 'stripe_connected'
+  | 'active'
+  | 'suspended'
+  | 'stripe_revoked';
+
 @Entity({ name: 'tenants' })
 export class Tenant {
   @PrimaryGeneratedColumn('uuid')
@@ -18,7 +25,7 @@ export class Tenant {
   name!: string;
 
   @Column({ name: 'status', length: 50, default: 'invited' })
-  status!: string;
+  status!: TenantStatus;
 
   @Column({
     name: 'stripe_account_id',

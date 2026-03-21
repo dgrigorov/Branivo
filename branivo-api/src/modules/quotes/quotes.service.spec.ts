@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { QuotesService } from './quotes.service';
 import { QuotesRepository } from './quotes.repository';
@@ -7,6 +8,7 @@ import {
   CircuitOpenException,
 } from './circuit-breaker.service';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { TenantsRepository } from '../tenants/tenants.repository';
 import { INSURER_ADAPTERS } from './adapters/insurer-adapter.interface';
 import { QuoteStatus } from './entities/quote.entity';
 import type { Insurer } from './entities/insurer.entity';
@@ -88,6 +90,10 @@ const mockTenantContext = {
   getTenantId: jest.fn().mockReturnValue(TENANT_ID),
 };
 
+const mockTenantsRepo = {
+  findById: jest.fn().mockResolvedValue({ id: TENANT_ID, status: 'active' }),
+};
+
 const allianzAdapter = {
   insurerCode: 'allianz',
   fetchQuote: jest.fn().mockResolvedValue({
@@ -156,6 +162,7 @@ describe('QuotesService', () => {
         { provide: ScoringService, useValue: mockScoringService },
         { provide: CircuitBreakerService, useValue: mockCircuitBreakerService },
         { provide: TenantContext, useValue: mockTenantContext },
+        { provide: TenantsRepository, useValue: mockTenantsRepo },
         {
           provide: INSURER_ADAPTERS,
           useValue: [
@@ -181,6 +188,10 @@ describe('QuotesService', () => {
     mockQuotesRepository.updateQuoteStatus.mockResolvedValue(undefined);
     mockScoringService.scoreOffers.mockReturnValue([]);
     mockScoringService.logScoringAudit.mockResolvedValue(undefined);
+    mockTenantsRepo.findById.mockResolvedValue({
+      id: TENANT_ID,
+      status: 'active',
+    });
     mockCircuitBreakerService.call.mockImplementation(
       async (_code: string, fn: () => Promise<unknown>) => fn(),
     );
@@ -282,6 +293,33 @@ describe('QuotesService', () => {
         SESSION_TOKEN,
       );
       expect(result.sessionToken).toBe(SESSION_TOKEN);
+    });
+  });
+
+  describe('createQuoteRequest — stripe_revoked blocking (AC1)', () => {
+    it('throws ForbiddenException when tenant status is stripe_revoked', async () => {
+      mockTenantsRepo.findById.mockResolvedValue({
+        id: TENANT_ID,
+        status: 'stripe_revoked',
+      });
+
+      const dto: CreateQuoteDto = { sessionToken: SESSION_TOKEN };
+      await expect(service.createQuoteRequest(dto)).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.createQuoteRequest(dto)).rejects.toThrow(
+        'Broker account is suspended. New purchases are not available.',
+      );
+    });
+
+    it('proceeds normally when tenant status is active', async () => {
+      mockTenantsRepo.findById.mockResolvedValue({
+        id: TENANT_ID,
+        status: 'active',
+      });
+
+      const dto: CreateQuoteDto = { sessionToken: SESSION_TOKEN };
+      await expect(service.createQuoteRequest(dto)).resolves.not.toThrow();
     });
   });
 });

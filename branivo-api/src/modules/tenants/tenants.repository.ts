@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
 import { BaseRepository } from '../../common/base.repository';
-import { Tenant } from './entities/tenant.entity';
+import { Tenant, TenantStatus } from './entities/tenant.entity';
 import { TenantConfig } from './entities/tenant-config.entity';
 import { TenantDomain, DomainStatus } from './entities/tenant-domain.entity';
 
@@ -128,7 +128,7 @@ export class TenantsRepository extends BaseRepository<Tenant> {
   async createTenant(data: {
     name: string;
     slug: string;
-    status: string;
+    status: TenantStatus;
   }): Promise<Tenant> {
     const tenant = this.repo.create(data);
     return this.repo.save(tenant);
@@ -154,7 +154,7 @@ export class TenantsRepository extends BaseRepository<Tenant> {
     });
   }
 
-  async updateStatus(id: string, status: string): Promise<void> {
+  async updateStatus(id: string, status: TenantStatus): Promise<void> {
     await this.repo.update(id, { status });
   }
 

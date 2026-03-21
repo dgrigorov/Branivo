@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantContextModule } from '../../common/tenant-context/tenant-context.module';
 import { QueueModule } from '../../infrastructure/queues/queue.module';
+import { EmailModule } from '../../infrastructure/email/email.module';
 import { QuotesModule } from '../quotes/quotes.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { PoliciesModule } from '../policies/policies.module';
@@ -25,6 +26,7 @@ import { Payment } from './entities/payment.entity';
     CommissionsModule, // за CommissionsService.getRate()
     QueueModule, // за QUEUE_PDF_GENERATION + QUEUE_WEBHOOK_PROCESSING
     ConfigModule,
+    EmailModule, // за StripeWebhookService.sendStripeRevocationEmail()
   ],
   controllers: [PaymentsController],
   providers: [

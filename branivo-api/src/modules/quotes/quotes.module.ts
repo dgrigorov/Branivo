@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantContextModule } from '../../common/tenant-context/tenant-context.module';
+import { TenantsModule } from '../tenants/tenants.module';
 import { QuotesController } from './quotes.controller';
 import { QuotesService } from './quotes.service';
 import { QuotesRepository } from './quotes.repository';
@@ -12,7 +13,11 @@ import { INSURER_ADAPTERS } from './adapters/insurer-adapter.interface';
 import { MockInsurerAdapter } from './adapters/mock-insurer.adapter';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Quote, Insurer]), TenantContextModule],
+  imports: [
+    TypeOrmModule.forFeature([Quote, Insurer]),
+    TenantContextModule,
+    TenantsModule, // за TenantsRepository в QuotesService (stripe_revoked check)
+  ],
   controllers: [QuotesController],
   providers: [
     QuotesService,

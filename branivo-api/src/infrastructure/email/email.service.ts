@@ -145,6 +145,58 @@ export class EmailService {
     });
   }
 
+  private escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  async sendStripeRevocationEmail(params: {
+    to: string;
+    tenantName: string;
+    isRevoked: boolean;
+    stripeAccountId: string;
+  }): Promise<void> {
+    const { to, isRevoked } = params;
+    const tenantName = this.escapeHtml(params.tenantName);
+    const stripeAccountId = this.escapeHtml(params.stripeAccountId);
+
+    const subject = isRevoked
+      ? `⚠️ Вашият Stripe акаунт е спрян — нови продажби са блокирани`
+      : `✅ Вашият Stripe акаунт е възстановен — продажбите са възобновени`;
+
+    const html = isRevoked
+      ? `
+        <h2>⚠️ Вашият Stripe акаунт е спрян</h2>
+        <p>Здравейте,</p>
+        <p>Stripe акаунтът на <strong>${tenantName}</strong> (${stripeAccountId}) е временно спрян и <strong>нови продажби са блокирани</strong>.</p>
+        <p>Съществуващите издадени полици остават достъпни.</p>
+        <p>Моля, свържете се с Stripe Support за да разрешите проблема и възстановите акаунта си.</p>
+        <p>— Branivo Platform</p>
+      `
+      : `
+        <h2>✅ Вашият Stripe акаунт е възстановен</h2>
+        <p>Здравейте,</p>
+        <p>Stripe акаунтът на <strong>${tenantName}</strong> (${stripeAccountId}) е успешно възстановен.</p>
+        <p>Нови продажби са вече възобновени.</p>
+        <p>— Branivo Platform</p>
+      `;
+
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? 'noreply@branivo.com',
+      to,
+      subject,
+      html,
+    });
+
+    this.logger.log(
+      `Stripe revocation email (isRevoked=${String(isRevoked)}) sent to ${to} for tenant ${tenantName}`,
+    );
+  }
+
   async sendBillingFailureAlert(params: {
     to: string;
     tenantId: string;

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -68,6 +69,13 @@ export class PaymentsService {
     const tenant = await this.tenantsRepo.findById(tenantId);
     if (!tenant?.stripeAccountId) {
       throw new BadRequestException('Tenant Stripe account not configured');
+    }
+
+    // AC2: Block purchases for stripe_revoked tenants (FR36)
+    if (tenant.status === 'stripe_revoked') {
+      throw new ForbiddenException(
+        'Broker account is suspended. New purchases are not available.',
+      );
     }
 
     // 5. Създай PaymentIntent в Stripe

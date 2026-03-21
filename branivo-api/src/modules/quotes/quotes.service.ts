@@ -1,5 +1,6 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { TenantsRepository } from '../tenants/tenants.repository';
 import { QuotesRepository } from './quotes.repository';
 import { ScoringService } from './scoring/scoring.service';
 import {
@@ -48,6 +49,7 @@ export class QuotesService {
     private readonly scoringService: ScoringService,
     private readonly circuitBreakerService: CircuitBreakerService,
     private readonly tenantContext: TenantContext,
+    private readonly tenantsRepo: TenantsRepository,
     @Inject(INSURER_ADAPTERS) adapters: InsurerAdapter[],
   ) {
     for (const adapter of adapters) {
@@ -57,6 +59,15 @@ export class QuotesService {
 
   async createQuoteRequest(dto: CreateQuoteDto): Promise<QuoteResponseDto> {
     const tenantId = this.tenantContext.getTenantId();
+
+    // AC1: Block quotes for stripe_revoked tenants
+    const tenant = await this.tenantsRepo.findById(tenantId);
+    if (tenant?.status === 'stripe_revoked') {
+      throw new ForbiddenException(
+        'Broker account is suspended. New purchases are not available.',
+      );
+    }
+
     const activeInsurers = await this.quotesRepository.findActiveInsurers();
 
     const expiresAt = new Date();
