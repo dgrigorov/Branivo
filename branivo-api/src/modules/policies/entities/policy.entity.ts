@@ -69,6 +69,15 @@ export class Policy {
   @Column({ name: 'coverage_end_date', type: 'date', nullable: true })
   coverageEndDate?: Date;
 
+  @Column({ name: 'policy_pdf_s3_key', nullable: true })
+  policyPdfS3Key?: string;
+
+  @Column({ name: 'green_card_pdf_s3_key', nullable: true })
+  greenCardPdfS3Key?: string;
+
+  @Column({ name: 'documents_emailed_at', type: 'timestamptz', nullable: true })
+  documentsEmailedAt?: Date;
+
   @Column({ name: 'metadata', type: 'jsonb', default: {} })
   metadata!: Record<string, unknown>;
 

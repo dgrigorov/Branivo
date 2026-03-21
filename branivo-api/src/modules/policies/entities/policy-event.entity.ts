@@ -9,6 +9,7 @@ export enum PolicyEventType {
   ACTIVATED = 'policy.activated',
   FAILED = 'policy.failed',
   PDF_QUEUED = 'policy.pdf_queued',
+  DOCUMENTS_DELIVERED = 'policy.documents_delivered',
 }
 
 @Entity('policy_events')

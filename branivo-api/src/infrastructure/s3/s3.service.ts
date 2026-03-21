@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
 export class S3Service {
@@ -42,5 +47,34 @@ export class S3Service {
     const url = `https://${this.cloudfrontDomain}/${key}`;
     this.logger.log(`Logo uploaded for tenant ${tenantId}: ${url}`);
     return url;
+  }
+
+  /**
+   * Upload policy document to S3 (private — no ACL public-read).
+   * Used for policy PDFs and green cards.
+   */
+  async uploadPolicyDocument(key: string, buffer: Buffer): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: 'application/pdf',
+      }),
+    );
+    this.logger.log(`Policy document uploaded: ${key}`);
+  }
+
+  /**
+   * Generate a presigned URL for private S3 object download.
+   * @param key S3 object key
+   * @param expiresInSeconds TTL in seconds (e.g. 900 = 15 min)
+   */
+  async generatePresignedUrl(
+    key: string,
+    expiresInSeconds: number,
+  ): Promise<string> {
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
   }
 }

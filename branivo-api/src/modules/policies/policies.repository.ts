@@ -49,4 +49,30 @@ export class PoliciesRepository extends BaseRepository<Policy> {
       updatedAt: new Date(),
     });
   }
+
+  // НЕ tenant-scoped — за job context (PDF generation processor)
+  async findByIdWithoutScope(id: string): Promise<Policy | null> {
+    return this.policyRepo.findOne({
+      where: { id, deletedAt: IsNull() },
+    });
+  }
+
+  async updatePdfKeys(
+    id: string,
+    policyPdfKey: string,
+    greenCardKey: string,
+  ): Promise<void> {
+    await this.policyRepo.update(id, {
+      policyPdfS3Key: policyPdfKey,
+      greenCardPdfS3Key: greenCardKey,
+      updatedAt: new Date(),
+    });
+  }
+
+  async markDocumentsEmailed(id: string): Promise<void> {
+    await this.policyRepo.update(id, {
+      documentsEmailedAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
 }
