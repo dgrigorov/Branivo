@@ -1,0 +1,78 @@
+name: Sprint Status Sync
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  sync-status:
+    name: Update Sprint Status on Merge
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract story key from branch name
+        id: extract
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          echo "Branch: $BRANCH"
+
+          # Match: feature/story-4-2-some-name → story_key=4-2-some-name
+          if [[ "$BRANCH" =~ ^(feature|bugfix|chore|refactor)/story-([0-9]+-[0-9]+-[a-z0-9-]+)$ ]]; then
+            STORY_KEY="${BASH_REMATCH[2]}"
+            echo "story_key=$STORY_KEY" >> "$GITHUB_OUTPUT"
+            echo "Extracted story key: $STORY_KEY"
+          else
+            echo "story_key=" >> "$GITHUB_OUTPUT"
+            echo "Branch '$BRANCH' does not match story pattern — skipping"
+          fi
+
+      - name: Update sprint-status.yaml
+        if: steps.extract.outputs.story_key != ''
+        env:
+          STORY_KEY: ${{ steps.extract.outputs.story_key }}
+        run: |
+          FILE="_bmad-output/implementation-artifacts/sprint-status.yaml"
+
+          if ! grep -q "^  ${STORY_KEY}:" "$FILE"; then
+            echo "Story key '${STORY_KEY}' not found in $FILE — skipping"
+            exit 0
+          fi
+
+          CURRENT=$(grep "^  ${STORY_KEY}:" "$FILE" | awk '{print $2}')
+          echo "Current status: $CURRENT"
+
+          if [[ "$CURRENT" == "done" ]]; then
+            echo "Already done — nothing to update"
+            exit 0
+          fi
+
+          # Update status to done
+          sed -i "s/^  ${STORY_KEY}: .*/  ${STORY_KEY}: done/" "$FILE"
+
+          UPDATED=$(grep "^  ${STORY_KEY}:" "$FILE" | awk '{print $2}')
+          echo "Updated status: $UPDATED"
+
+      - name: Commit and push
+        if: steps.extract.outputs.story_key != ''
+        env:
+          STORY_KEY: ${{ steps.extract.outputs.story_key }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git diff --quiet && echo "No changes to commit" && exit 0
+
+          git add _bmad-output/implementation-artifacts/sprint-status.yaml
+          git commit -m "chore(sprint): mark ${STORY_KEY} as done [skip ci]"
+          git push

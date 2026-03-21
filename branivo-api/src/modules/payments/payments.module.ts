@@ -2,12 +2,16 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantContextModule } from '../../common/tenant-context/tenant-context.module';
+import { QueueModule } from '../../infrastructure/queues/queue.module';
 import { QuotesModule } from '../quotes/quotes.module';
 import { TenantsModule } from '../tenants/tenants.module';
+import { PoliciesModule } from '../policies/policies.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { PaymentsRepository } from './payments.repository';
 import { StripeService } from './stripe.service';
+import { StripeWebhookService } from './stripe-webhook.service';
+import { WebhookProcessingProcessor } from './webhook-processing.processor';
 import { Payment } from './entities/payment.entity';
 
 @Module({
@@ -16,11 +20,18 @@ import { Payment } from './entities/payment.entity';
     TenantContextModule,
     QuotesModule, // за QuotesRepository достъп
     TenantsModule, // за tenant stripe_account_id
+    PoliciesModule, // за PoliciesRepository + PolicyEventsRepository
+    QueueModule, // за QUEUE_PDF_GENERATION + QUEUE_WEBHOOK_PROCESSING
     ConfigModule,
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService, PaymentsRepository, StripeService],
+  providers: [
+    PaymentsService,
+    PaymentsRepository,
+    StripeService,
+    StripeWebhookService,
+    WebhookProcessingProcessor,
+  ],
   exports: [PaymentsService, StripeService, PaymentsRepository],
-  // exports нужни за Story 4.3 (webhook handler)
 })
 export class PaymentsModule {}

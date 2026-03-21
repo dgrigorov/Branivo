@@ -6,12 +6,16 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bull';
 import { default as request } from 'supertest';
 import { ThrottlerModule } from '@nestjs/throttler';
+import Stripe from 'stripe';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
+import { StripeWebhookService } from './stripe-webhook.service';
 import { PaymentIntentResponseDto } from './dto/payment-intent-response.dto';
 import { ClientJwtAuthGuard } from '../clients/guards/client-jwt-auth.guard';
+import { QUEUE_WEBHOOK_PROCESSING } from '../../infrastructure/queues/queue.module';
 
 const QUOTE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const CLIENT_ID = 'client-uuid-123';
@@ -25,6 +29,15 @@ const mockPaymentIntentResponse: PaymentIntentResponseDto = {
 
 const mockPaymentsService = {
   createIntent: jest.fn(),
+};
+
+const mockStripeWebhookService = {
+  constructEvent: jest.fn(),
+  handleEvent: jest.fn(),
+};
+
+const mockWebhookQueue = {
+  add: jest.fn(),
 };
 
 class MockClientJwtAuthGuard implements CanActivate {
@@ -56,7 +69,14 @@ describe('PaymentsController — createIntent (integration)', () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ThrottlerModule.forRoot([{ limit: 100, ttl: 60000 }])],
       controllers: [PaymentsController],
-      providers: [{ provide: PaymentsService, useValue: mockPaymentsService }],
+      providers: [
+        { provide: PaymentsService, useValue: mockPaymentsService },
+        { provide: StripeWebhookService, useValue: mockStripeWebhookService },
+        {
+          provide: getQueueToken(QUEUE_WEBHOOK_PROCESSING),
+          useValue: mockWebhookQueue,
+        },
+      ],
     })
       .overrideGuard(ClientJwtAuthGuard)
       .useClass(MockClientJwtAuthGuard)
@@ -113,7 +133,14 @@ describe('PaymentsController — createIntent (integration)', () => {
     const moduleNoAuth: TestingModule = await Test.createTestingModule({
       imports: [ThrottlerModule.forRoot([{ limit: 100, ttl: 60000 }])],
       controllers: [PaymentsController],
-      providers: [{ provide: PaymentsService, useValue: mockPaymentsService }],
+      providers: [
+        { provide: PaymentsService, useValue: mockPaymentsService },
+        { provide: StripeWebhookService, useValue: mockStripeWebhookService },
+        {
+          provide: getQueueToken(QUEUE_WEBHOOK_PROCESSING),
+          useValue: mockWebhookQueue,
+        },
+      ],
     })
       .overrideGuard(ClientJwtAuthGuard)
       .useClass(RejectingGuard)
@@ -138,5 +165,117 @@ describe('PaymentsController — createIntent (integration)', () => {
       .expect(400);
 
     expect(mockPaymentsService.createIntent).not.toHaveBeenCalled();
+  });
+});
+
+describe('PaymentsController — handleWebhook (integration)', () => {
+  let app: INestApplication;
+  const STRIPE_SIG = 't=1700000000,v1=abc123';
+  const mockEvent = {
+    id: 'evt_test_001',
+    type: 'payment_intent.succeeded',
+    data: { object: { id: 'pi_test_001' } },
+  } as unknown as Stripe.Event;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+
+    const module: TestingModule = await Test.createTestingModule({
+      imports: [ThrottlerModule.forRoot([{ limit: 100, ttl: 60000 }])],
+      controllers: [PaymentsController],
+      providers: [
+        { provide: PaymentsService, useValue: mockPaymentsService },
+        { provide: StripeWebhookService, useValue: mockStripeWebhookService },
+        {
+          provide: getQueueToken(QUEUE_WEBHOOK_PROCESSING),
+          useValue: mockWebhookQueue,
+        },
+      ],
+    }).compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('Тест 1: POST /payments/webhook без stripe-signature → 400', async () => {
+    await request(app.getHttpServer() as import('http').Server)
+      .post('/payments/webhook')
+      .send(Buffer.from('{}'))
+      .expect(400);
+
+    expect(mockStripeWebhookService.constructEvent).not.toHaveBeenCalled();
+  });
+
+  it('Тест 2: POST /payments/webhook с невалидна Stripe signature → 400', async () => {
+    mockStripeWebhookService.constructEvent.mockImplementation(() => {
+      throw new Error('No signatures found matching the expected signature');
+    });
+
+    await request(app.getHttpServer() as import('http').Server)
+      .post('/payments/webhook')
+      .set('stripe-signature', 'invalid_sig')
+      .send(Buffer.from('{}'))
+      .expect(400);
+  });
+
+  it('Тест 3: POST /payments/webhook payment_intent.succeeded → 200 { received: true }', async () => {
+    mockStripeWebhookService.constructEvent.mockReturnValue(mockEvent);
+    mockWebhookQueue.add.mockResolvedValue({ id: 'job-1' });
+
+    const body = await request(app.getHttpServer() as import('http').Server)
+      .post('/payments/webhook')
+      .set('stripe-signature', STRIPE_SIG)
+      .send(Buffer.from('{}'))
+      .expect(200);
+
+    const result = body.body as { received: boolean };
+    expect(result.received).toBe(true);
+    expect(mockWebhookQueue.add).toHaveBeenCalledWith(
+      'process-stripe-event',
+      mockEvent,
+      expect.objectContaining({ jobId: mockEvent.id }),
+    );
+  });
+
+  it('Тест 4: POST /payments/webhook payment_intent.payment_failed → 200 { received: true }', async () => {
+    const failedEvent = {
+      ...mockEvent,
+      id: 'evt_test_002',
+      type: 'payment_intent.payment_failed',
+    } as unknown as Stripe.Event;
+    mockStripeWebhookService.constructEvent.mockReturnValue(failedEvent);
+    mockWebhookQueue.add.mockResolvedValue({ id: 'job-2' });
+
+    const body = await request(app.getHttpServer() as import('http').Server)
+      .post('/payments/webhook')
+      .set('stripe-signature', STRIPE_SIG)
+      .send(Buffer.from('{}'))
+      .expect(200);
+
+    const result = body.body as { received: boolean };
+    expect(result.received).toBe(true);
+  });
+
+  it('Тест 5: POST /payments/webhook unknown event type → 200 { received: true }', async () => {
+    const unknownEvent = {
+      ...mockEvent,
+      id: 'evt_test_003',
+      type: 'customer.created',
+    } as unknown as Stripe.Event;
+    mockStripeWebhookService.constructEvent.mockReturnValue(unknownEvent);
+    mockWebhookQueue.add.mockResolvedValue({ id: 'job-3' });
+
+    const body = await request(app.getHttpServer() as import('http').Server)
+      .post('/payments/webhook')
+      .set('stripe-signature', STRIPE_SIG)
+      .send(Buffer.from('{}'))
+      .expect(200);
+
+    const result = body.body as { received: boolean };
+    expect(result.received).toBe(true);
   });
 });

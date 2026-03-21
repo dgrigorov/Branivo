@@ -15,6 +15,11 @@ export class PoliciesRepository extends BaseRepository<Policy> {
     super(policyRepo, tenantContext);
   }
 
+  // НЕ tenant-scoped — webhook идва без tenant context (INSERT без RLS session)
+  async saveWithoutTenantScope(entity: Partial<Policy>): Promise<Policy> {
+    return this.policyRepo.save(entity as Policy);
+  }
+
   // НЕ tenant-scoped — webhook идва без tenant context
   async findByStripeIntentId(intentId: string): Promise<Policy | null> {
     return this.policyRepo.findOne({

@@ -6,6 +6,7 @@ export const QUEUE_PDF_GENERATION = 'pdf-generation';
 export const QUEUE_NOTIFICATIONS = 'notifications';
 export const QUEUE_LOGISTICS = 'logistics';
 export const QUEUE_OCR_PROCESSING = 'ocr-processing';
+export const QUEUE_WEBHOOK_PROCESSING = 'webhook-processing';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ export const QUEUE_OCR_PROCESSING = 'ocr-processing';
       { name: QUEUE_PDF_GENERATION },
       { name: QUEUE_NOTIFICATIONS },
       { name: QUEUE_LOGISTICS },
+      { name: QUEUE_WEBHOOK_PROCESSING },
     ),
   ],
   exports: [BullModule],
