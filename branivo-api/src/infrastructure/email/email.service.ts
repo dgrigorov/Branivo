@@ -221,4 +221,32 @@ export class EmailService {
       `Billing failure alert sent to ${to} for tenant ${tenantId}`,
     );
   }
+
+  async sendRenewalFailureAlert(params: {
+    to: string;
+    errorMessage: string;
+  }): Promise<void> {
+    const { to, errorMessage } = params;
+
+    const safeError = errorMessage
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? 'noreply@branivo.com',
+      to,
+      subject: `⚠️ Renewal check job failed`,
+      html: `
+        <h2>Renewal Check Job Failure Alert</h2>
+        <p>The daily renewal check job has failed and been moved to the dead-letter queue.</p>
+        <p><strong>Error:</strong> ${safeError}</p>
+        <p>Please check the BullMQ dead-letter queue and investigate.</p>
+        <p>— Branivo Platform</p>
+      `,
+    });
+
+    this.logger.warn(`Renewal failure alert sent to ${to}`);
+  }
 }

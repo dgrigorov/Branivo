@@ -20,6 +20,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { LogisticsModule } from './modules/logistics/logistics.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { RenewalModule } from './modules/renewal/renewal.module';
 import { CommissionsModule } from './modules/commissions/commissions.module';
 import { UsersModule } from './modules/users/users.module';
 import { AdminModule } from './modules/admin/admin.module';
@@ -58,6 +59,7 @@ import { HealthModule } from './health/health.module';
     LogisticsModule,
     NotificationsModule,
     BillingModule,
+    RenewalModule,
     CommissionsModule,
     UsersModule,
     AdminModule,

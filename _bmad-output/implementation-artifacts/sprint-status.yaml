@@ -97,8 +97,8 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 6: Renewal & Notification Engine
   # ─────────────────────────────────────────────────────────────
-  epic-6: backlog
-  6-1-renewal-check-scheduled-job: backlog
+  epic-6: in-progress
+  6-1-renewal-check-scheduled-job: done
   6-2-multi-channel-notification-delivery: backlog
   6-3-renewal-escalation-configuration: backlog
   epic-6-retrospective: optional
