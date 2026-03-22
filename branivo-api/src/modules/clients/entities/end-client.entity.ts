@@ -21,6 +21,12 @@ export class EndClient {
   @Column({ name: 'phone_verified', default: false })
   phoneVerified!: boolean;
 
+  @Column({ name: 'email', nullable: true, type: 'varchar', length: 255 })
+  email!: string | null;
+
+  @Column({ name: 'push_token', nullable: true, type: 'text' })
+  pushToken!: string | null;
+
   @Column({ name: 'first_name', nullable: true, type: 'varchar', length: 100 })
   firstName!: string | null;
 

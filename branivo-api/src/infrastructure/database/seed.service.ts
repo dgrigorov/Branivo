@@ -104,8 +104,8 @@ export class SeedService implements OnApplicationBootstrap {
 
   private async seedEndClients(): Promise<string> {
     const result = await this.dataSource.query<{ id: string }[]>(
-      `INSERT INTO end_clients (id, tenant_id, phone_number, phone_verified, first_name, last_name)
-       VALUES (gen_random_uuid(), $1, '+359881234567', true, 'Иван', 'Иванов')
+      `INSERT INTO end_clients (id, tenant_id, phone_number, phone_verified, first_name, last_name, email, push_token)
+       VALUES (gen_random_uuid(), $1, '+359881234567', true, 'Иван', 'Иванов', 'demo.client@example.com', NULL)
        RETURNING id`,
       [DEMO_TENANT_ID],
     );
