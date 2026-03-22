@@ -20,6 +20,10 @@ import { AdminInsurerMonitorRepository } from './repositories/admin-insurer-moni
 import { AdminInsurerMonitorService } from './admin-insurer-monitor.service';
 import { AdminInsurerMonitorController } from './admin-insurer-monitor.controller';
 import { AdminInsurerMonitorJob } from './admin-insurer-monitor.job';
+import { AdminSubscriptionRepository } from './repositories/admin-subscription.repository';
+import { AdminSubscriptionService } from './admin-subscription.service';
+import { AdminSubscriptionController } from './admin-subscription.controller';
+import { AdminSubscriptionJob } from './admin-subscription.job';
 
 @Module({
   imports: [
@@ -41,6 +45,7 @@ import { AdminInsurerMonitorJob } from './admin-insurer-monitor.job';
     WebhooksController,
     AdminHealthController,
     AdminInsurerMonitorController,
+    AdminSubscriptionController,
   ],
   providers: [
     AdminTenantsService,
@@ -53,6 +58,9 @@ import { AdminInsurerMonitorJob } from './admin-insurer-monitor.job';
     AdminInsurerMonitorRepository,
     AdminInsurerMonitorService,
     AdminInsurerMonitorJob,
+    AdminSubscriptionRepository,
+    AdminSubscriptionService,
+    AdminSubscriptionJob,
   ],
   exports: [AdminTenantsService],
 })

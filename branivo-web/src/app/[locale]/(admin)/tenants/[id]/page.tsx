@@ -1,7 +1,21 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useParams } from 'next/navigation';
+
+interface PendingDowngradeInfo {
+  newPlan: string;
+  enforceAt: string;
+}
+
+interface TierChangePreview {
+  oldPlan: string;
+  newPlan: string;
+  isUpgrade: boolean;
+  affectedFlags: string[];
+  graceEndsAt: string | null;
+}
 
 interface TenantHealthDetail {
   tenantId: string;
@@ -12,7 +26,21 @@ interface TenantHealthDetail {
   lastPolicyCreatedAt: string | null;
   lastPolicyInsurer: string | null;
   activeFeatureFlags: string[];
+  currentPlan: string;
+  pendingDowngrade: PendingDowngradeInfo | null;
 }
+
+const PLAN_LABELS: Record<string, string> = {
+  starter: 'Starter',
+  professional: 'Professional',
+  enterprise: 'Enterprise',
+};
+
+const PLAN_BADGE_COLORS: Record<string, string> = {
+  starter: 'bg-gray-100 text-gray-800',
+  professional: 'bg-blue-100 text-blue-800',
+  enterprise: 'bg-purple-100 text-purple-800',
+};
 
 async function fetchTenantDetail(tenantId: string): Promise<TenantHealthDetail> {
   const res = await fetch(`/api/v1/admin/health/${tenantId}`, {
@@ -25,16 +53,88 @@ async function fetchTenantDetail(tenantId: string): Promise<TenantHealthDetail> 
   return res.json() as Promise<TenantHealthDetail>;
 }
 
+async function fetchTierPreview(
+  tenantId: string,
+  newPlan: string,
+): Promise<TierChangePreview> {
+  const res = await fetch(
+    `/api/v1/admin/tenants/${tenantId}/subscription/preview?newPlan=${newPlan}`,
+    { credentials: 'include' },
+  );
+  if (!res.ok) throw new Error('Грешка при зареждане на preview');
+  return res.json() as Promise<TierChangePreview>;
+}
+
+async function applyTierChange(
+  tenantId: string,
+  newPlan: string,
+): Promise<TierChangePreview> {
+  const res = await fetch(
+    `/api/v1/admin/tenants/${tenantId}/subscription/tier`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPlan }),
+    },
+  );
+  if (!res.ok) throw new Error('Грешка при промяна на план');
+  return res.json() as Promise<TierChangePreview>;
+}
+
 export default function TenantHealthDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const queryClient = useQueryClient();
+
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [preview, setPreview] = useState<TierChangePreview | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'tenants', 'health', id],
     queryFn: () => fetchTenantDetail(id),
     staleTime: 30_000,
   });
+
+  const changeTierMutation = useMutation({
+    mutationFn: (newPlan: string) => applyTierChange(id, newPlan),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', 'health', id] });
+      setShowModal(false);
+      setSelectedPlan('');
+      setPreview(null);
+    },
+  });
+
+  const handlePlanSelect = (plan: string) => {
+    setSelectedPlan(plan);
+    setPreview(null);
+    setPreviewError(null);
+  };
+
+  const handlePreview = async () => {
+    if (!selectedPlan || !data) return;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const result = await fetchTierPreview(id, selectedPlan);
+      setPreview(result);
+      setShowModal(true);
+    } catch {
+      setPreviewError('Грешка при зареждане на preview. Опитайте отново.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleConfirm = () => {
+    if (!selectedPlan) return;
+    changeTierMutation.mutate(selectedPlan);
+  };
 
   if (isLoading) {
     return (
@@ -61,6 +161,10 @@ export default function TenantHealthDetailPage() {
   }
 
   if (!data) return null;
+
+  const availablePlans = ['starter', 'professional', 'enterprise'].filter(
+    (p) => p !== data.currentPlan,
+  );
 
   return (
     <div className="p-6">
@@ -147,6 +251,122 @@ export default function TenantHealthDetailPage() {
           <p className="text-sm text-gray-500">Няма активни флагове</p>
         )}
       </div>
+
+      {/* Subscription tier section */}
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-base font-semibold text-gray-900">
+          Абонаментен план
+        </h2>
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">Текущ план:</span>
+          <span
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${PLAN_BADGE_COLORS[data.currentPlan] ?? 'bg-gray-100 text-gray-800'}`}
+          >
+            {PLAN_LABELS[data.currentPlan] ?? data.currentPlan}
+          </span>
+        </div>
+
+        {data.pendingDowngrade && (
+          <div className="mt-3 rounded-md border border-yellow-200 bg-yellow-50 p-3">
+            <p className="text-sm text-yellow-800">
+              ⚠️ Pending downgrade към{' '}
+              <strong>{PLAN_LABELS[data.pendingDowngrade.newPlan] ?? data.pendingDowngrade.newPlan}</strong>{' '}
+              на{' '}
+              <strong>
+                {new Date(data.pendingDowngrade.enforceAt).toLocaleDateString('bg-BG')}
+              </strong>
+            </p>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center gap-3">
+          <select
+            value={selectedPlan}
+            onChange={(e) => handlePlanSelect(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Избери нов план"
+          >
+            <option value="">Избери нов план</option>
+            {availablePlans.map((plan) => (
+              <option key={plan} value={plan}>
+                {PLAN_LABELS[plan] ?? plan}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => void handlePreview()}
+            disabled={!selectedPlan || previewLoading}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {previewLoading ? 'Зареждане...' : 'Промени план'}
+          </button>
+        </div>
+
+        {previewError && (
+          <p className="mt-2 text-sm text-red-600">{previewError}</p>
+        )}
+      </div>
+
+      {/* Preview modal */}
+      {showModal && preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">
+              Потвърди промяна на план
+            </h3>
+
+            {preview.isUpgrade ? (
+              <div className="rounded-md border border-green-200 bg-green-50 p-3">
+                <p className="text-sm text-green-800">
+                  ✅ Upgrade от <strong>{PLAN_LABELS[preview.oldPlan] ?? preview.oldPlan}</strong> към{' '}
+                  <strong>{PLAN_LABELS[preview.newPlan] ?? preview.newPlan}</strong>.
+                  Новите features ще бъдат активирани незабавно.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ Downgrade от <strong>{PLAN_LABELS[preview.oldPlan] ?? preview.oldPlan}</strong> към{' '}
+                  <strong>{PLAN_LABELS[preview.newPlan] ?? preview.newPlan}</strong>.
+                </p>
+                {preview.affectedFlags.length > 0 && (
+                  <p className="mt-2 text-sm text-yellow-800">
+                    Features за деактивиране след 7 дни:{' '}
+                    <strong>{preview.affectedFlags.join(', ')}</strong>
+                  </p>
+                )}
+                <p className="mt-1 text-sm text-yellow-700">
+                  Брокерът ще получи email известие.
+                </p>
+              </div>
+            )}
+
+            {changeTierMutation.isError && (
+              <p className="mt-3 text-sm text-red-600">
+                Грешка при промяна. Опитайте отново.
+              </p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Отказ
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={changeTierMutation.isPending}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {changeTierMutation.isPending ? 'Запазване...' : 'Потвърди'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

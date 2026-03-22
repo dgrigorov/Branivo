@@ -37,6 +37,8 @@ const mockDetail: TenantHealthDetailResponseDto = {
   lastPolicyCreatedAt: '2026-03-20T10:00:00.000Z',
   lastPolicyInsurer: 'Bulins',
   activeFeatureFlags: ['fleet', 'custom_domain'],
+  currentPlan: 'professional',
+  pendingDowngrade: null,
 };
 
 const mockAdminHealthService = {

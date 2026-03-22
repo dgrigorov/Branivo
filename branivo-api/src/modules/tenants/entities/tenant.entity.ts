@@ -6,6 +6,11 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+export interface PendingDowngrade {
+  newPlan: string;
+  enforceAt: string; // ISO date string
+}
+
 export type TenantStatus =
   | 'invited'
   | 'stripe_connected'
@@ -61,6 +66,9 @@ export class Tenant {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
+
+  @Column({ name: 'pending_downgrade', type: 'jsonb', nullable: true })
+  pendingDowngrade!: PendingDowngrade | null;
 
   @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;

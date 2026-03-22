@@ -119,6 +119,23 @@ export class EmailService {
     await this.sendWithRetry(mailOptions);
   }
 
+  async sendDowngradeNotification(
+    to: string,
+    affectedFlags: string[],
+    graceEndsAt: string,
+  ): Promise<void> {
+    const dateStr = new Date(graceEndsAt).toLocaleDateString('bg-BG');
+    const flagList =
+      affectedFlags.length > 0 ? affectedFlags.join(', ') : 'Няма';
+    const subject = `Branivo: Планът ви се downgrade-ва на ${dateStr}`;
+    const text = [
+      `Вашият абонаментен план ще бъде понижен на ${dateStr}.`,
+      `Features за деактивиране: ${flagList}.`,
+      `За да запазите достъпа, надстройте плана си преди тази дата.`,
+    ].join('\n');
+    await this.sendWithRetry({ from: this.fromAddress, to, subject, text });
+  }
+
   async sendInsurerAlertEmail(
     to: string,
     insurerName: string,

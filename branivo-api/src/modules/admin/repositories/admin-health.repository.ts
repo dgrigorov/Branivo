@@ -7,7 +7,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { TenantHealthSummaryResponseDto } from '../dto/tenant-health-summary-response.dto';
-import { TenantHealthDetailResponseDto } from '../dto/tenant-health-detail-response.dto';
+import {
+  TenantHealthDetailResponseDto,
+  PendingDowngradeInfo,
+} from '../dto/tenant-health-detail-response.dto';
 import { InactiveTenantAlertDto } from '../dto/inactive-tenant-alert.dto';
 
 interface RawTenantHealthSummary {
@@ -29,6 +32,8 @@ interface RawTenantHealthDetail {
   lastPolicyCreatedAt: Date | null;
   lastPolicyInsurer: string | null;
   activeFeatureFlags: Record<string, boolean> | null;
+  currentPlan: string;
+  pendingDowngrade: PendingDowngradeInfo | null;
 }
 
 interface RawInactiveTenantAlert {
@@ -108,7 +113,9 @@ export class AdminHealthRepository {
         )::int                              AS "vehicleCount",
         MAX(p.created_at)                   AS "lastPolicyCreatedAt",
         i.name                              AS "lastPolicyInsurer",
-        tc.feature_flags                    AS "activeFeatureFlags"
+        tc.feature_flags                    AS "activeFeatureFlags",
+        t.plan                              AS "currentPlan",
+        t.pending_downgrade                 AS "pendingDowngrade"
       FROM tenants t
       LEFT JOIN users u ON u.tenant_id = t.id
       LEFT JOIN policies p ON p.tenant_id = t.id AND p.deleted_at IS NULL
@@ -121,7 +128,7 @@ export class AdminHealthRepository {
       )
       WHERE t.id = $1
         AND t.deleted_at IS NULL
-      GROUP BY t.id, t.name, i.name, tc.feature_flags
+      GROUP BY t.id, t.name, t.plan, t.pending_downgrade, i.name, tc.feature_flags
       `,
       [tenantId],
     );
@@ -145,6 +152,8 @@ export class AdminHealthRepository {
       : null;
     dto.lastPolicyInsurer = row.lastPolicyInsurer;
     dto.activeFeatureFlags = activeFeatureFlags;
+    dto.currentPlan = row.currentPlan;
+    dto.pendingDowngrade = row.pendingDowngrade ?? null;
     return dto;
   }
 
