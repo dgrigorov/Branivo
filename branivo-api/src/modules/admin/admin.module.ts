@@ -24,6 +24,9 @@ import { AdminSubscriptionRepository } from './repositories/admin-subscription.r
 import { AdminSubscriptionService } from './admin-subscription.service';
 import { AdminSubscriptionController } from './admin-subscription.controller';
 import { AdminSubscriptionJob } from './admin-subscription.job';
+import { AdminNotificationRepository } from './repositories/admin-notification.repository';
+import { AdminNotificationService } from './admin-notification.service';
+import { AdminNotificationController } from './admin-notification.controller';
 
 @Module({
   imports: [
@@ -46,6 +49,7 @@ import { AdminSubscriptionJob } from './admin-subscription.job';
     AdminHealthController,
     AdminInsurerMonitorController,
     AdminSubscriptionController,
+    AdminNotificationController,
   ],
   providers: [
     AdminTenantsService,
@@ -61,6 +65,8 @@ import { AdminSubscriptionJob } from './admin-subscription.job';
     AdminSubscriptionRepository,
     AdminSubscriptionService,
     AdminSubscriptionJob,
+    AdminNotificationRepository,
+    AdminNotificationService,
   ],
   exports: [AdminTenantsService],
 })

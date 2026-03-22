@@ -136,6 +136,31 @@ export class EmailService {
     await this.sendWithRetry({ from: this.fromAddress, to, subject, text });
   }
 
+  async sendSystemNotification(params: {
+    to: string;
+    type: 'info' | 'warning' | 'critical';
+    message: string;
+  }): Promise<void> {
+    const subject = `[${params.type.toUpperCase()}] System Notification — Branivo`;
+    const safeMessage = escapeHtml(params.message);
+    const text = `${subject}\n\n${safeMessage}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>System Notification</h2>
+        <p><strong>Type:</strong> ${escapeHtml(params.type)}</p>
+        <p>${safeMessage}</p>
+        <p>— Branivo Platform</p>
+      </div>
+    `;
+    await this.sendWithRetry({
+      from: this.fromAddress,
+      to: params.to,
+      subject,
+      text,
+      html,
+    });
+  }
+
   async sendInsurerAlertEmail(
     to: string,
     insurerName: string,

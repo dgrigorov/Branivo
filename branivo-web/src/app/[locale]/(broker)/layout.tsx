@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import SystemNotificationBanner from './components/system-notification-banner';
 
 interface TenantConfig {
   status: string;
@@ -28,6 +29,7 @@ export default function BrokerLayout({
 
   return (
     <div>
+      <SystemNotificationBanner />
       {isSuspended && (
         <div
           className="border-l-4 border-red-400 bg-red-50 p-4"

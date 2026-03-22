@@ -120,7 +120,7 @@ development_status:
   8-1-tenant-health-monitoring: done
   8-2-insurer-api-monitoring-manual-fallback: done
   8-3-subscription-tier-management: done
-  8-4-system-notifications-broadcast: backlog
+  8-4-system-notifications-broadcast: done
   epic-8-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────

@@ -51,6 +51,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedFleetVehicles();
     await this.seedFleetPdfExports();
     await this.seedTenantHealthData();
+    await this.seedSystemNotifications();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
@@ -520,5 +521,22 @@ export class SeedService implements OnApplicationBootstrap {
     }
 
     this.logger.log('Tenant health seed data ensured for demo tenant.');
+  }
+
+  private async seedSystemNotifications(): Promise<void> {
+    await this.dataSource.query(`
+      INSERT INTO system_notifications (id, admin_id, target, type, message, dismissible, is_active, sent_at)
+      VALUES (
+        '00000000-0000-0000-0001-000000000001',
+        '00000000-0000-0000-0000-000000000001',
+        'all',
+        'info',
+        'Добре дошли в Branivo! Платформата е активна и готова за използване.',
+        true,
+        true,
+        NOW()
+      )
+      ON CONFLICT DO NOTHING
+    `);
   }
 }
