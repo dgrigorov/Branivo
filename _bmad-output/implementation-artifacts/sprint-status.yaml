@@ -106,8 +106,8 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 7: Fleet Management
   # ─────────────────────────────────────────────────────────────
-  epic-7: backlog
-  7-1-fleet-vehicle-status-dashboard: backlog
+  epic-7: in-progress
+  7-1-fleet-vehicle-status-dashboard: review
   7-2-bulk-quote-policy-purchase: backlog
   7-3-batch-pdf-export: backlog
   7-4-driver-role-scoped-view: backlog

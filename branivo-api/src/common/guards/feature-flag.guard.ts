@@ -1,8 +1,8 @@
 import {
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { TenantContext } from '../tenant-context/tenant.context';
@@ -28,7 +28,7 @@ export class FeatureFlagGuard implements CanActivate {
     const features = tenant?.features ?? {};
 
     if (!features[flag]) {
-      throw new ForbiddenException(`Feature not enabled: ${flag}`);
+      throw new NotFoundException();
     }
     return true;
   }

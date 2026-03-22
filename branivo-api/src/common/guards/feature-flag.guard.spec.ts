@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method */
-import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { ExecutionContext, NotFoundException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { FeatureFlagGuard } from './feature-flag.guard';
@@ -73,32 +73,32 @@ describe('FeatureFlagGuard', () => {
     expect(tenantsRepo.findById).toHaveBeenCalledWith('tenant-uuid');
   });
 
-  it('throws ForbiddenException when feature flag is false', async () => {
+  it('throws NotFoundException when feature flag is false', async () => {
     reflector.getAllAndOverride.mockReturnValue('fleet');
     tenantsRepo.findById.mockResolvedValue(
       mockTenant({ fleet: false }) as Tenant,
     );
 
     await expect(guard.canActivate(makeCtx())).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 
-  it('throws ForbiddenException when features object is empty', async () => {
+  it('throws NotFoundException when features object is empty', async () => {
     reflector.getAllAndOverride.mockReturnValue('fleet');
     tenantsRepo.findById.mockResolvedValue(mockTenant({}) as Tenant);
 
     await expect(guard.canActivate(makeCtx())).rejects.toThrow(
-      new ForbiddenException('Feature not enabled: fleet'),
+      NotFoundException,
     );
   });
 
-  it('throws ForbiddenException when tenant is not found', async () => {
+  it('throws NotFoundException when tenant is not found', async () => {
     reflector.getAllAndOverride.mockReturnValue('api_access');
     tenantsRepo.findById.mockResolvedValue(null);
 
     await expect(guard.canActivate(makeCtx())).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 });

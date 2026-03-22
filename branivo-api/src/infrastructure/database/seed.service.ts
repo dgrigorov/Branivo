@@ -47,6 +47,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedDemoCommissions();
     await this.seedDemoInvoices();
     await this.seedTenantRenewalConfig();
+    await this.seedFleetVehicles();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
@@ -55,7 +56,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.dataSource.query(
       `INSERT INTO tenants (id, slug, name, status, plan, features, monthly_fee, activated_at)
        VALUES ($1, 'demo', 'Demo Broker', 'active', 'starter',
-         '{"fleet": false, "api_access": false, "custom_domain": true, "sticker_delivery": true}',
+         '{"fleet": true, "api_access": false, "custom_domain": true, "sticker_delivery": true}',
          99.00, NOW() - INTERVAL '3 months')`,
       [DEMO_TENANT_ID],
     );
@@ -284,5 +285,117 @@ export class SeedService implements OnApplicationBootstrap {
       [DEMO_TENANT_ID, JSON.stringify(defaultStages)],
     );
     this.logger.log('Demo tenant renewal config seeded.');
+  }
+
+  private async seedFleetVehicles(): Promise<void> {
+    // Get a client id to associate with the vehicles
+    const clients = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM end_clients WHERE tenant_id = $1 LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    if (clients.length === 0) {
+      this.logger.log('No end clients found for fleet seed — skipping.');
+      return;
+    }
+    const clientId = clients[0].id;
+
+    const insurer = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM insurers WHERE code = 'allianz' LIMIT 1`,
+    );
+    const insurerId = insurer[0]?.id ?? '';
+
+    const now = new Date();
+
+    const fleetVehicles = [
+      {
+        vin: 'DEMO1FLEET00000001',
+        plate: 'КА0001ФЛ',
+        make: 'BMW',
+        model: 'X5',
+        daysOffset: 60,
+        label: 'green (60d)',
+      },
+      {
+        vin: 'DEMO1FLEET00000002',
+        plate: 'КА0002ФЛ',
+        make: 'Mercedes',
+        model: 'C-Class',
+        daysOffset: 20,
+        label: 'yellow (20d)',
+      },
+      {
+        vin: 'DEMO1FLEET00000003',
+        plate: 'КА0003ФЛ',
+        make: 'Audi',
+        model: 'A4',
+        daysOffset: 7,
+        label: 'yellow (7d)',
+      },
+      {
+        vin: 'DEMO1FLEET00000004',
+        plate: 'КА0004ФЛ',
+        make: 'Ford',
+        model: 'Focus',
+        daysOffset: -5,
+        label: 'red (expired)',
+      },
+      {
+        vin: 'DEMO1FLEET00000005',
+        plate: 'КА0005ФЛ',
+        make: 'Renault',
+        model: 'Megane',
+        daysOffset: null,
+        label: 'red (no policy)',
+      },
+    ];
+
+    for (const v of fleetVehicles) {
+      const vResult = await this.dataSource.query<{ id: string }[]>(
+        `INSERT INTO vehicles (id, tenant_id, owner_id, vin, license_plate, make, model, year)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, 2022)
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+        [DEMO_TENANT_ID, clientId, v.vin, v.plate, v.make, v.model],
+      );
+      if (vResult.length === 0) continue;
+      const newVehicleId = vResult[0].id;
+
+      await this.dataSource.query(
+        `INSERT INTO fleet_vehicles (id, tenant_id, vehicle_id)
+         VALUES (gen_random_uuid(), $1, $2)
+         ON CONFLICT DO NOTHING`,
+        [DEMO_TENANT_ID, newVehicleId],
+      );
+
+      if (v.daysOffset !== null && insurerId) {
+        const coverageEnd = new Date(now);
+        coverageEnd.setDate(coverageEnd.getDate() + v.daysOffset);
+        const coverageEndStr = coverageEnd.toISOString().split('T')[0];
+
+        await this.dataSource.query(
+          `INSERT INTO policies
+             (id, tenant_id, payment_id, quote_id, insurer_id, policy_number, status,
+              stripe_payment_intent_id, premium_amount, commission_amount, commission_pct,
+              currency, vehicle_id, coverage_end_date, metadata)
+           VALUES
+             (gen_random_uuid(), $1,
+              '00000000-0000-0000-0000-000000000001',
+              '00000000-0000-0000-0000-000000000002',
+              $2, $3, 'active', 'pi_fleet_seed', 500.00, 25.00, 0.05, 'BGN', $4, $5, '{}')
+           ON CONFLICT (policy_number) DO NOTHING`,
+          [
+            DEMO_TENANT_ID,
+            insurerId,
+            `FLEET-SEED-${v.plate}`,
+            newVehicleId,
+            coverageEndStr,
+          ],
+        );
+      }
+      this.logger.log(`Fleet vehicle seeded: ${v.plate} (${v.label})`);
+    }
+    this.logger.log(
+      'Fleet vehicles seeded (5 vehicles: 1 green, 2 yellow, 1 red-expired, 1 red-no-policy).',
+    );
   }
 }
