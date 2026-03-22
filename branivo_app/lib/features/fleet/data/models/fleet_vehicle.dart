@@ -22,6 +22,7 @@ class FleetVehicle {
   final String model;
   final String? insurerName;
   final DateTime? policyExpiresAt;
+  final String? activePolicyId;
   final FleetVehicleStatus status;
 
   const FleetVehicle({
@@ -32,6 +33,7 @@ class FleetVehicle {
     required this.model,
     this.insurerName,
     this.policyExpiresAt,
+    this.activePolicyId,
     required this.status,
   });
 
@@ -46,6 +48,7 @@ class FleetVehicle {
       policyExpiresAt: json['policyExpiresAt'] != null
           ? DateTime.tryParse(json['policyExpiresAt'] as String)
           : null,
+      activePolicyId: json['activePolicyId'] as String?,
       status: FleetVehicleStatusExtension.fromString(
         json['status'] as String? ?? 'red',
       ),

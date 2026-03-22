@@ -4,11 +4,15 @@ import '../bloc/fleet_bloc.dart';
 import '../bloc/fleet_event.dart';
 import '../bloc/fleet_state.dart';
 import '../data/models/fleet_vehicle.dart';
+import '../data/repositories/fleet_export_repository.dart';
 import '../widgets/fleet_vehicle_card.dart';
 import 'fleet_bulk_quote_screen.dart';
+import 'fleet_export_progress_screen.dart';
 
 class FleetDashboardScreen extends StatefulWidget {
-  const FleetDashboardScreen({super.key});
+  final FleetExportRepository? exportRepository;
+
+  const FleetDashboardScreen({super.key, this.exportRepository});
 
   @override
   State<FleetDashboardScreen> createState() => _FleetDashboardScreenState();
@@ -70,6 +74,41 @@ class _FleetDashboardScreenState extends State<FleetDashboardScreen> {
     );
   }
 
+  Future<void> _handleExportDocuments(
+    List<FleetVehicle> vehicles,
+    FleetExportRepository exportRepository,
+  ) async {
+    final policyIds = _selectedIds
+        .map((id) {
+          final vehicle = vehicles.where((v) => v.id == id).firstOrNull;
+          return vehicle?.activePolicyId;
+        })
+        .where((id) => id != null)
+        .cast<String>()
+        .toList();
+
+    if (policyIds.isEmpty) return;
+
+    try {
+      final export = await exportRepository.createBatchExport(policyIds);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => FleetExportProgressScreen(
+            exportId: export.exportId,
+            repository: exportRepository,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Грешка при стартиране на експорта')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,7 +116,17 @@ class _FleetDashboardScreenState extends State<FleetDashboardScreen> {
       body: Column(
         children: [
           _buildFilterBar(),
-          if (_selectedIds.isNotEmpty) _buildBulkActionBar(),
+          if (_selectedIds.isNotEmpty)
+            BlocBuilder<FleetBloc, FleetState>(
+              builder: (context, state) {
+                final vehicles =
+                    state is FleetLoaded ? state.vehicles : <FleetVehicle>[];
+                return _buildBulkActionBar(
+                  vehicles: vehicles,
+                  exportRepository: widget.exportRepository,
+                );
+              },
+            ),
           Expanded(
             child: BlocBuilder<FleetBloc, FleetState>(
               builder: (context, state) {
@@ -186,7 +235,10 @@ class _FleetDashboardScreenState extends State<FleetDashboardScreen> {
     );
   }
 
-  Widget _buildBulkActionBar() {
+  Widget _buildBulkActionBar({
+    List<FleetVehicle> vehicles = const [],
+    FleetExportRepository? exportRepository,
+  }) {
     return Container(
       color: Colors.blue.shade50,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -204,6 +256,14 @@ class _FleetDashboardScreenState extends State<FleetDashboardScreen> {
             onPressed: () => _navigateToBulkQuotes(_selectedIds.toList()),
             child: const Text('Получи оферти'),
           ),
+          const SizedBox(width: 8),
+          if (exportRepository != null)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: () =>
+                  _handleExportDocuments(vehicles, exportRepository),
+              child: const Text('Изтегли документи'),
+            ),
           const SizedBox(width: 8),
           TextButton(
             onPressed: _clearSelection,

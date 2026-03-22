@@ -48,6 +48,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedDemoInvoices();
     await this.seedTenantRenewalConfig();
     await this.seedFleetVehicles();
+    await this.seedFleetPdfExports();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
@@ -397,5 +398,38 @@ export class SeedService implements OnApplicationBootstrap {
     this.logger.log(
       'Fleet vehicles seeded (5 vehicles: 1 green, 2 yellow, 1 red-expired, 1 red-no-policy).',
     );
+  }
+
+  private async seedFleetPdfExports(): Promise<void> {
+    const adminRows = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM users WHERE tenant_id = $1 AND role = 'broker_admin' LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    const adminId = adminRows[0]?.id;
+    if (!adminId) return;
+
+    const policyRows = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM policies WHERE tenant_id = $1 AND deleted_at IS NULL LIMIT 3`,
+      [DEMO_TENANT_ID],
+    );
+    const policyIds = policyRows.map((r) => r.id);
+    if (policyIds.length === 0) return;
+
+    await this.dataSource.query(
+      `INSERT INTO fleet_pdf_exports
+         (tenant_id, requested_by, policy_ids, status, total_count, completed_count,
+          failed_count, failed_policy_ids, zip_s3_key, expires_at)
+       VALUES ($1, $2, $3, 'completed', $4, $4, 0, '[]',
+         $5, NOW() + INTERVAL '24 hours')
+       ON CONFLICT DO NOTHING`,
+      [
+        DEMO_TENANT_ID,
+        adminId,
+        JSON.stringify(policyIds),
+        policyIds.length,
+        `${DEMO_TENANT_ID}/fleet/exports/demo-export-id/policies.zip`,
+      ],
+    );
+    this.logger.log('Fleet PDF export demo record seeded.');
   }
 }

@@ -24,6 +24,7 @@ export interface FleetVehicleWithPolicy {
   model: string;
   insurer_name: string | null;
   policy_expires_at: Date | null;
+  active_policy_id: string | null;
 }
 
 @Injectable()
@@ -54,11 +55,12 @@ export class FleetRepository extends BaseRepository<FleetVehicle> {
         v.make,
         v.model,
         i.name AS insurer_name,
-        p.coverage_end_date AS policy_expires_at
+        p.coverage_end_date AS policy_expires_at,
+        p.id AS active_policy_id
       FROM fleet_vehicles fv
       JOIN vehicles v ON v.id = fv.vehicle_id AND v.deleted_at IS NULL
       LEFT JOIN LATERAL (
-        SELECT pol.coverage_end_date, pol.insurer_id
+        SELECT pol.id, pol.coverage_end_date, pol.insurer_id
         FROM policies pol
         WHERE pol.vehicle_id = fv.vehicle_id
           AND pol.tenant_id = $1

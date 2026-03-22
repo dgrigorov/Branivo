@@ -127,6 +127,38 @@ export class PdfGenerationService {
     this.logger.log(`Documents generated and delivered for policy ${policyId}`);
   }
 
+  /**
+   * Generate policy PDF and upload to S3 without email delivery.
+   * Used for batch PDF export (fleet feature).
+   * Returns the S3 key of the uploaded PDF.
+   */
+  async generateAndUploadPolicyPdf(
+    policyId: string,
+    tenantId: string,
+  ): Promise<string> {
+    const policy = await this.policyRepo.findOne({
+      where: { id: policyId, deletedAt: IsNull() },
+    });
+    if (!policy) throw new Error(`Policy not found: ${policyId}`);
+
+    const insurer = await this.dataSource
+      .getRepository(Insurer)
+      .findOne({ where: { id: policy.insurerId, deletedAt: IsNull() } });
+    const insurerName = insurer?.name ?? 'Застраховател';
+
+    const buffer = await this.generatePolicyPdf(policy, insurerName);
+
+    const now = new Date();
+    const year = now.getFullYear().toString();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const s3Key = `${tenantId}/${year}/${month}/policy/${policyId}.pdf`;
+
+    await this.s3Service.uploadPolicyDocument(s3Key, buffer);
+    await this.policiesRepo.updatePdfKeys(policyId, s3Key, s3Key);
+
+    return s3Key;
+  }
+
   private generatePolicyPdf(
     policy: Policy,
     insurerName: string,

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { FleetVehicleStatusBadge } from '@/components/fleet/FleetVehicleStatusBadge';
 
 type FleetVehicleStatus = 'green' | 'yellow' | 'red';
@@ -15,6 +15,7 @@ interface FleetVehicle {
   model: string;
   insurerName: string | null;
   policyExpiresAt: string | null;
+  activePolicyId: string | null;
   status: FleetVehicleStatus;
 }
 
@@ -91,6 +92,31 @@ export default function FleetPage() {
     router.push(`/fleet/bulk-quotes?vehicleIds=${ids}`);
   }
 
+  const exportMutation = useMutation({
+    mutationFn: async (policyIds: string[]) => {
+      const res = await fetch('/api/v1/fleet/exports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ policyIds }),
+      });
+      if (!res.ok) throw new Error('Грешка при стартиране на експорта');
+      return res.json() as Promise<{ exportId: string }>;
+    },
+    onSuccess: ({ exportId }) => {
+      router.push(`/fleet/exports/${exportId}`);
+    },
+  });
+
+  function handleExportDocuments() {
+    const selectedVehicles = vehicles.filter((v) => selectedIds.has(v.id));
+    const policyIds = selectedVehicles
+      .map((v) => v.activePolicyId)
+      .filter((id): id is string => id !== null);
+    if (policyIds.length === 0) return;
+    exportMutation.mutate(policyIds);
+  }
+
   const allSelected =
     vehicles.length > 0 && selectedIds.size === vehicles.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
@@ -137,6 +163,13 @@ export default function FleetPage() {
             className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
           >
             Получи оферти
+          </button>
+          <button
+            onClick={handleExportDocuments}
+            disabled={exportMutation.isPending}
+            className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            {exportMutation.isPending ? 'Стартиране...' : 'Изтегли документи'}
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}

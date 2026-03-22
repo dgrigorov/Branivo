@@ -48,6 +48,7 @@ export class FleetService {
         policyExpiresAt: row.policy_expires_at
           ? new Date(row.policy_expires_at)
           : null,
+        activePolicyId: row.active_policy_id ?? null,
         status,
       } satisfies FleetVehicleResponseDto;
     });

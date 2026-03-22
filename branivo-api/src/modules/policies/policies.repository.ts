@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { BaseRepository } from '../../common/base.repository';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
 import { Policy, PolicyStatus } from './entities/policy.entity';
@@ -73,6 +73,16 @@ export class PoliciesRepository extends BaseRepository<Policy> {
     await this.policyRepo.update(id, {
       documentsEmailedAt: new Date(),
       updatedAt: new Date(),
+    });
+  }
+
+  async findManyByIds(
+    tenantId: string,
+    policyIds: string[],
+  ): Promise<Policy[]> {
+    if (policyIds.length === 0) return [];
+    return this.policyRepo.find({
+      where: { tenantId, id: In(policyIds), deletedAt: IsNull() },
     });
   }
 }

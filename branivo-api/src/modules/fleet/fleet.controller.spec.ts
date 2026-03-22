@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
   INestApplication,
   NotFoundException,
   ValidationPipe,
@@ -10,11 +13,13 @@ const request = require('supertest') as typeof import('supertest');
 import { FleetController } from './fleet.controller';
 import { FleetService } from './fleet.service';
 import { FleetBulkService } from './fleet-bulk.service';
+import { FleetPdfExportService } from './fleet-pdf-export.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { FeatureFlagGuard } from '../../common/guards/feature-flag.guard';
 import { Reflector } from '@nestjs/core';
 import { FleetVehicleResponseDto } from './dto/fleet-vehicle-response.dto';
+import { FleetPdfExportStatus } from './entities/fleet-pdf-export.entity';
 
 const TENANT_ID = 'tenant-uuid-001';
 
@@ -80,6 +85,33 @@ const mockFleetBulkService = {
   }),
 };
 
+const mockFleetPdfExportService = {
+  createBatchExport: jest.fn().mockResolvedValue({
+    exportId: 'export-uuid-001',
+    status: FleetPdfExportStatus.PROCESSING,
+    totalCount: 2,
+    completedCount: 0,
+    failedCount: 0,
+    failedPolicyIds: [],
+    zipS3Key: null,
+    expiresAt: null,
+  }),
+  getExportStatus: jest.fn().mockResolvedValue({
+    exportId: 'export-uuid-001',
+    status: FleetPdfExportStatus.PROCESSING,
+    totalCount: 2,
+    completedCount: 1,
+    failedCount: 0,
+    failedPolicyIds: [],
+    zipS3Key: null,
+    expiresAt: null,
+  }),
+  getDownloadUrl: jest.fn().mockResolvedValue({
+    downloadUrl: 'https://presigned-url',
+    expiresInSeconds: 900,
+  }),
+};
+
 type MockUser = typeof mockFleetAdmin | null;
 
 function makeJwtGuard(user: MockUser) {
@@ -115,6 +147,7 @@ async function buildApp(
     providers: [
       { provide: FleetService, useValue: mockFleetService },
       { provide: FleetBulkService, useValue: mockFleetBulkService },
+      { provide: FleetPdfExportService, useValue: mockFleetPdfExportService },
       { provide: Reflector, useClass: Reflector },
     ],
   })
@@ -163,6 +196,7 @@ describe('FleetController', () => {
       providers: [
         { provide: FleetService, useValue: mockFleetService },
         { provide: FleetBulkService, useValue: mockFleetBulkService },
+        { provide: FleetPdfExportService, useValue: mockFleetPdfExportService },
         { provide: Reflector, useClass: Reflector },
       ],
     })
@@ -351,6 +385,73 @@ describe('FleetController', () => {
 
     const body = res.body as { summary: { total: number } };
     expect(body.summary).toBeDefined();
+    await app.close();
+  });
+
+  // ─── POST /fleet/exports ────────────────────────────────────────────────────
+
+  it('POST /fleet/exports → 404 when fleet feature flag is disabled', async () => {
+    const app = await buildApp(mockFleetAdmin, false);
+    await request(app.getHttpServer())
+      .post('/fleet/exports')
+      .send({ policyIds: ['00000000-0000-4000-8000-000000000001'] })
+      .expect(404);
+    await app.close();
+  });
+
+  it('POST /fleet/exports → 400 when policyIds contains invalid UUIDs', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .post('/fleet/exports')
+      .send({ policyIds: ['not-a-uuid'] })
+      .expect(400);
+    await app.close();
+  });
+
+  it('POST /fleet/exports → 201 with fleet_admin role and feature enabled', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    const res = await request(app.getHttpServer())
+      .post('/fleet/exports')
+      .send({
+        policyIds: [
+          '00000000-0000-4000-8000-000000000001',
+          '00000000-0000-4000-8000-000000000002',
+        ],
+      })
+      .expect(201);
+
+    const body = res.body as { exportId: string; status: string };
+    expect(body.exportId).toBe('export-uuid-001');
+    expect(body.status).toBe(FleetPdfExportStatus.PROCESSING);
+    await app.close();
+  });
+
+  // ─── GET /fleet/exports/:id ─────────────────────────────────────────────────
+
+  it('GET /fleet/exports/:id → 400 when export belongs to different tenant', async () => {
+    mockFleetPdfExportService.getExportStatus.mockRejectedValueOnce(
+      new BadRequestException('Export not found'),
+    );
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .get('/fleet/exports/00000000-0000-4000-8000-000000000001')
+      .expect(400);
+    await app.close();
+  });
+
+  // ─── GET /fleet/exports/:id/download ────────────────────────────────────────
+
+  it('GET /fleet/exports/:id/download → 410 when export has expired', async () => {
+    mockFleetPdfExportService.getDownloadUrl.mockRejectedValueOnce(
+      new HttpException(
+        'Export has expired. Please generate a new batch export.',
+        HttpStatus.GONE,
+      ),
+    );
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .get('/fleet/exports/00000000-0000-4000-8000-000000000001/download')
+      .expect(410);
     await app.close();
   });
 });
