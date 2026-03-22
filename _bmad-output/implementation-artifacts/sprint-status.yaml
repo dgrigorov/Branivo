@@ -118,7 +118,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   epic-8: in-progress
   8-1-tenant-health-monitoring: done
-  8-2-insurer-api-monitoring-manual-fallback: backlog
+  8-2-insurer-api-monitoring-manual-fallback: done
   8-3-subscription-tier-management: backlog
   8-4-system-notifications-broadcast: backlog
   epic-8-retrospective: optional
@@ -157,3 +157,83 @@ development_status:
   12-1-claim-submission-with-documents: backlog
   12-2-broker-claims-tracking-dashboard: backlog
   epic-12-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 13: Каско застраховка (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-13: backlog
+  13-1-casco-insurer-adapter-and-product-type: backlog
+  13-2-casco-risk-questionnaire: backlog
+  13-3-casco-parallel-quote-aggregation: backlog
+  13-4-casco-policy-purchase-and-documents: backlog
+  13-5-casco-feature-flag-and-tenant-activation: backlog
+  epic-13-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 14: Разширени методи на плащане (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-14: backlog
+  14-1-apple-pay-and-google-pay: backlog
+  14-2-borica-integration: backlog
+  epic-14-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 15: Биометричен и социален вход (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-15: backlog
+  15-1-biometric-login-face-id-fingerprint: backlog
+  15-2-sign-in-with-google: backlog
+  15-3-sign-in-with-apple: backlog
+  epic-15-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 16: Физическа доставка на зелена карта (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-16: backlog
+  16-1-green-card-physical-delivery-via-courier: backlog
+  16-2-delivery-address-selection-in-purchase-flow: backlog
+  16-3-delivery-status-tracking-notifications: backlog
+  epic-16-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 17: Електронно подписване (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-17: backlog
+  17-1-sms-based-electronic-signature: backlog
+  17-2-qualified-electronic-signature-qes: backlog
+  epic-17-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 18: ГТП напомняния и проверка за глоби (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-18: backlog
+  18-1-gtp-expiry-reminders: backlog
+  18-2-kat-fines-check-and-notifications: backlog
+  epic-18-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 19: BI и Analytics Dashboard (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-19: backlog
+  19-1-sales-funnel-and-conversion-dashboard: backlog
+  19-2-client-retention-and-renewal-metrics: backlog
+  19-3-revenue-breakdown-by-product-and-insurer: backlog
+  19-4-analytics-data-export: backlog
+  epic-19-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 20: After-Service и клиентска ангажираност (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-20: backlog
+  20-1-ptp-accident-wizard: backlog
+  20-2-emergency-contacts-and-insurer-hotlines: backlog
+  epic-20-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 21: Affiliate и Referral програма (Phase 2)
+  # ─────────────────────────────────────────────────────────────
+  epic-21: backlog
+  21-1-promo-codes: backlog
+  21-2-client-referral-system: backlog
+  21-3-loyalty-points: backlog
+  epic-21-retrospective: optional

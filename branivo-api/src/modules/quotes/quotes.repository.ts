@@ -29,9 +29,9 @@ export class QuotesRepository extends BaseRepository<Quote> {
   }
 
   async findActiveInsurers(): Promise<Insurer[]> {
-    return this.dataSource
-      .getRepository(Insurer)
-      .find({ where: { isActive: true, deletedAt: IsNull() } });
+    return this.dataSource.getRepository(Insurer).find({
+      where: { isActive: true, isManuallyDisabled: false, deletedAt: IsNull() },
+    });
   }
 
   async findOneById(id: string): Promise<Quote | null> {

@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
+import { QuotesModule } from '../quotes/quotes.module';
 import { TenantInvitation } from './entities/tenant-invitation.entity';
 import { TenantInvitationsRepository } from './repositories/tenant-invitations.repository';
 import { AdminTenantsService } from './admin-tenants.service';
@@ -15,6 +16,10 @@ import { AdminHealthRepository } from './repositories/admin-health.repository';
 import { AdminHealthService } from './admin-health.service';
 import { AdminHealthController } from './admin-health.controller';
 import { AdminHealthJob } from './admin-health.job';
+import { AdminInsurerMonitorRepository } from './repositories/admin-insurer-monitor.repository';
+import { AdminInsurerMonitorService } from './admin-insurer-monitor.service';
+import { AdminInsurerMonitorController } from './admin-insurer-monitor.controller';
+import { AdminInsurerMonitorJob } from './admin-insurer-monitor.job';
 
 @Module({
   imports: [
@@ -29,11 +34,13 @@ import { AdminHealthJob } from './admin-health.job';
     }),
     TenantsModule,
     UsersModule,
+    QuotesModule,
   ],
   controllers: [
     AdminTenantsController,
     WebhooksController,
     AdminHealthController,
+    AdminInsurerMonitorController,
   ],
   providers: [
     AdminTenantsService,
@@ -43,6 +50,9 @@ import { AdminHealthJob } from './admin-health.job';
     AdminHealthRepository,
     AdminHealthService,
     AdminHealthJob,
+    AdminInsurerMonitorRepository,
+    AdminInsurerMonitorService,
+    AdminInsurerMonitorJob,
   ],
   exports: [AdminTenantsService],
 })

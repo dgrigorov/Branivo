@@ -41,6 +41,15 @@ export class Insurer {
   })
   apiEndpoint!: string | null;
 
+  @Column({ name: 'is_manually_disabled', type: 'boolean', default: false })
+  isManuallyDisabled!: boolean;
+
+  @Column({ name: 'disabled_reason', type: 'text', nullable: true })
+  disabledReason!: string | null;
+
+  @Column({ name: 'disabled_by_admin_id', type: 'uuid', nullable: true })
+  disabledByAdminId!: string | null;
+
   // NEVER return this field in any GET response
   @Column({
     name: 'api_key_enc',

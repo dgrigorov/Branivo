@@ -34,6 +34,6 @@ import { MockInsurerAdapter } from './adapters/mock-insurer.adapter';
       ],
     },
   ],
-  exports: [QuotesService, QuotesRepository],
+  exports: [QuotesService, QuotesRepository, CircuitBreakerService],
 })
 export class QuotesModule {}

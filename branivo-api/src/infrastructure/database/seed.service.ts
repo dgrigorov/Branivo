@@ -42,6 +42,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedVehicles(clientId);
     await this.seedTenantInvitation();
     await this.seedInsurers();
+    await this.seedInsurerManualFallbackDefaults();
     await this.seedCommissionMatrix();
     await this.seedPolicies();
     await this.seedDemoCommissions();
@@ -177,6 +178,16 @@ export class SeedService implements OnApplicationBootstrap {
       );
     }
     this.logger.log('Insurers seeded.');
+  }
+
+  private async seedInsurerManualFallbackDefaults(): Promise<void> {
+    // Идемпотентно — гарантира, че всички insurers имат is_manually_disabled = false след migration
+    await this.dataSource.query(`
+      UPDATE insurers
+      SET is_manually_disabled = false
+      WHERE is_manually_disabled IS NULL
+    `);
+    this.logger.log('Insurer manual fallback defaults confirmed.');
   }
 
   private async seedCommissionMatrix(): Promise<void> {

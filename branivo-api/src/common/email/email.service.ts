@@ -119,6 +119,46 @@ export class EmailService {
     await this.sendWithRetry(mailOptions);
   }
 
+  async sendInsurerAlertEmail(
+    to: string,
+    insurerName: string,
+    errorRate: number,
+    avgLatencyMs: number,
+  ): Promise<void> {
+    const safeName = escapeHtml(insurerName);
+    const mailOptions: Mail.Options = {
+      from: this.fromAddress,
+      to,
+      subject: `[Branivo] Insurer API Alert: ${safeName} — error rate ${errorRate.toFixed(2)}%`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>⚠️ Insurer API High Error Rate</h2>
+          <p>Застрахователят <strong>${safeName}</strong> е надхвърлил прага от 1% грешки за последните 5 минути.</p>
+          <table style="width:100%; border-collapse:collapse; margin-top:16px;">
+            <tr>
+              <td style="padding:8px; border:1px solid #ddd;"><strong>Застраховател</strong></td>
+              <td style="padding:8px; border:1px solid #ddd;">${safeName}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px; border:1px solid #ddd;"><strong>Error Rate (5мин)</strong></td>
+              <td style="padding:8px; border:1px solid #ddd; color:#dc2626;">${errorRate.toFixed(2)}%</td>
+            </tr>
+            <tr>
+              <td style="padding:8px; border:1px solid #ddd;"><strong>Avg Latency</strong></td>
+              <td style="padding:8px; border:1px solid #ddd;">${Math.round(avgLatencyMs)} ms</td>
+            </tr>
+          </table>
+          <p style="margin-top:16px;">
+            Отворете <a href="#">Insurer API Dashboard</a> за да активирате manual fallback ако е необходимо.
+          </p>
+          <p style="color: #666; font-size: 14px;">Branivo Super Admin система</p>
+        </div>
+      `,
+    };
+
+    await this.sendWithRetry(mailOptions);
+  }
+
   private async sendWithRetry(
     options: Mail.Options,
     maxRetries = 3,
@@ -140,10 +180,11 @@ export class EmailService {
   }
 
   private buildOnboardingEmailHtml(tenantName: string, link: string): string {
+    const safeTenantName = escapeHtml(tenantName);
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Добре дошли в Branivo!</h2>
-        <p>Получихте покана да регистрирате брокерска организация <strong>${tenantName}</strong> в платформата Branivo.</p>
+        <p>Получихте покана да регистрирате брокерска организация <strong>${safeTenantName}</strong> в платформата Branivo.</p>
         <p>Натиснете бутона по-долу, за да завършите регистрацията:</p>
         <a href="${link}" style="
           display: inline-block;
