@@ -7,6 +7,10 @@ import {
   NotificationStatus,
 } from './entities/notification-log.entity';
 import { RenewalStage } from '../renewal/renewal.repository';
+import {
+  TenantRenewalConfig,
+  StageConfig,
+} from './entities/tenant-renewal-config.entity';
 
 export interface EndClientRow {
   id: string;
@@ -22,6 +26,8 @@ export class NotificationsRepository {
     private readonly dataSource: DataSource,
     @InjectRepository(NotificationLog)
     private readonly notificationLogRepo: Repository<NotificationLog>,
+    @InjectRepository(TenantRenewalConfig)
+    private readonly tenantRenewalConfigRepo: Repository<TenantRenewalConfig>,
   ) {}
 
   async logNotification(params: {
@@ -64,6 +70,14 @@ export class NotificationsRepository {
     return rows[0]?.domain ?? null;
   }
 
+  async findTenantSlug(tenantId: string): Promise<string | null> {
+    const rows = await this.dataSource.query<Array<{ slug: string }>>(
+      `SELECT slug FROM tenants WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [tenantId],
+    );
+    return rows[0]?.slug ?? null;
+  }
+
   async findBrokerAdminEmail(tenantId: string): Promise<string | null> {
     const rows = await this.dataSource.query<Array<{ email: string }>>(
       `SELECT email FROM users
@@ -72,5 +86,35 @@ export class NotificationsRepository {
       [tenantId],
     );
     return rows[0]?.email ?? null;
+  }
+
+  async findTenantRenewalConfig(
+    tenantId: string,
+  ): Promise<StageConfig[] | null> {
+    const config = await this.tenantRenewalConfigRepo.findOne({
+      where: { tenantId },
+    });
+    return config?.stagesConfig ?? null;
+  }
+
+  async upsertTenantRenewalConfig(
+    tenantId: string,
+    stages: StageConfig[],
+  ): Promise<StageConfig[] | null> {
+    const existing = await this.tenantRenewalConfigRepo.findOne({
+      where: { tenantId },
+    });
+    const oldConfig = existing?.stagesConfig ?? null;
+
+    await this.dataSource.query(
+      `INSERT INTO tenant_renewal_config (tenant_id, stages_config, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (tenant_id) DO UPDATE
+         SET stages_config = EXCLUDED.stages_config,
+             updated_at = NOW()`,
+      [tenantId, JSON.stringify(stages)],
+    );
+
+    return oldConfig;
   }
 }

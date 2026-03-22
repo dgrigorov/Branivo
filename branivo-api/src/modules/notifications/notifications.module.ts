@@ -5,6 +5,7 @@ import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { NotificationsRepository } from './notifications.repository';
 import { NotificationLog } from './entities/notification-log.entity';
+import { TenantRenewalConfig } from './entities/tenant-renewal-config.entity';
 import { PushChannel } from './channels/push.channel';
 import { SmsChannel } from './channels/sms.channel';
 import { EmailChannel } from './channels/email.channel';
@@ -14,7 +15,7 @@ import { QUEUE_NOTIFICATIONS } from '../../infrastructure/queues/queue.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NotificationLog]),
+    TypeOrmModule.forFeature([NotificationLog, TenantRenewalConfig]),
     BullModule.registerQueue({ name: QUEUE_NOTIFICATIONS }),
     EmailModule,
   ],

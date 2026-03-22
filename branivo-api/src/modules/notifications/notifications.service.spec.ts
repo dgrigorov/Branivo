@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 import {
   NotificationsService,
   RenewalNotificationJobData,
@@ -9,6 +10,7 @@ import { PushChannel } from './channels/push.channel';
 import { SmsChannel } from './channels/sms.channel';
 import { EmailChannel } from './channels/email.channel';
 import { EmailService } from '../../infrastructure/email/email.service';
+import { StageConfig } from './entities/tenant-renewal-config.entity';
 
 const mockEndClient = {
   id: 'client-1',
@@ -22,7 +24,10 @@ const mockRepo = {
   logNotification: jest.fn().mockResolvedValue(undefined),
   findEndClientForPolicy: jest.fn().mockResolvedValue(mockEndClient),
   findTenantDomain: jest.fn().mockResolvedValue('demo.branivo.com'),
+  findTenantSlug: jest.fn().mockResolvedValue('demo'),
   findBrokerAdminEmail: jest.fn().mockResolvedValue('broker@example.com'),
+  findTenantRenewalConfig: jest.fn().mockResolvedValue(null),
+  upsertTenantRenewalConfig: jest.fn().mockResolvedValue(null),
 };
 
 const mockPush = {
@@ -41,12 +46,34 @@ const mockEmailService = {
   sendRenewalFailureAlert: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockManager = {
+  query: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockDataSource = {
+  transaction: jest
+    .fn()
+    .mockImplementation(
+      async (cb: (manager: typeof mockManager) => Promise<void>) => {
+        await cb(mockManager);
+      },
+    ),
+};
+
 const BASE_DATA: RenewalNotificationJobData = {
   policyId: 'policy-1',
   stage: 'd_minus_30',
   tenantId: 'tenant-1',
   coverageEndDate: '2026-05-01T00:00:00.000Z',
 };
+
+const CUSTOM_STAGES: StageConfig[] = [
+  { stage: 'd_minus_30', channels: ['push'], enabled: true },
+  { stage: 'd_minus_7', channels: ['push'], enabled: true },
+  { stage: 'd_minus_3', channels: ['sms'], enabled: false },
+  { stage: 'd_minus_1', channels: ['email'], enabled: true },
+  { stage: 'd_plus_1', channels: ['dashboard'], enabled: true },
+];
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -55,7 +82,10 @@ describe('NotificationsService', () => {
     jest.clearAllMocks();
     mockRepo.findEndClientForPolicy.mockResolvedValue(mockEndClient);
     mockRepo.findTenantDomain.mockResolvedValue('demo.branivo.com');
+    mockRepo.findTenantSlug.mockResolvedValue('demo');
     mockRepo.findBrokerAdminEmail.mockResolvedValue('broker@example.com');
+    mockRepo.findTenantRenewalConfig.mockResolvedValue(null);
+    mockRepo.upsertTenantRenewalConfig.mockResolvedValue(null);
     mockPush.send.mockResolvedValue({ status: 'sent' });
     mockSms.send.mockResolvedValue({ status: 'sent', fallbackUsed: false });
     mockEmail.send.mockResolvedValue(undefined);
@@ -72,6 +102,7 @@ describe('NotificationsService', () => {
           useValue: { get: jest.fn().mockReturnValue(undefined) },
         },
         { provide: EmailService, useValue: mockEmailService },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
@@ -79,7 +110,7 @@ describe('NotificationsService', () => {
   });
 
   describe('deliverRenewalNotification()', () => {
-    it('d_minus_30 → push sent', async () => {
+    it('d_minus_30 → push sent (platform default)', async () => {
       await service.deliverRenewalNotification({
         ...BASE_DATA,
         stage: 'd_minus_30',
@@ -215,6 +246,64 @@ describe('NotificationsService', () => {
         }),
       );
     });
+
+    it('no primary domain → falls back to {slug}.branivo.bg (H1)', async () => {
+      mockRepo.findTenantDomain.mockResolvedValue(null);
+      mockRepo.findTenantSlug.mockResolvedValue('acme');
+
+      await service.deliverRenewalNotification({
+        ...BASE_DATA,
+        stage: 'd_minus_1',
+      });
+
+      expect(mockEmail.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          html: expect.stringContaining(
+            'https://acme.branivo.bg/renewal/policy-1',
+          ) as string,
+        }),
+      );
+    });
+
+    // AC2 — tenant-specific config used when available
+    it('uses tenant config channels when present (AC2)', async () => {
+      mockRepo.findTenantRenewalConfig.mockResolvedValue(CUSTOM_STAGES);
+
+      await service.deliverRenewalNotification({
+        ...BASE_DATA,
+        stage: 'd_minus_30',
+      });
+
+      expect(mockPush.send).toHaveBeenCalled();
+      expect(mockRepo.logNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'push', status: 'sent' }),
+      );
+    });
+
+    // AC3 — platform default used when no tenant config
+    it('falls back to platform default when no tenant config (AC3)', async () => {
+      mockRepo.findTenantRenewalConfig.mockResolvedValue(null);
+
+      await service.deliverRenewalNotification({
+        ...BASE_DATA,
+        stage: 'd_minus_30',
+      });
+
+      expect(mockPush.send).toHaveBeenCalled();
+    });
+
+    // AC5 — disabled stage is skipped without error
+    it('disabled stage in tenant config → skips without error (AC5)', async () => {
+      mockRepo.findTenantRenewalConfig.mockResolvedValue(CUSTOM_STAGES);
+
+      await service.deliverRenewalNotification({
+        ...BASE_DATA,
+        stage: 'd_minus_3',
+      });
+
+      expect(mockSms.send).not.toHaveBeenCalled();
+      expect(mockRepo.logNotification).not.toHaveBeenCalled();
+    });
   });
 
   describe('notifyBroker()', () => {
@@ -245,6 +334,68 @@ describe('NotificationsService', () => {
 
       expect(sent).toBe(false);
       expect(mockEmail.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getTenantRenewalConfig()', () => {
+    it('returns DB config with isDefault: false when config exists (AC6)', async () => {
+      mockRepo.findTenantRenewalConfig.mockResolvedValue(CUSTOM_STAGES);
+
+      const result = await service.getTenantRenewalConfig('tenant-1');
+
+      expect(result.tenantId).toBe('tenant-1');
+      expect(result.isDefault).toBe(false);
+      expect(result.stages).toEqual(CUSTOM_STAGES);
+    });
+
+    it('returns platform default with isDefault: true when no config (AC6)', async () => {
+      mockRepo.findTenantRenewalConfig.mockResolvedValue(null);
+
+      const result = await service.getTenantRenewalConfig('tenant-1');
+
+      expect(result.tenantId).toBe('tenant-1');
+      expect(result.isDefault).toBe(true);
+      expect(result.stages).toHaveLength(5);
+    });
+  });
+
+  describe('upsertTenantRenewalConfig()', () => {
+    it('writes audit log with old_config and new_config (AC4)', async () => {
+      const oldStages: StageConfig[] = [
+        { stage: 'd_minus_30', channels: ['push'], enabled: true },
+      ];
+      mockRepo.upsertTenantRenewalConfig.mockResolvedValue(oldStages);
+
+      const dto = { stages: CUSTOM_STAGES };
+      await service.upsertTenantRenewalConfig('tenant-1', dto, 'admin-user-id');
+
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(mockManager.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO audit_log'),
+        expect.arrayContaining([
+          'tenant-1',
+          'admin-user-id',
+          'renewal_config.updated',
+          'tenant',
+          'tenant-1',
+          expect.stringContaining('old_config') as string,
+        ]),
+      );
+    });
+
+    it('returns updated config with isDefault: false (AC7)', async () => {
+      mockRepo.upsertTenantRenewalConfig.mockResolvedValue(null);
+
+      const dto = { stages: CUSTOM_STAGES };
+      const result = await service.upsertTenantRenewalConfig(
+        'tenant-1',
+        dto,
+        'admin-user-id',
+      );
+
+      expect(result.tenantId).toBe('tenant-1');
+      expect(result.isDefault).toBe(false);
+      expect(result.stages).toEqual(CUSTOM_STAGES);
     });
   });
 });

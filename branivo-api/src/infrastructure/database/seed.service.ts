@@ -46,6 +46,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedPolicies();
     await this.seedDemoCommissions();
     await this.seedDemoInvoices();
+    await this.seedTenantRenewalConfig();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
@@ -265,5 +266,23 @@ export class SeedService implements OnApplicationBootstrap {
       [DEMO_TENANT_ID, payments[0].id, insurer[0].id],
     );
     this.logger.log('Demo commission events seeded.');
+  }
+
+  private async seedTenantRenewalConfig(): Promise<void> {
+    const defaultStages = [
+      { stage: 'd_minus_30', channels: ['push'], enabled: true },
+      { stage: 'd_minus_7', channels: ['push'], enabled: true },
+      { stage: 'd_minus_3', channels: ['sms'], enabled: true },
+      { stage: 'd_minus_1', channels: ['email'], enabled: true },
+      { stage: 'd_plus_1', channels: ['dashboard'], enabled: true },
+    ];
+
+    await this.dataSource.query(
+      `INSERT INTO tenant_renewal_config (tenant_id, stages_config)
+       VALUES ($1, $2)
+       ON CONFLICT (tenant_id) DO NOTHING`,
+      [DEMO_TENANT_ID, JSON.stringify(defaultStages)],
+    );
+    this.logger.log('Demo tenant renewal config seeded.');
   }
 }

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DataSource, EntityManager } from 'typeorm';
 import {
   NotificationsRepository,
   EndClientRow,
@@ -11,8 +12,11 @@ import {
   NotificationChannel,
   NotificationStatus,
 } from './entities/notification-log.entity';
+import { StageConfig } from './entities/tenant-renewal-config.entity';
 import { RenewalStage } from '../renewal/renewal.repository';
 import { EmailService } from '../../infrastructure/email/email.service';
+import { RenewalConfigResponseDto } from './dto/renewal-config-response.dto';
+import { UpsertRenewalConfigDto } from './dto/upsert-renewal-config.dto';
 
 export type { RenewalStage };
 
@@ -23,18 +27,18 @@ export interface RenewalNotificationJobData {
   coverageEndDate: string; // ISO string — Dates не се сериализират в BullMQ
 }
 
-// TODO (Story 6.3): Replace DEFAULT_CHANNEL_MAP with tenant-specific config from DB
-const DEFAULT_CHANNEL_MAP: Record<RenewalStage, NotificationChannel> = {
-  d_minus_30: 'push',
-  d_minus_7: 'push',
-  d_minus_3: 'sms',
-  d_minus_1: 'email',
-  d_plus_1: 'dashboard',
-};
-
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
+
+  // PLATFORM DEFAULT — използва се когато няма tenant config
+  private static readonly PLATFORM_DEFAULT_STAGES: StageConfig[] = [
+    { stage: 'd_minus_30', channels: ['push'], enabled: true },
+    { stage: 'd_minus_7', channels: ['push'], enabled: true },
+    { stage: 'd_minus_3', channels: ['sms'], enabled: true },
+    { stage: 'd_minus_1', channels: ['email'], enabled: true },
+    { stage: 'd_plus_1', channels: ['dashboard'], enabled: true },
+  ];
 
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
@@ -43,6 +47,7 @@ export class NotificationsService {
     private readonly emailChannel: EmailChannel,
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async notifyBroker(params: {
@@ -73,15 +78,126 @@ export class NotificationsService {
   ): Promise<void> {
     const { policyId, stage, tenantId, coverageEndDate } = data;
 
+    // Load tenant config or fall back to platform default (AC3)
+    const tenantStages =
+      (await this.notificationsRepository.findTenantRenewalConfig(tenantId)) ??
+      NotificationsService.PLATFORM_DEFAULT_STAGES;
+
+    const stageConfig = tenantStages.find((s) => s.stage === stage);
+    if (!stageConfig) {
+      this.logger.log(
+        `Stage ${stage} not configured for tenant ${tenantId} — skipping`,
+      );
+      return;
+    }
+    if (!stageConfig.enabled) {
+      this.logger.log(
+        `Stage ${stage} is disabled for tenant ${tenantId} — skipping`,
+      );
+      return;
+    }
+
     const endClient =
       await this.notificationsRepository.findEndClientForPolicy(policyId);
+    const customDomain =
+      await this.notificationsRepository.findTenantDomain(tenantId);
     const domain =
-      (await this.notificationsRepository.findTenantDomain(tenantId)) ??
-      'branivo.com';
+      customDomain ??
+      `${(await this.notificationsRepository.findTenantSlug(tenantId)) ?? tenantId}.branivo.bg`;
     const renewalLink = `https://${domain}/renewal/${policyId}`;
     const expiryDate = new Date(coverageEndDate).toLocaleDateString('bg-BG');
-    const channel = DEFAULT_CHANNEL_MAP[stage];
 
+    // Execute channels in order — skip disabled channels (AC5)
+    for (const channel of stageConfig.channels) {
+      await this.dispatchChannel(
+        channel,
+        endClient,
+        tenantId,
+        policyId,
+        coverageEndDate,
+        expiryDate,
+        renewalLink,
+        stage,
+      );
+    }
+  }
+
+  async getTenantRenewalConfig(
+    tenantId: string,
+  ): Promise<RenewalConfigResponseDto> {
+    const stages =
+      await this.notificationsRepository.findTenantRenewalConfig(tenantId);
+    return {
+      tenantId,
+      stages: stages ?? NotificationsService.PLATFORM_DEFAULT_STAGES,
+      isDefault: stages === null,
+    };
+  }
+
+  async upsertTenantRenewalConfig(
+    tenantId: string,
+    dto: UpsertRenewalConfigDto,
+    superAdminId: string,
+  ): Promise<RenewalConfigResponseDto> {
+    const oldConfig =
+      await this.notificationsRepository.upsertTenantRenewalConfig(
+        tenantId,
+        dto.stages,
+      );
+    await this.writeRenewalConfigAuditLog({
+      tenantId,
+      userId: superAdminId,
+      oldConfig,
+      newConfig: dto.stages,
+    });
+    return { tenantId, stages: dto.stages, isDefault: false };
+  }
+
+  private async writeRenewalConfigAuditLog(entry: {
+    tenantId: string;
+    userId: string;
+    oldConfig: StageConfig[] | null;
+    newConfig: StageConfig[];
+  }): Promise<void> {
+    try {
+      await this.dataSource.transaction(async (manager: EntityManager) => {
+        await manager.query('SET LOCAL app.current_tenant_id = $1', [
+          entry.tenantId,
+        ]);
+        await manager.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          [
+            entry.tenantId,
+            entry.userId,
+            'renewal_config.updated',
+            'tenant',
+            entry.tenantId,
+            JSON.stringify({
+              old_config: entry.oldConfig,
+              new_config: entry.newConfig,
+            }),
+          ],
+        );
+      });
+    } catch (err) {
+      this.logger.error(
+        'Failed to write audit log for renewal config change',
+        err,
+      );
+    }
+  }
+
+  private async dispatchChannel(
+    channel: NotificationChannel,
+    endClient: EndClientRow | null,
+    tenantId: string,
+    policyId: string,
+    coverageEndDate: string,
+    expiryDate: string,
+    renewalLink: string,
+    stage: RenewalStage,
+  ): Promise<void> {
     if (channel === 'sms') {
       await this.deliverSmsWithFallbackLog(
         endClient,
