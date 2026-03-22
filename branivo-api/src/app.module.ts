@@ -76,6 +76,10 @@ export class AppModule implements NestModule {
       .apply(TenantMiddleware)
       .exclude(
         { path: 'health', method: RequestMethod.GET },
+        {
+          path: '.well-known/apple-developer-merchantid-domain-association',
+          method: RequestMethod.GET,
+        },
         { path: 'api/docs/*path', method: RequestMethod.ALL },
         { path: 'api/docs', method: RequestMethod.ALL },
         { path: 'api/v1/auth/login', method: RequestMethod.POST },

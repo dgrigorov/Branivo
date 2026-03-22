@@ -3,7 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { BaseRepository } from '../../common/base.repository';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
-import { Payment, PaymentStatus } from './entities/payment.entity';
+import {
+  Payment,
+  PaymentMethod,
+  PaymentStatus,
+} from './entities/payment.entity';
 
 @Injectable()
 export class PaymentsRepository extends BaseRepository<Payment> {
@@ -37,6 +41,16 @@ export class PaymentsRepository extends BaseRepository<Payment> {
     await this.paymentRepo.update(id, {
       status,
       ...(failureReason && { failureReason }),
+      updatedAt: new Date(),
+    });
+  }
+
+  async updatePaymentMethod(
+    id: string,
+    paymentMethod: PaymentMethod,
+  ): Promise<void> {
+    await this.paymentRepo.update(id, {
+      paymentMethod,
       updatedAt: new Date(),
     });
   }

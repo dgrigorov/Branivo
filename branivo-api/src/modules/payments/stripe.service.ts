@@ -29,7 +29,7 @@ export class StripeService {
         amount: Math.round(params.amount),
         currency: params.currency.toLowerCase(),
         application_fee_amount: Math.round(params.applicationFeeAmount),
-        payment_method_types: ['card'], // Apple Pay / Google Pay са auto-enabled за card
+        automatic_payment_methods: { enabled: true }, // Enables Apple Pay / Google Pay automatically
         payment_method_options: {
           card: {
             request_three_d_secure: 'any', // ЗАДЪЛЖИТЕЛНО: PSD2 compliance (NFR45)
@@ -53,6 +53,19 @@ export class StripeService {
   ): Stripe.Event {
     // ВАЖНО: rawBody трябва да е Buffer от NestJS rawBody: true — не JSON.parsed
     return this.stripe.webhooks.constructEvent(rawBody, signature, secret);
+  }
+
+  /**
+   * Retrieve a PaymentIntent with expanded payment_method to detect wallet type
+   * (Apple Pay / Google Pay). Required because payment_method_types is always
+   * ['card'] for wallet payments — wallet type lives in card.wallet.type.
+   */
+  async retrievePaymentIntentWithMethod(
+    intentId: string,
+  ): Promise<Stripe.PaymentIntent> {
+    return this.stripe.paymentIntents.retrieve(intentId, {
+      expand: ['payment_method'],
+    });
   }
 
   // Ще е нужен в Story 4.3 — дефинирай тук за consistency

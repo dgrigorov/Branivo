@@ -9,6 +9,7 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { PoliciesModule } from '../policies/policies.module';
 import { CommissionsModule } from '../commissions/commissions.module';
 import { PaymentsController } from './payments.controller';
+import { WellKnownController } from './well-known.controller';
 import { PaymentsService } from './payments.service';
 import { PaymentsRepository } from './payments.repository';
 import { StripeService } from './stripe.service';
@@ -28,7 +29,7 @@ import { Payment } from './entities/payment.entity';
     ConfigModule,
     EmailModule, // за StripeWebhookService.sendStripeRevocationEmail()
   ],
-  controllers: [PaymentsController],
+  controllers: [PaymentsController, WellKnownController],
   providers: [
     PaymentsService,
     PaymentsRepository,

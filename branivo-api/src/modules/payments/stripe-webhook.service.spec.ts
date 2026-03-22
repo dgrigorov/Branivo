@@ -6,7 +6,7 @@ import { DataSource } from 'typeorm';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { StripeService } from './stripe.service';
 import { PaymentsRepository } from './payments.repository';
-import { PaymentStatus } from './entities/payment.entity';
+import { PaymentMethod, PaymentStatus } from './entities/payment.entity';
 import { PoliciesRepository } from '../policies/policies.repository';
 import { PolicyEventsRepository } from '../policies/policy-events.repository';
 import { PolicyStatus } from '../policies/entities/policy.entity';
@@ -46,6 +46,7 @@ const mockPayment = {
 const mockPaymentsRepo = {
   findByStripeIntentId: jest.fn(),
   updateStatus: jest.fn(),
+  updatePaymentMethod: jest.fn(),
   save: jest.fn(),
 };
 
@@ -65,6 +66,11 @@ const mockPdfQueue = {
 
 const mockStripeService = {
   constructWebhookEvent: jest.fn(),
+  // Returns PaymentIntent with expanded payment_method for wallet type detection.
+  // Default: regular card (no wallet). Override per-test for Apple Pay / Google Pay.
+  retrievePaymentIntentWithMethod: jest
+    .fn()
+    .mockResolvedValue({ payment_method: { card: {} } }),
 };
 
 const mockConfig = {
@@ -461,6 +467,88 @@ describe('StripeWebhookService', () => {
         service.handleEvent(makeAccountEvent(false)),
       ).resolves.not.toThrow();
       expect(mockEmailService.sendStripeRevocationEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleEvent — payment_method recording (AC7)', () => {
+    // Stripe ALWAYS sends payment_method_types: ['card'] even for Apple Pay / Google Pay.
+    // Wallet type is detected via expanded payment_method.card.wallet.type.
+    const makeSucceededEvent = (): Stripe.Event =>
+      ({
+        id: STRIPE_EVENT_ID,
+        type: 'payment_intent.succeeded',
+        data: {
+          object: {
+            id: INTENT_ID,
+            payment_method_types: ['card'], // Always 'card' from Stripe for all wallet types
+          },
+        },
+      }) as unknown as Stripe.Event;
+
+    beforeEach(() => {
+      mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(mockPayment);
+      mockPoliciesRepo.findByStripeIntentId.mockResolvedValue(null);
+      mockPoliciesRepo.saveWithoutTenantScope.mockResolvedValue({
+        id: POLICY_ID,
+        policyNumber: 'DEMO-001',
+        deliveryAddress: null,
+      });
+      mockPolicyEventsRepo.createEvent.mockResolvedValue({});
+      mockPdfQueue.add.mockResolvedValue({});
+      mockPaymentsRepo.updatePaymentMethod.mockResolvedValue(undefined);
+    });
+
+    it('AC7: Apple Pay → updatePaymentMethod called with PaymentMethod.APPLE_PAY (via card.wallet.type)', async () => {
+      mockStripeService.retrievePaymentIntentWithMethod.mockResolvedValue({
+        payment_method: { card: { wallet: { type: 'apple_pay' } } },
+      });
+
+      await service.handleEvent(makeSucceededEvent());
+
+      expect(mockPaymentsRepo.updatePaymentMethod).toHaveBeenCalledWith(
+        PAYMENT_ID,
+        PaymentMethod.APPLE_PAY,
+      );
+    });
+
+    it('AC7: Google Pay → updatePaymentMethod called with PaymentMethod.GOOGLE_PAY (via card.wallet.type)', async () => {
+      mockStripeService.retrievePaymentIntentWithMethod.mockResolvedValue({
+        payment_method: { card: { wallet: { type: 'google_pay' } } },
+      });
+
+      await service.handleEvent(makeSucceededEvent());
+
+      expect(mockPaymentsRepo.updatePaymentMethod).toHaveBeenCalledWith(
+        PAYMENT_ID,
+        PaymentMethod.GOOGLE_PAY,
+      );
+    });
+
+    it('AC7: regular card (no wallet) → updatePaymentMethod called with PaymentMethod.CARD', async () => {
+      mockStripeService.retrievePaymentIntentWithMethod.mockResolvedValue({
+        payment_method: { card: {} }, // No wallet property
+      });
+
+      await service.handleEvent(makeSucceededEvent());
+
+      expect(mockPaymentsRepo.updatePaymentMethod).toHaveBeenCalledWith(
+        PAYMENT_ID,
+        PaymentMethod.CARD,
+      );
+    });
+
+    it('AC7: retrievePaymentIntentWithMethod fails gracefully → defaults to PaymentMethod.CARD', async () => {
+      mockStripeService.retrievePaymentIntentWithMethod.mockRejectedValue(
+        new Error('Stripe API timeout'),
+      );
+
+      await service.handleEvent(makeSucceededEvent());
+
+      // Must NOT throw — webhook must complete; defaults to 'card'
+      expect(mockPaymentsRepo.updatePaymentMethod).toHaveBeenCalledWith(
+        PAYMENT_ID,
+        PaymentMethod.CARD,
+      );
     });
   });
 });

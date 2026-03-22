@@ -20,6 +20,11 @@ Future<void> main() async {
     'STRIPE_PUBLISHABLE_KEY',
     defaultValue: 'pk_test_placeholder',
   );
+  // КРИТИЧНО: без merchantIdentifier, Apple Pay бутонът не се показва (без грешка!)
+  Stripe.merchantIdentifier = 'merchant.com.branivo.app';
+  // Необходимо за redirect-based payment methods (3DS, banktransfer)
+  Stripe.urlScheme = 'branivo';
+  await Stripe.instance.applySettings();
 
   await Hive.initFlutter();
   await Hive.openBox<dynamic>('policies');

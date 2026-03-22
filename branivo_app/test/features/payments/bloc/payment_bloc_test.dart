@@ -96,6 +96,44 @@ void main() {
     });
   });
 
+  group('PaymentCanceledEvent (AC6)', () {
+    test('emits PaymentReadyState (not PaymentFailedState) when user cancels', () async {
+      when(
+        () => mockRepo.createPaymentIntent(
+          quoteId: _quoteId,
+          bearerToken: _bearerToken,
+        ),
+      ).thenAnswer((_) async => _mockResponse);
+
+      // Load PaymentIntent first to store clientSecret
+      bloc.add(const PaymentIntentRequestedEvent(quoteId: _quoteId));
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          isA<PaymentLoadingState>(),
+          isA<PaymentReadyState>(),
+        ]),
+      );
+
+      // Simulate processing started (PaymentSheet opened)
+      bloc.add(const PaymentProcessingStartedEvent());
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([isA<PaymentProcessingState>()]),
+      );
+
+      // User cancels PaymentSheet → must restore PaymentReadyState
+      bloc.add(const PaymentCanceledEvent());
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([isA<PaymentReadyState>()]),
+      );
+
+      // Verify not in error state
+      expect(bloc.state, isA<PaymentReadyState>());
+    });
+  });
+
   group('PaymentRetryRequestedEvent', () {
     test('retries using same quoteId for idempotency (AC6)', () async {
       when(

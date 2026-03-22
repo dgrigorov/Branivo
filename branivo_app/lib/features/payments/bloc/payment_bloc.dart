@@ -10,6 +10,11 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   /// Запазваме quoteId за retry (idempotency — същият quoteId → без дублиране)
   String? _currentQuoteId;
 
+  /// Запазваме данните от PaymentReadyState за restore след cancel (AC6)
+  String? _lastClientSecret;
+  double? _lastAmount;
+  String? _lastCurrency;
+
   PaymentBloc({
     required PaymentApiRepository paymentRepo,
     required String bearerToken,
@@ -21,6 +26,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     on<PaymentFailedEvent>(_onPaymentFailed);
     on<PaymentRetryRequestedEvent>(_onPaymentRetryRequested);
     on<PaymentProcessingStartedEvent>(_onPaymentProcessingStarted);
+    on<PaymentCanceledEvent>(_onPaymentCanceled);
   }
 
   Future<void> _onPaymentIntentRequested(
@@ -35,6 +41,9 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
         quoteId: event.quoteId,
         bearerToken: _bearerToken,
       );
+      _lastClientSecret = response.clientSecret;
+      _lastAmount = response.amount;
+      _lastCurrency = response.currency;
       emit(PaymentReadyState(
         clientSecret: response.clientSecret,
         amount: response.amount,
@@ -78,6 +87,24 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     // Ре-използваме същия quoteId → идемпотентно (AC6)
     if (_currentQuoteId != null) {
       add(PaymentIntentRequestedEvent(quoteId: _currentQuoteId!));
+    }
+  }
+
+  void _onPaymentCanceled(
+    PaymentCanceledEvent event,
+    Emitter<PaymentState> emit,
+  ) {
+    // AC6: user closed PaymentSheet without paying → go back to ready state
+    // НЕ показваме error message; потребителят може да опита отново
+    if (state is PaymentProcessingState) {
+      final clientSecret = _lastClientSecret;
+      if (clientSecret != null) {
+        emit(PaymentReadyState(
+          clientSecret: clientSecret,
+          amount: _lastAmount ?? 0,
+          currency: _lastCurrency ?? 'BGN',
+        ));
+      }
     }
   }
 }

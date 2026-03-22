@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -46,28 +47,50 @@ class _PaymentScreenState extends State<PaymentScreen> {
         );
   }
 
-  Future<void> _confirmPayment(
+  Future<void> _presentPaymentSheet(
     BuildContext context,
     String clientSecret,
   ) async {
     context.read<PaymentBloc>().add(const PaymentProcessingStartedEvent());
 
     try {
-      await Stripe.instance.confirmPayment(
-        paymentIntentClientSecret: clientSecret,
-        data: const PaymentMethodParams.card(
-          paymentMethodData: PaymentMethodData(),
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          paymentIntentClientSecret: clientSecret,
+          merchantDisplayName: 'Branivo',
+          returnURL: 'branivo://stripe-redirect',
+          // v12+: merchantCountryCode is inside the object (breaking change from v10)
+          applePay: const PaymentSheetApplePay(
+            merchantCountryCode: 'BG',
+          ),
+          // v12+: merchantCountryCode, currencyCode, testEnv are inside the object
+          googlePay: PaymentSheetGooglePay(
+            merchantCountryCode: 'BG',
+            currencyCode: 'BGN',
+            testEnv: !kReleaseMode,
+          ),
+          style: ThemeMode.system,
+          primaryButtonLabel: 'Плати сега',
         ),
       );
-      // При успех → PaymentConfirmedEvent
+
+      await Stripe.instance.presentPaymentSheet();
+
+      // Success — НЕ активираме полицата тук; активацията е САМО в StripeWebhookService
       if (context.mounted) {
         context.read<PaymentBloc>().add(
-              PaymentConfirmedEvent(paymentIntentId: clientSecret.split('_secret_').first),
+              PaymentConfirmedEvent(
+                paymentIntentId: clientSecret.split('_secret_').first,
+              ),
             );
       }
     } on StripeException catch (e) {
-      // e.error.localizedMessage → user-friendly съобщение
-      if (context.mounted) {
+      if (!context.mounted) return;
+
+      if (e.error.code == FailureCode.Canceled) {
+        // User closed PaymentSheet without completing payment — AC6: emit PaymentReadyState
+        context.read<PaymentBloc>().add(const PaymentCanceledEvent());
+      } else {
         context.read<PaymentBloc>().add(
               PaymentFailedEvent(
                 errorMessage:
@@ -100,18 +123,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     'Сума: ${state.amount.toStringAsFixed(2)} ${state.currency}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 16),
-                  CardFormField(
-                    controller: CardFormEditController(),
-                    style: CardFormStyle(
-                      backgroundColor: Colors.white,
-                      textColor: Colors.black87,
-                      borderColor: Colors.grey.shade300,
-                    ),
-                  ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () => _confirmPayment(context, state.clientSecret),
+                    onPressed: () =>
+                        _presentPaymentSheet(context, state.clientSecret),
                     child: const Text('Плати'),
                   ),
                 ],

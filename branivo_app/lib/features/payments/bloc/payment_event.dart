@@ -27,3 +27,9 @@ class PaymentRetryRequestedEvent extends PaymentEvent {
 class PaymentProcessingStartedEvent extends PaymentEvent {
   const PaymentProcessingStartedEvent();
 }
+
+/// Потребителят е затворил PaymentSheet без плащане (FailureCode.Canceled)
+/// AC6: трябва да emit PaymentReadyState (не PaymentFailedState)
+class PaymentCanceledEvent extends PaymentEvent {
+  const PaymentCanceledEvent();
+}

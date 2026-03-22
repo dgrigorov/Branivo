@@ -36,8 +36,19 @@ function CheckoutForm({ onSuccess, onError }: CheckoutFormProps) {
     setIsProcessing(false);
 
     if (error) {
-      // Retry с СЪЩИЯ clientSecret (idempotent — AC6)
-      onError(error.message ?? 'Неуспешно плащане. Моля, опитайте отново.');
+      // Apple Pay cancel: error.type === 'validation_error' && error.code === 'incomplete_number'
+      // Google Pay cancel: error.type === 'card_error' && error.decline_code === 'cancelled'
+      // In these cases the user just closed the wallet sheet — show no error (AC3)
+      const isCancelledByUser =
+        (error.type === 'validation_error' && error.code === 'incomplete_number') ||
+        (error.type === 'card_error' && error.decline_code === 'cancelled') ||
+        error.code === 'payment_intent_unexpected_state';
+
+      if (!isCancelledByUser) {
+        // Retry з СЪЩИЯ clientSecret (idempotent — AC6)
+        onError(error.message ?? 'Неуспешно плащане. Моля, опитайте отново.');
+      }
+      // If cancelled — do nothing: form stays in current state, no error shown
     } else {
       // Optimistic state — НЕ активираме полицата тук (активацията е в Story 4.3 webhook)
       onSuccess();

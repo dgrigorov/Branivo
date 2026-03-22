@@ -12,7 +12,7 @@ import {
 import { EmailService } from '../../infrastructure/email/email.service';
 import { StripeService } from './stripe.service';
 import { PaymentsRepository } from './payments.repository';
-import { PaymentStatus } from './entities/payment.entity';
+import { PaymentMethod, PaymentStatus } from './entities/payment.entity';
 import { PoliciesRepository } from '../policies/policies.repository';
 import { PolicyEventsRepository } from '../policies/policy-events.repository';
 import { PolicyStatus } from '../policies/entities/policy.entity';
@@ -178,6 +178,33 @@ export class StripeWebhookService {
 
     // 3. Update payment status
     await this.paymentsRepo.updateStatus(payment.id, PaymentStatus.SUCCEEDED);
+
+    // 3b. Record payment method (apple_pay / google_pay / card)
+    // NOTE: payment_method_types is ALWAYS ['card'] for Apple Pay/Google Pay —
+    // wallet type must be detected via expanded payment_method.card.wallet.type
+    let paymentMethod = PaymentMethod.CARD;
+    try {
+      const expandedIntent =
+        await this.stripeService.retrievePaymentIntentWithMethod(intent.id);
+      const pm =
+        typeof expandedIntent.payment_method === 'object'
+          ? expandedIntent.payment_method
+          : null;
+      const walletType = pm?.card?.wallet?.type as string | undefined;
+      const walletMap: Record<string, PaymentMethod> = {
+        apple_pay: PaymentMethod.APPLE_PAY,
+        google_pay: PaymentMethod.GOOGLE_PAY,
+      };
+      if (walletType && walletMap[walletType]) {
+        paymentMethod = walletMap[walletType];
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to retrieve payment method details for intent ${intent.id}, defaulting to 'card'`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+    await this.paymentsRepo.updatePaymentMethod(payment.id, paymentMethod);
 
     // 4. Вземи commission данни от payment record
     const platformFeePct = Number(payment.platformFeePct);

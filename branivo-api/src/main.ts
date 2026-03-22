@@ -24,8 +24,14 @@ async function bootstrap(): Promise<void> {
   app.enableCors({ origin: false });
 
   // Global prefix + URI versioning (/api/v1/...)
-  app.setGlobalPrefix('api');
-  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+  // Exclude .well-known/* so Apple Pay domain verification works at the root level
+  app.setGlobalPrefix('api', {
+    exclude: ['.well-known/apple-developer-merchantid-domain-association'],
+  });
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
 
   // Global pipes, filters, interceptors
   app.useGlobalPipes(

@@ -17,6 +17,16 @@ export enum PaymentStatus {
   CANCELED = 'canceled',
 }
 
+export enum PaymentMethod {
+  CARD = 'card',
+  APPLE_PAY = 'apple_pay',
+  GOOGLE_PAY = 'google_pay',
+}
+
+export enum PaymentProvider {
+  STRIPE = 'stripe',
+}
+
 @Entity('payments')
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
@@ -66,6 +76,20 @@ export class Payment {
 
   @Column({ name: 'failure_reason', nullable: true })
   failureReason!: string | null;
+
+  @Column({
+    name: 'payment_method',
+    type: 'varchar',
+    default: PaymentMethod.CARD,
+  })
+  paymentMethod!: PaymentMethod;
+
+  @Column({
+    name: 'payment_provider',
+    type: 'varchar',
+    default: PaymentProvider.STRIPE,
+  })
+  paymentProvider!: PaymentProvider;
 
   @Column({ name: 'metadata', type: 'jsonb', default: {} })
   metadata!: Record<string, unknown>;
