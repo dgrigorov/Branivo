@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -22,6 +23,7 @@ import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { FleetService } from './fleet.service';
 import { FleetBulkService } from './fleet-bulk.service';
 import { FleetPdfExportService } from './fleet-pdf-export.service';
+import { FleetDriverService } from './fleet-driver.service';
 import { FleetVehicleFilterDto } from './dto/fleet-vehicle-filter.dto';
 import { FleetVehicleResponseDto } from './dto/fleet-vehicle-response.dto';
 import { PaginationMeta } from './fleet.service';
@@ -32,6 +34,8 @@ import { BulkPurchaseResponseDto } from './dto/bulk-purchase-response.dto';
 import { BatchExportRequestDto } from './dto/batch-export-request.dto';
 import { BatchExportResponseDto } from './dto/batch-export-response.dto';
 import { BatchExportDownloadDto } from './dto/batch-export-download.dto';
+import { DriverVehicleResponseDto } from './dto/driver-vehicle-response.dto';
+import { AssignDriverDto } from './dto/assign-driver.dto';
 
 interface RequestWithUser extends Request {
   user: AuthenticatedUser;
@@ -47,6 +51,7 @@ export class FleetController {
     private readonly fleetService: FleetService,
     private readonly fleetBulkService: FleetBulkService,
     private readonly fleetPdfExportService: FleetPdfExportService,
+    private readonly fleetDriverService: FleetDriverService,
   ) {}
 
   @Get('vehicles')
@@ -143,5 +148,38 @@ export class FleetController {
     @Param('exportId', ParseUUIDPipe) exportId: string,
   ): Promise<BatchExportDownloadDto> {
     return this.fleetPdfExportService.getDownloadUrl(exportId);
+  }
+
+  @Get('driver/vehicles')
+  @Roles('driver')
+  @ApiOperation({
+    summary: 'Get vehicles assigned to the authenticated driver',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of assigned vehicles with policy info',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden — not a driver' })
+  async getDriverVehicles(
+    @Req() req: RequestWithUser,
+  ): Promise<DriverVehicleResponseDto[]> {
+    return this.fleetDriverService.getDriverView(req.user.userId);
+  }
+
+  @Put('vehicles/:vehicleId/driver')
+  @ApiOperation({ summary: 'Assign or unassign a driver to a fleet vehicle' })
+  @ApiResponse({ status: 200, description: 'Driver assigned successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'User is not a driver in this tenant',
+  })
+  async assignDriver(
+    @Param('vehicleId', ParseUUIDPipe) vehicleId: string,
+    @Body() dto: AssignDriverDto,
+  ): Promise<void> {
+    return this.fleetDriverService.assignDriver(
+      vehicleId,
+      dto.driverUserId ?? null,
+    );
   }
 }

@@ -110,7 +110,7 @@ development_status:
   7-1-fleet-vehicle-status-dashboard: done
   7-2-bulk-quote-policy-purchase: done
   7-3-batch-pdf-export: done
-  7-4-driver-role-scoped-view: backlog
+  7-4-driver-role-scoped-view: done
   epic-7-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────

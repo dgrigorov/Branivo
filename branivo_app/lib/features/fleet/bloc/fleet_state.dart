@@ -1,4 +1,5 @@
 import '../data/models/fleet_vehicle.dart';
+import '../data/models/driver_vehicle.dart';
 
 abstract class FleetState {
   const FleetState();
@@ -26,4 +27,10 @@ class FleetError extends FleetState {
   final String message;
 
   const FleetError({required this.message});
+}
+
+class DriverVehicleLoaded extends FleetState {
+  final List<DriverVehicle> vehicles;
+
+  const DriverVehicleLoaded({required this.vehicles});
 }

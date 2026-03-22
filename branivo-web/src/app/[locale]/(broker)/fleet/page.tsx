@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FleetVehicleStatusBadge } from '@/components/fleet/FleetVehicleStatusBadge';
 
 type FleetVehicleStatus = 'green' | 'yellow' | 'red';
@@ -52,10 +52,28 @@ const FILTER_TABS: { value: FilterTab; label: string }[] = [
   { value: 'red', label: '🔴 Червени' },
 ];
 
+async function assignDriverToVehicle(
+  vehicleId: string,
+  driverUserId: string | null,
+): Promise<void> {
+  const res = await fetch(`/api/v1/fleet/vehicles/${vehicleId}/driver`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ driverUserId }),
+  });
+  if (!res.ok) throw new Error('Грешка при назначаване на шофьор');
+}
+
 export default function FleetPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [assigningVehicleId, setAssigningVehicleId] = useState<string | null>(
+    null,
+  );
+  const [driverInput, setDriverInput] = useState('');
 
   const statusFilter =
     activeFilter === 'all' ? undefined : activeFilter;
@@ -91,6 +109,21 @@ export default function FleetPage() {
     const ids = Array.from(selectedIds).join(',');
     router.push(`/fleet/bulk-quotes?vehicleIds=${ids}`);
   }
+
+  const assignDriverMutation = useMutation({
+    mutationFn: ({
+      vehicleId,
+      driverUserId,
+    }: {
+      vehicleId: string;
+      driverUserId: string | null;
+    }) => assignDriverToVehicle(vehicleId, driverUserId),
+    onSuccess: () => {
+      setAssigningVehicleId(null);
+      setDriverInput('');
+      void queryClient.invalidateQueries({ queryKey: ['fleet', 'vehicles'] });
+    },
+  });
 
   const exportMutation = useMutation({
     mutationFn: async (policyIds: string[]) => {
@@ -222,6 +255,9 @@ export default function FleetPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">
                   Изтича на
                 </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">
+                  Шофьор
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -264,12 +300,60 @@ export default function FleetPage() {
                         )
                       : '—'}
                   </td>
+                  <td
+                    className="px-4 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {assigningVehicleId === vehicle.vehicleId ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={driverInput}
+                          onChange={(e) => setDriverInput(e.target.value)}
+                          placeholder="User ID на шофьора"
+                          className="text-xs border rounded px-2 py-1 w-44"
+                          aria-label="Driver user ID"
+                        />
+                        <button
+                          onClick={() =>
+                            assignDriverMutation.mutate({
+                              vehicleId: vehicle.vehicleId,
+                              driverUserId: driverInput.trim() || null,
+                            })
+                          }
+                          disabled={assignDriverMutation.isPending}
+                          className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          ОК
+                        </button>
+                        <button
+                          onClick={() => {
+                            setAssigningVehicleId(null);
+                            setDriverInput('');
+                          }}
+                          className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setAssigningVehicleId(vehicle.vehicleId);
+                          setDriverInput('');
+                        }}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Назначи шофьор
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {vehicles.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-8 text-center text-gray-400"
                   >
                     Няма МПС

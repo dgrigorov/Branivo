@@ -14,6 +14,7 @@ import { FleetController } from './fleet.controller';
 import { FleetService } from './fleet.service';
 import { FleetBulkService } from './fleet-bulk.service';
 import { FleetPdfExportService } from './fleet-pdf-export.service';
+import { FleetDriverService } from './fleet-driver.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { FeatureFlagGuard } from '../../common/guards/feature-flag.guard';
@@ -44,6 +45,14 @@ const mockBrokerAgent = {
   tenantId: TENANT_ID,
   role: 'broker_agent',
   jti: 'jti-003',
+  exp: Math.floor(Date.now() / 1000) + 900,
+};
+
+const mockDriver = {
+  userId: 'user-uuid-4',
+  tenantId: TENANT_ID,
+  role: 'driver',
+  jti: 'jti-004',
   exp: Math.floor(Date.now() / 1000) + 900,
 };
 
@@ -85,6 +94,21 @@ const mockFleetBulkService = {
   }),
 };
 
+const mockFleetDriverService = {
+  getDriverView: jest.fn().mockResolvedValue([
+    {
+      vehicleId: 'v-id-1',
+      licensePlate: 'КА0001ФЛ',
+      make: 'BMW',
+      model: 'X5',
+      insurerName: 'Allianz Bulgaria',
+      policyExpiresAt: new Date('2026-06-01'),
+      policyStatus: 'active',
+    },
+  ]),
+  assignDriver: jest.fn().mockResolvedValue(undefined),
+};
+
 const mockFleetPdfExportService = {
   createBatchExport: jest.fn().mockResolvedValue({
     exportId: 'export-uuid-001',
@@ -112,7 +136,7 @@ const mockFleetPdfExportService = {
   }),
 };
 
-type MockUser = typeof mockFleetAdmin | null;
+type MockUser = typeof mockFleetAdmin | typeof mockDriver | null;
 
 function makeJwtGuard(user: MockUser) {
   return {
@@ -148,6 +172,7 @@ async function buildApp(
       { provide: FleetService, useValue: mockFleetService },
       { provide: FleetBulkService, useValue: mockFleetBulkService },
       { provide: FleetPdfExportService, useValue: mockFleetPdfExportService },
+      { provide: FleetDriverService, useValue: mockFleetDriverService },
       { provide: Reflector, useClass: Reflector },
     ],
   })
@@ -161,6 +186,34 @@ async function buildApp(
         return allowedRoles.includes(user.role);
       },
     })
+    .overrideGuard(FeatureFlagGuard)
+    .useValue(makeFeatureFlagGuard(featureEnabled))
+    .compile();
+
+  const app = moduleRef.createNestApplication();
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  await app.init();
+  return app;
+}
+
+async function buildDriverApp(
+  user: MockUser,
+  featureEnabled = true,
+): Promise<INestApplication> {
+  const moduleRef = await Test.createTestingModule({
+    controllers: [FleetController],
+    providers: [
+      { provide: FleetService, useValue: mockFleetService },
+      { provide: FleetBulkService, useValue: mockFleetBulkService },
+      { provide: FleetPdfExportService, useValue: mockFleetPdfExportService },
+      { provide: FleetDriverService, useValue: mockFleetDriverService },
+      { provide: Reflector, useClass: Reflector },
+    ],
+  })
+    .overrideGuard(JwtAuthGuard)
+    .useValue(makeJwtGuard(user))
+    .overrideGuard(RolesGuard)
+    .useValue(new RolesGuard(new Reflector()))
     .overrideGuard(FeatureFlagGuard)
     .useValue(makeFeatureFlagGuard(featureEnabled))
     .compile();
@@ -197,6 +250,7 @@ describe('FleetController', () => {
         { provide: FleetService, useValue: mockFleetService },
         { provide: FleetBulkService, useValue: mockFleetBulkService },
         { provide: FleetPdfExportService, useValue: mockFleetPdfExportService },
+        { provide: FleetDriverService, useValue: mockFleetDriverService },
         { provide: Reflector, useClass: Reflector },
       ],
     })
@@ -452,6 +506,104 @@ describe('FleetController', () => {
     await request(app.getHttpServer())
       .get('/fleet/exports/00000000-0000-4000-8000-000000000001/download')
       .expect(410);
+    await app.close();
+  });
+
+  // ─── GET /fleet/driver/vehicles ──────────────────────────────────────────────
+
+  it('GET /fleet/driver/vehicles → 200 for driver role', async () => {
+    const app = await buildDriverApp(mockDriver, true);
+    const res = await request(app.getHttpServer())
+      .get('/fleet/driver/vehicles')
+      .expect(200);
+
+    const body = res.body as Array<{
+      licensePlate: string;
+      policyStatus: string;
+    }>;
+    expect(Array.isArray(body)).toBe(true);
+    expect(body[0].licensePlate).toBe('КА0001ФЛ');
+    expect(body[0].policyStatus).toBe('active');
+    await app.close();
+  });
+
+  it('GET /fleet/driver/vehicles → 403 for fleet_admin role', async () => {
+    const app = await buildDriverApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .get('/fleet/driver/vehicles')
+      .expect(403);
+    await app.close();
+  });
+
+  it('GET /fleet/driver/vehicles → 403 for broker_admin role', async () => {
+    const app = await buildDriverApp(mockBrokerAdmin, true);
+    await request(app.getHttpServer())
+      .get('/fleet/driver/vehicles')
+      .expect(403);
+    await app.close();
+  });
+
+  it('GET /fleet/driver/vehicles → 401 when not authenticated', async () => {
+    const app = await buildDriverApp(null, true);
+    await request(app.getHttpServer())
+      .get('/fleet/driver/vehicles')
+      .expect(401);
+    await app.close();
+  });
+
+  // ─── PUT /fleet/vehicles/:vehicleId/driver ───────────────────────────────────
+
+  it('PUT /fleet/vehicles/:vehicleId/driver → 200 for fleet_admin', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .put('/fleet/vehicles/00000000-0000-4000-8000-000000000001/driver')
+      .send({ driverUserId: '00000000-0000-4000-8000-000000000002' })
+      .expect(200);
+    await app.close();
+  });
+
+  it('PUT /fleet/vehicles/:vehicleId/driver → 200 when unassigning driver (driverUserId null)', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .put('/fleet/vehicles/00000000-0000-4000-8000-000000000001/driver')
+      .send({ driverUserId: null })
+      .expect(200);
+    await app.close();
+  });
+
+  it('PUT /fleet/vehicles/:vehicleId/driver → 400 when driverUserId is invalid UUID', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .put('/fleet/vehicles/00000000-0000-4000-8000-000000000001/driver')
+      .send({ driverUserId: 'not-a-uuid' })
+      .expect(400);
+    await app.close();
+  });
+
+  it('PUT /fleet/vehicles/:vehicleId/driver → 400 when driverUserId is missing from body', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .put('/fleet/vehicles/00000000-0000-4000-8000-000000000001/driver')
+      .send({})
+      .expect(400);
+    await app.close();
+  });
+
+  it('PUT /fleet/vehicles/:vehicleId/driver → 403 for driver role', async () => {
+    const app = await buildDriverApp(mockDriver, true);
+    await request(app.getHttpServer())
+      .put('/fleet/vehicles/00000000-0000-4000-8000-000000000001/driver')
+      .send({ driverUserId: '00000000-0000-4000-8000-000000000002' })
+      .expect(403);
+    await app.close();
+  });
+
+  it('PUT /fleet/vehicles/:vehicleId/driver → 401 when not authenticated', async () => {
+    const app = await buildDriverApp(null, true);
+    await request(app.getHttpServer())
+      .put('/fleet/vehicles/00000000-0000-4000-8000-000000000001/driver')
+      .send({ driverUserId: '00000000-0000-4000-8000-000000000002' })
+      .expect(401);
     await app.close();
   });
 });

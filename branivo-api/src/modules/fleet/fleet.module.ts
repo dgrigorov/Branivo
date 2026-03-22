@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { TenantContextModule } from '../../common/tenant-context/tenant-context.module';
 import { TenantsModule } from '../tenants/tenants.module';
+import { UsersModule } from '../users/users.module';
 import { QuotesModule } from '../quotes/quotes.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { PoliciesModule } from '../policies/policies.module';
@@ -16,6 +17,8 @@ import { FleetPdfExportService } from './fleet-pdf-export.service';
 import { FleetPdfBatchProcessor } from './fleet-pdf-batch.processor';
 import { FleetRepository } from './fleet.repository';
 import { FleetPdfExportRepository } from './fleet-pdf-export.repository';
+import { FleetDriverRepository } from './fleet-driver.repository';
+import { FleetDriverService } from './fleet-driver.service';
 import { FleetVehicle } from './entities/fleet-vehicle.entity';
 import { FleetPdfExport } from './entities/fleet-pdf-export.entity';
 
@@ -25,6 +28,7 @@ import { FleetPdfExport } from './entities/fleet-pdf-export.entity';
     BullModule.registerQueue({ name: QUEUE_PDF_GENERATION }),
     TenantContextModule,
     TenantsModule,
+    UsersModule,
     QuotesModule,
     PaymentsModule,
     PoliciesModule,
@@ -39,6 +43,8 @@ import { FleetPdfExport } from './entities/fleet-pdf-export.entity';
     FleetPdfBatchProcessor,
     FleetRepository,
     FleetPdfExportRepository,
+    FleetDriverService,
+    FleetDriverRepository,
   ],
 })
 export class FleetModule {}

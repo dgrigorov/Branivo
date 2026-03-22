@@ -89,6 +89,7 @@ export class SeedService implements OnApplicationBootstrap {
   private async seedUsers(): Promise<void> {
     const adminHash = await bcrypt.hash('Admin1234!', 12);
     const agentHash = await bcrypt.hash('Agent1234!', 12);
+    const driverHash = await bcrypt.hash('Driver1234!', 12);
 
     // Broker admin
     await this.dataSource.query(
@@ -102,6 +103,13 @@ export class SeedService implements OnApplicationBootstrap {
       `INSERT INTO users (id, tenant_id, email, password_hash, role, two_fa_enabled)
        VALUES (gen_random_uuid(), $1, 'agent@branivo.bg', $2, 'broker_agent', false)`,
       [DEMO_TENANT_ID, agentHash],
+    );
+
+    // Demo driver — sees only assigned vehicles
+    await this.dataSource.query(
+      `INSERT INTO users (id, tenant_id, email, password_hash, role, two_fa_enabled)
+       VALUES ('bbbbbbbb-0000-0000-0000-000000000002', $1, 'driver@branivo.bg', $2, 'driver', false)`,
+      [DEMO_TENANT_ID, driverHash],
     );
   }
 
@@ -395,8 +403,23 @@ export class SeedService implements OnApplicationBootstrap {
       }
       this.logger.log(`Fleet vehicle seeded: ${v.plate} (${v.label})`);
     }
+
+    // Assign first fleet vehicle (green) to the demo driver
+    const DEMO_DRIVER_ID = 'bbbbbbbb-0000-0000-0000-000000000002';
+    await this.dataSource.query(
+      `UPDATE fleet_vehicles
+       SET driver_user_id = $1
+       WHERE tenant_id = $2
+         AND vehicle_id = (
+           SELECT id FROM vehicles
+           WHERE tenant_id = $2 AND vin = 'DEMO1FLEET00000001'
+           LIMIT 1
+         )`,
+      [DEMO_DRIVER_ID, DEMO_TENANT_ID],
+    );
+
     this.logger.log(
-      'Fleet vehicles seeded (5 vehicles: 1 green, 2 yellow, 1 red-expired, 1 red-no-policy).',
+      'Fleet vehicles seeded (5 vehicles: 1 green, 2 yellow, 1 red-expired, 1 red-no-policy). 1 assigned to demo driver.',
     );
   }
 

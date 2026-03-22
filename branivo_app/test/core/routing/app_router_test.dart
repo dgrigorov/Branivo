@@ -13,6 +13,9 @@ import 'package:branivo_app/features/vehicles/data/repositories/vehicle_api_repo
 import 'package:branivo_app/features/ocr/data/repositories/ocr_api_repository.dart';
 import 'package:branivo_app/features/vehicles/screens/vehicle_list_screen.dart';
 import 'package:branivo_app/features/ocr/screens/ocr_wizard_screen.dart';
+import 'package:branivo_app/features/fleet/data/repositories/fleet_repository.dart';
+import 'package:branivo_app/features/fleet/screens/fleet_dashboard_screen.dart';
+import 'package:branivo_app/features/fleet/screens/driver_dashboard_screen.dart';
 
 class MockDio extends Mock implements Dio {}
 
@@ -39,6 +42,7 @@ void main() {
   late VehiclesRepository vehiclesRepo;
   late VehicleApiRepository vehicleApiRepo;
   late OcrApiRepository ocrRepo;
+  late FleetRepository fleetRepo;
 
   setUp(() {
     mockDio = MockDio();
@@ -46,6 +50,7 @@ void main() {
     vehiclesRepo = VehiclesRepository(dio: mockDio, storage: mockStorage);
     vehicleApiRepo = VehicleApiRepository(dio: mockDio, storage: mockStorage);
     ocrRepo = OcrApiRepository(dio: mockDio);
+    fleetRepo = FleetRepository(dio: mockDio);
   });
 
   Widget buildApp(GoRouter router) {
@@ -54,6 +59,7 @@ void main() {
         RepositoryProvider<VehiclesRepository>.value(value: vehiclesRepo),
         RepositoryProvider<VehicleApiRepository>.value(value: vehicleApiRepo),
         RepositoryProvider<OcrApiRepository>.value(value: ocrRepo),
+        RepositoryProvider<FleetRepository>.value(value: fleetRepo),
       ],
       child: BlocProvider<AuthBloc>.value(
         value: _StubAuthBloc(),
@@ -103,6 +109,63 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(LoginScreen), findsOneWidget);
+    });
+
+    testWidgets('/fleet with driver role renders DriverDashboardScreen',
+        (tester) async {
+      final router = GoRouter(
+        initialLocation: '/fleet',
+        initialExtra: const FleetRouteArgs(userRole: 'driver'),
+        routes: AppRouter.router.configuration.routes,
+      );
+
+      await tester.pumpWidget(buildApp(router));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(DriverDashboardScreen), findsOneWidget);
+      expect(find.byType(FleetDashboardScreen), findsNothing);
+    });
+
+    testWidgets('/fleet with fleet_admin role renders FleetDashboardScreen',
+        (tester) async {
+      final router = GoRouter(
+        initialLocation: '/fleet',
+        initialExtra: const FleetRouteArgs(userRole: 'fleet_admin'),
+        routes: AppRouter.router.configuration.routes,
+      );
+
+      await tester.pumpWidget(buildApp(router));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(FleetDashboardScreen), findsOneWidget);
+      expect(find.byType(DriverDashboardScreen), findsNothing);
+    });
+
+    testWidgets('/fleet with broker_admin role renders FleetDashboardScreen',
+        (tester) async {
+      final router = GoRouter(
+        initialLocation: '/fleet',
+        initialExtra: const FleetRouteArgs(userRole: 'broker_admin'),
+        routes: AppRouter.router.configuration.routes,
+      );
+
+      await tester.pumpWidget(buildApp(router));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(FleetDashboardScreen), findsOneWidget);
+    });
+
+    testWidgets('/fleet/driver route renders DriverDashboardScreen',
+        (tester) async {
+      final router = GoRouter(
+        initialLocation: '/fleet/driver',
+        routes: AppRouter.router.configuration.routes,
+      );
+
+      await tester.pumpWidget(buildApp(router));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(DriverDashboardScreen), findsOneWidget);
     });
   });
 }

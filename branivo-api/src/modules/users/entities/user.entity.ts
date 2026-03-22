@@ -4,7 +4,9 @@ export type UserRole =
   | 'super_admin'
   | 'broker_admin'
   | 'broker_agent'
-  | 'broker_viewer';
+  | 'broker_viewer'
+  | 'fleet_admin'
+  | 'driver';
 
 @Entity('users')
 export class User {

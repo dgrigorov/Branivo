@@ -18,6 +18,18 @@ import '../../features/quotes/data/quote_api_repository.dart';
 import '../../features/payments/screens/payment_screen.dart';
 import '../../features/payments/bloc/payment_bloc.dart';
 import '../../features/payments/data/payment_api_repository.dart';
+import '../../features/fleet/screens/fleet_dashboard_screen.dart';
+import '../../features/fleet/screens/driver_dashboard_screen.dart';
+import '../../features/fleet/bloc/fleet_bloc.dart';
+import '../../features/fleet/data/repositories/fleet_repository.dart';
+
+/// Navigation extras for /fleet route
+class FleetRouteArgs {
+  const FleetRouteArgs({required this.userRole});
+
+  /// e.g. 'driver', 'fleet_admin', 'broker_admin'
+  final String userRole;
+}
 
 /// Navigation extras for /vehicles/scan route
 class OcrWizardRouteArgs {
@@ -111,6 +123,36 @@ class AppRouter {
           return BlocProvider(
             create: (_) => QuoteBloc(repository: repo),
             child: OffersScreen(sessionToken: args.sessionToken),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/fleet',
+        builder: (context, state) {
+          final args = state.extra as FleetRouteArgs?;
+          final userRole = args?.userRole ?? 'fleet_admin';
+          final repo = context.read<FleetRepository>();
+          final bloc = FleetBloc(fleetRepository: repo);
+
+          if (userRole == 'driver') {
+            return BlocProvider(
+              create: (_) => bloc,
+              child: const DriverDashboardScreen(),
+            );
+          }
+          return BlocProvider(
+            create: (_) => bloc,
+            child: const FleetDashboardScreen(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/fleet/driver',
+        builder: (context, state) {
+          final repo = context.read<FleetRepository>();
+          return BlocProvider(
+            create: (_) => FleetBloc(fleetRepository: repo),
+            child: const DriverDashboardScreen(),
           );
         },
       ),

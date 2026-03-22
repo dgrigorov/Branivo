@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../models/fleet_vehicle.dart';
 import '../models/bulk_quote_models.dart';
+import '../models/driver_vehicle.dart';
 
 class FleetRepository {
   final Dio _dio;
@@ -44,6 +45,17 @@ class FleetRepository {
     if (body == null) return const BulkQuoteResponse(results: []);
 
     return BulkQuoteResponse.fromJson(body);
+  }
+
+  Future<List<DriverVehicle>> getDriverVehicles() async {
+    final response = await _dio.get<List<dynamic>>(
+      '/fleet/driver/vehicles',
+    );
+
+    final dataList = response.data ?? [];
+    return dataList
+        .map((e) => DriverVehicle.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<BulkPurchaseResponse> bulkPurchase(

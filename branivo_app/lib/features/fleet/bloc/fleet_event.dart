@@ -15,3 +15,7 @@ class FleetStatusFilterChanged extends FleetEvent {
 
   const FleetStatusFilterChanged({this.statusFilter});
 }
+
+class DriverVehiclesRequested extends FleetEvent {
+  const DriverVehiclesRequested();
+}

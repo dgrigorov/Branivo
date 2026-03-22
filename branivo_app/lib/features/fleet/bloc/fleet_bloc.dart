@@ -9,6 +9,7 @@ class FleetBloc extends Bloc<FleetEvent, FleetState> {
   FleetBloc({required this.fleetRepository}) : super(const FleetInitial()) {
     on<FleetLoadRequested>(_onLoadRequested);
     on<FleetStatusFilterChanged>(_onFilterChanged);
+    on<DriverVehiclesRequested>(_onDriverVehiclesRequested);
   }
 
   Future<void> _onLoadRequested(
@@ -44,6 +45,19 @@ class FleetBloc extends Bloc<FleetEvent, FleetState> {
       ));
     } catch (e) {
       emit(FleetError(message: 'Грешка при зареждане на флота: $e'));
+    }
+  }
+
+  Future<void> _onDriverVehiclesRequested(
+    DriverVehiclesRequested event,
+    Emitter<FleetState> emit,
+  ) async {
+    emit(const FleetLoading());
+    try {
+      final vehicles = await fleetRepository.getDriverVehicles();
+      emit(DriverVehicleLoaded(vehicles: vehicles));
+    } catch (e) {
+      emit(FleetError(message: 'Грешка при зареждане на МПС: $e'));
     }
   }
 }
