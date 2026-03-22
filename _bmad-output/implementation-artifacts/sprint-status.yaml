@@ -99,7 +99,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   epic-6: in-progress
   6-1-renewal-check-scheduled-job: done
-  6-2-multi-channel-notification-delivery: review
+  6-2-multi-channel-notification-delivery: done
   6-3-renewal-escalation-configuration: backlog
   epic-6-retrospective: optional
 
