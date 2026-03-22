@@ -6,6 +6,16 @@ import { TenantContext } from '../../common/tenant-context/tenant.context';
 import { FleetVehicle } from './entities/fleet-vehicle.entity';
 import { FleetVehicleFilterDto } from './dto/fleet-vehicle-filter.dto';
 
+export interface FleetVehicleWithVehicleData {
+  id: string;
+  vehicle_id: string;
+  license_plate: string;
+  make: string;
+  model: string;
+  vin: string;
+  year: number;
+}
+
 export interface FleetVehicleWithPolicy {
   id: string;
   vehicle_id: string;
@@ -79,5 +89,23 @@ export class FleetRepository extends BaseRepository<FleetVehicle> {
 
     const total = parseInt(countRows[0]?.count ?? '0', 10);
     return { items: rows, total };
+  }
+
+  async findManyByIds(
+    tenantId: string,
+    vehicleIds: string[],
+  ): Promise<FleetVehicleWithVehicleData[]> {
+    if (vehicleIds.length === 0) return [];
+    return this.dataSource.query<FleetVehicleWithVehicleData[]>(
+      `
+      SELECT fv.id, fv.vehicle_id, v.license_plate, v.make, v.model, v.vin, v.year
+      FROM fleet_vehicles fv
+      JOIN vehicles v ON v.id = fv.vehicle_id AND v.deleted_at IS NULL
+      WHERE fv.tenant_id = $1
+        AND fv.id = ANY($2)
+        AND fv.deleted_at IS NULL
+      `,
+      [tenantId, vehicleIds],
+    );
   }
 }

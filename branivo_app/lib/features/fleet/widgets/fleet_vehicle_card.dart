@@ -3,8 +3,15 @@ import '../data/models/fleet_vehicle.dart';
 
 class FleetVehicleCard extends StatelessWidget {
   final FleetVehicle vehicle;
+  final bool isSelected;
+  final VoidCallback? onTap;
 
-  const FleetVehicleCard({super.key, required this.vehicle});
+  const FleetVehicleCard({
+    super.key,
+    required this.vehicle,
+    this.isSelected = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -13,106 +20,125 @@ class FleetVehicleCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status indicator (colorblind-friendly: color + icon)
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: statusConfig.backgroundColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  statusConfig.icon,
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: statusConfig.iconColor,
-                    fontWeight: FontWeight.bold,
+      color: isSelected ? Colors.blue.shade50 : null,
+      shape: isSelected
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Colors.blue.shade300),
+            )
+          : null,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Checkbox for multi-select
+              if (onTap != null) ...[
+                Checkbox(
+                  value: isSelected,
+                  onChanged: (_) => onTap?.call(),
+                ),
+                const SizedBox(width: 8),
+              ],
+              // Status indicator (colorblind-friendly: color + icon)
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: statusConfig.backgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    statusConfig.icon,
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: statusConfig.iconColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          vehicle.licensePlate,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusConfig.backgroundColor,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: statusConfig.borderColor),
+                          ),
+                          child: Text(
+                            statusConfig.label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: statusConfig.iconColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${vehicle.make} ${vehicle.model}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      vehicle.insurerName ?? 'Без застраховател',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    if (vehicle.policyExpiresAt != null) ...[
+                      const SizedBox(height: 2),
                       Text(
-                        vehicle.licensePlate,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        'Изтича: ${_formatDate(vehicle.policyExpiresAt!)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: statusConfig.iconColor,
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusConfig.backgroundColor,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: statusConfig.borderColor),
-                        ),
-                        child: Text(
-                          statusConfig.label,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: statusConfig.iconColor,
-                          ),
+                    ] else ...[
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Няма активна полица',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${vehicle.make} ${vehicle.model}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    vehicle.insurerName ?? 'Без застраховател',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  if (vehicle.policyExpiresAt != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      'Изтича: ${_formatDate(vehicle.policyExpiresAt!)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: statusConfig.iconColor,
-                      ),
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Няма активна полица',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.red,
-                      ),
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

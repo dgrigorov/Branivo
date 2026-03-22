@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../models/fleet_vehicle.dart';
+import '../models/bulk_quote_models.dart';
 
 class FleetRepository {
   final Dio _dio;
@@ -31,5 +32,41 @@ class FleetRepository {
     return dataList
         .map((e) => FleetVehicle.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<BulkQuoteResponse> bulkGetQuotes(List<String> vehicleIds) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/fleet/bulk-quotes',
+      data: {'vehicleIds': vehicleIds},
+    );
+
+    final body = response.data;
+    if (body == null) return const BulkQuoteResponse(results: []);
+
+    return BulkQuoteResponse.fromJson(body);
+  }
+
+  Future<BulkPurchaseResponse> bulkPurchase(
+    List<BulkPurchaseItem> items,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/fleet/bulk-purchase',
+      data: {'items': items.map((i) => i.toJson()).toList()},
+    );
+
+    final body = response.data;
+    if (body == null) {
+      return BulkPurchaseResponse(
+        succeeded: [],
+        failed: [],
+        summary: const BulkPurchaseSummary(
+          total: 0,
+          succeeded: 0,
+          failed: 0,
+        ),
+      );
+    }
+
+    return BulkPurchaseResponse.fromJson(body);
   }
 }

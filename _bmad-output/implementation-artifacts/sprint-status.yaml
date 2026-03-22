@@ -108,7 +108,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   epic-7: in-progress
   7-1-fleet-vehicle-status-dashboard: done
-  7-2-bulk-quote-policy-purchase: backlog
+  7-2-bulk-quote-policy-purchase: done
   7-3-batch-pdf-export: backlog
   7-4-driver-role-scoped-view: backlog
   epic-7-retrospective: optional

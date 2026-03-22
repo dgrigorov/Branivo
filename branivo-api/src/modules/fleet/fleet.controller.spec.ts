@@ -9,6 +9,7 @@ import { Test } from '@nestjs/testing';
 const request = require('supertest') as typeof import('supertest');
 import { FleetController } from './fleet.controller';
 import { FleetService } from './fleet.service';
+import { FleetBulkService } from './fleet-bulk.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { FeatureFlagGuard } from '../../common/guards/feature-flag.guard';
@@ -70,6 +71,15 @@ const mockFleetService = {
   }),
 };
 
+const mockFleetBulkService = {
+  bulkGetQuotes: jest.fn().mockResolvedValue({ results: [] }),
+  bulkPurchase: jest.fn().mockResolvedValue({
+    succeeded: [],
+    failed: [],
+    summary: { total: 0, succeeded: 0, failed: 0 },
+  }),
+};
+
 type MockUser = typeof mockFleetAdmin | null;
 
 function makeJwtGuard(user: MockUser) {
@@ -104,6 +114,7 @@ async function buildApp(
     controllers: [FleetController],
     providers: [
       { provide: FleetService, useValue: mockFleetService },
+      { provide: FleetBulkService, useValue: mockFleetBulkService },
       { provide: Reflector, useClass: Reflector },
     ],
   })
@@ -132,6 +143,8 @@ describe('FleetController', () => {
     jest.clearAllMocks();
   });
 
+  // ─── GET /fleet/vehicles ───────────────────────────────────────────────────
+
   it('GET /fleet/vehicles → 404 when feature flag is disabled', async () => {
     const app = await buildApp(mockFleetAdmin, false);
     await request(app.getHttpServer()).get('/fleet/vehicles').expect(404);
@@ -149,6 +162,7 @@ describe('FleetController', () => {
       controllers: [FleetController],
       providers: [
         { provide: FleetService, useValue: mockFleetService },
+        { provide: FleetBulkService, useValue: mockFleetBulkService },
         { provide: Reflector, useClass: Reflector },
       ],
     })
@@ -229,6 +243,114 @@ describe('FleetController', () => {
     expect(mockFleetService.getFleetVehicles).toHaveBeenCalledWith(
       expect.objectContaining({ page: 2, limit: 10 }),
     );
+    await app.close();
+  });
+
+  // ─── POST /fleet/bulk-quotes ───────────────────────────────────────────────
+
+  it('POST /fleet/bulk-quotes → 404 when feature flag is disabled', async () => {
+    const app = await buildApp(mockFleetAdmin, false);
+    await request(app.getHttpServer())
+      .post('/fleet/bulk-quotes')
+      .send({ vehicleIds: ['00000000-0000-4000-8000-000000000001'] })
+      .expect(404);
+    await app.close();
+  });
+
+  it('POST /fleet/bulk-quotes → 400 when vehicleIds is empty', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .post('/fleet/bulk-quotes')
+      .send({ vehicleIds: [] })
+      .expect(400);
+    await app.close();
+  });
+
+  it('POST /fleet/bulk-quotes → 400 when vehicleIds contains invalid UUID', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .post('/fleet/bulk-quotes')
+      .send({ vehicleIds: ['not-a-uuid'] })
+      .expect(400);
+    await app.close();
+  });
+
+  it('POST /fleet/bulk-quotes → 200 with fleet_admin + feature enabled', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .post('/fleet/bulk-quotes')
+      .send({ vehicleIds: ['00000000-0000-4000-8000-000000000001'] })
+      .expect(200);
+
+    expect(mockFleetBulkService.bulkGetQuotes).toHaveBeenCalledWith([
+      '00000000-0000-4000-8000-000000000001',
+    ]);
+    await app.close();
+  });
+
+  it('POST /fleet/bulk-quotes → 200 with broker_admin + feature enabled', async () => {
+    const app = await buildApp(mockBrokerAdmin, true);
+    await request(app.getHttpServer())
+      .post('/fleet/bulk-quotes')
+      .send({ vehicleIds: ['00000000-0000-4000-8000-000000000001'] })
+      .expect(200);
+    await app.close();
+  });
+
+  // ─── POST /fleet/bulk-purchase ─────────────────────────────────────────────
+
+  it('POST /fleet/bulk-purchase → 404 when feature flag is disabled', async () => {
+    const app = await buildApp(mockFleetAdmin, false);
+    await request(app.getHttpServer())
+      .post('/fleet/bulk-purchase')
+      .send({
+        items: [
+          {
+            vehicleId: '00000000-0000-4000-8000-000000000001',
+            quoteId: '00000000-0000-4000-8000-000000000002',
+          },
+        ],
+      })
+      .expect(404);
+    await app.close();
+  });
+
+  it('POST /fleet/bulk-purchase → 400 when items is empty', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .post('/fleet/bulk-purchase')
+      .send({ items: [] })
+      .expect(400);
+    await app.close();
+  });
+
+  it('POST /fleet/bulk-purchase → 400 when item has invalid UUID', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    await request(app.getHttpServer())
+      .post('/fleet/bulk-purchase')
+      .send({
+        items: [{ vehicleId: 'not-a-uuid', quoteId: 'also-not-a-uuid' }],
+      })
+      .expect(400);
+    await app.close();
+  });
+
+  it('POST /fleet/bulk-purchase → 200 with fleet_admin + feature enabled', async () => {
+    const app = await buildApp(mockFleetAdmin, true);
+    const res = await request(app.getHttpServer())
+      .post('/fleet/bulk-purchase')
+      .send({
+        items: [
+          {
+            vehicleId: '00000000-0000-4000-8000-000000000001',
+            quoteId: '00000000-0000-4000-8000-000000000002',
+          },
+        ],
+      })
+      .expect(200);
+
+    const body = res.body as { summary: { total: number } };
+    expect(body.summary).toBeDefined();
     await app.close();
   });
 });
