@@ -11,6 +11,10 @@ import { AdminTenantsController } from './admin-tenants.controller';
 import { WebhooksController } from './webhooks.controller';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { EmailService } from '../../common/email/email.service';
+import { AdminHealthRepository } from './repositories/admin-health.repository';
+import { AdminHealthService } from './admin-health.service';
+import { AdminHealthController } from './admin-health.controller';
+import { AdminHealthJob } from './admin-health.job';
 
 @Module({
   imports: [
@@ -26,12 +30,19 @@ import { EmailService } from '../../common/email/email.service';
     TenantsModule,
     UsersModule,
   ],
-  controllers: [AdminTenantsController, WebhooksController],
+  controllers: [
+    AdminTenantsController,
+    WebhooksController,
+    AdminHealthController,
+  ],
   providers: [
     AdminTenantsService,
     TenantInvitationsRepository,
     CryptoService,
     EmailService,
+    AdminHealthRepository,
+    AdminHealthService,
+    AdminHealthJob,
   ],
   exports: [AdminTenantsService],
 })

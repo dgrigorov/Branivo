@@ -116,8 +116,8 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 8: Super Admin Platform Operations
   # ─────────────────────────────────────────────────────────────
-  epic-8: backlog
-  8-1-tenant-health-monitoring: backlog
+  epic-8: in-progress
+  8-1-tenant-health-monitoring: done
   8-2-insurer-api-monitoring-manual-fallback: backlog
   8-3-subscription-tier-management: backlog
   8-4-system-notifications-broadcast: backlog

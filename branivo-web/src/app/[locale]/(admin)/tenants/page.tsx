@@ -2,22 +2,26 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { InviteTenantModal } from '@/components/admin/invite-tenant-modal';
 import { ConfirmStatusModal } from '@/components/admin/confirm-status-modal';
 
-interface Tenant {
-  id: string;
-  name: string;
+interface TenantHealthSummary {
+  tenantId: string;
+  tenantName: string;
   slug: string;
   status: 'invited' | 'stripe_connected' | 'active' | 'suspended';
-  createdAt: string;
+  subscriptionTier: string | null;
+  policiesLast30Days: number;
+  lastActivityAt: string | null;
+  inactiveDays: number | null;
 }
 
-interface TenantsResponse {
-  data: Tenant[];
-  total: number;
-  page: number;
-  limit: number;
+// Used only for the status mutation which still uses the tenants endpoint
+interface TenantRef {
+  id: string;
+  name: string;
+  status: 'invited' | 'stripe_connected' | 'active' | 'suspended';
 }
 
 const STATUS_BADGE: Record<
@@ -42,12 +46,12 @@ const STATUS_BADGE: Record<
   },
 };
 
-async function fetchTenants(page: number): Promise<TenantsResponse> {
-  const res = await fetch(`/api/v1/admin/tenants?page=${page}&limit=20`, {
+async function fetchTenantsHealth(): Promise<TenantHealthSummary[]> {
+  const res = await fetch('/api/v1/admin/health', {
     credentials: 'include',
   });
-  if (!res.ok) throw new Error('Failed to fetch tenants');
-  return res.json() as Promise<TenantsResponse>;
+  if (!res.ok) throw new Error('Failed to fetch tenant health');
+  return res.json() as Promise<TenantHealthSummary[]>;
 }
 
 async function updateTenantStatus(
@@ -67,19 +71,19 @@ async function updateTenantStatus(
 }
 
 interface StatusAction {
-  tenant: Tenant;
+  tenant: TenantRef;
   action: 'deactivate' | 'reactivate';
 }
 
 export default function AdminTenantsPage() {
-  const [page, setPage] = useState(1);
+  const router = useRouter();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [statusAction, setStatusAction] = useState<StatusAction | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'tenants', page],
-    queryFn: () => fetchTenants(page),
+    queryKey: ['admin', 'tenants', 'health'],
+    queryFn: () => fetchTenantsHealth(),
     staleTime: 30_000,
   });
 
@@ -120,7 +124,7 @@ export default function AdminTenantsPage() {
     );
   }
 
-  const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
+  const tenants = data ?? [];
 
   return (
     <div className="p-6">
@@ -148,7 +152,13 @@ export default function AdminTenantsPage() {
                 Статус
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Създаден на
+                Тиер
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Полици (30 дни)
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Последна активност
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Действия
@@ -156,15 +166,23 @@ export default function AdminTenantsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white">
-            {data?.data.map((tenant) => {
+            {tenants.map((tenant) => {
               const badge = STATUS_BADGE[tenant.status] ?? {
                 label: tenant.status,
                 className: 'bg-gray-100 text-gray-800',
               };
+              const isInactive = (tenant.inactiveDays ?? 0) > 7;
+
               return (
-                <tr key={tenant.id} className="hover:bg-gray-50">
+                <tr
+                  key={tenant.tenantId}
+                  onClick={() =>
+                    router.push(`/admin/tenants/${tenant.tenantId}`)
+                  }
+                  className={`cursor-pointer hover:bg-gray-50 ${isInactive ? 'bg-yellow-50' : ''}`}
+                >
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {tenant.name}
+                    {tenant.tenantName}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {tenant.slug}.branivo.bg
@@ -177,13 +195,39 @@ export default function AdminTenantsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {new Date(tenant.createdAt).toLocaleDateString('bg-BG')}
+                    {tenant.subscriptionTier ?? '—'}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-sm text-gray-700">
+                    {tenant.policiesLast30Days}
+                  </td>
+                  <td
+                    className={`px-6 py-4 text-sm ${
+                      isInactive
+                        ? 'font-medium text-amber-600'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {tenant.inactiveDays !== null && tenant.inactiveDays > 0
+                      ? tenant.inactiveDays === 1
+                        ? '1 ден'
+                        : `${tenant.inactiveDays} дни`
+                      : '—'}
+                  </td>
+                  <td
+                    className="px-6 py-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {tenant.status === 'active' && (
                       <button
                         onClick={() =>
-                          setStatusAction({ tenant, action: 'deactivate' })
+                          setStatusAction({
+                            tenant: {
+                              id: tenant.tenantId,
+                              name: tenant.tenantName,
+                              status: tenant.status,
+                            },
+                            action: 'deactivate',
+                          })
                         }
                         className="rounded border border-red-300 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                       >
@@ -193,7 +237,14 @@ export default function AdminTenantsPage() {
                     {tenant.status === 'suspended' && (
                       <button
                         onClick={() =>
-                          setStatusAction({ tenant, action: 'reactivate' })
+                          setStatusAction({
+                            tenant: {
+                              id: tenant.tenantId,
+                              name: tenant.tenantName,
+                              status: tenant.status,
+                            },
+                            action: 'reactivate',
+                          })
                         }
                         className="rounded border border-green-300 px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50"
                       >
@@ -207,33 +258,6 @@ export default function AdminTenantsPage() {
           </tbody>
         </table>
       </div>
-
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            Общо: {data?.total ?? 0} тенанта
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
-            >
-              Предишна
-            </button>
-            <span className="px-3 py-1 text-sm">
-              {page} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
-            >
-              Следваща
-            </button>
-          </div>
-        </div>
-      )}
 
       {showInviteModal && (
         <InviteTenantModal

@@ -49,6 +49,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedTenantRenewalConfig();
     await this.seedFleetVehicles();
     await this.seedFleetPdfExports();
+    await this.seedTenantHealthData();
 
     this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
   }
@@ -454,5 +455,59 @@ export class SeedService implements OnApplicationBootstrap {
       ],
     );
     this.logger.log('Fleet PDF export demo record seeded.');
+  }
+
+  private async seedTenantHealthData(): Promise<void> {
+    // Ensure demo tenant has subscription_tier set in tenant_configs
+    await this.dataSource.query(
+      `UPDATE tenant_configs
+       SET subscription_tier = 'starter'
+       WHERE tenant_id = $1
+         AND subscription_tier IS NULL`,
+      [DEMO_TENANT_ID],
+    );
+
+    // Ensure at least 3 recent policies exist for the demo tenant (for health dashboard)
+    const recentPolicies = await this.dataSource.query<{ count: string }[]>(
+      `SELECT COUNT(*) AS count FROM policies
+       WHERE tenant_id = $1
+         AND deleted_at IS NULL
+         AND created_at >= NOW() - INTERVAL '30 days'`,
+      [DEMO_TENANT_ID],
+    );
+    const count = Number(recentPolicies[0]?.count ?? 0);
+
+    if (count < 3) {
+      const insurerRows = await this.dataSource.query<{ id: string }[]>(
+        `SELECT id FROM insurers WHERE deleted_at IS NULL LIMIT 1`,
+      );
+      const insurerId = insurerRows[0]?.id;
+      if (!insurerId) {
+        this.logger.warn(
+          'No insurers found — skipping health demo policies seed.',
+        );
+        return;
+      }
+
+      for (let i = count; i < 3; i++) {
+        await this.dataSource.query(
+          `INSERT INTO policies
+             (id, tenant_id, payment_id, quote_id, insurer_id, policy_number, status,
+              stripe_payment_intent_id, premium_amount, commission_amount, commission_pct,
+              currency, coverage_end_date, metadata, created_at)
+           VALUES
+             (gen_random_uuid(), $1,
+              '00000000-0000-0000-0000-000000000001',
+              '00000000-0000-0000-0000-000000000002',
+              $2, $3, 'active', 'pi_health_seed', 350.00, 17.50, 0.05, 'BGN',
+              NOW() + INTERVAL '1 year', '{}',
+              NOW() - ($4 * INTERVAL '1 day'))
+           ON CONFLICT (policy_number) DO NOTHING`,
+          [DEMO_TENANT_ID, insurerId, `HEALTH-SEED-${i}-${Date.now()}`, i],
+        );
+      }
+    }
+
+    this.logger.log('Tenant health seed data ensured for demo tenant.');
   }
 }

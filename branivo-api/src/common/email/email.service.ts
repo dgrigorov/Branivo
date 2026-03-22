@@ -3,6 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import Mail from 'nodemailer/lib/mailer';
 
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -53,18 +62,20 @@ export class EmailService {
     fallbackRate: number,
     tenantId: string,
   ): Promise<void> {
+    const safeField = escapeHtml(field);
+    const safeTenantId = escapeHtml(tenantId);
     const mailOptions: Mail.Options = {
       from: this.fromAddress,
       to,
-      subject: `[Branivo OCR Alert] Поле "${field}" — fallback rate ${(fallbackRate * 100).toFixed(1)}%`,
+      subject: `[Branivo OCR Alert] Поле "${safeField}" — fallback rate ${(fallbackRate * 100).toFixed(1)}%`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>⚠️ OCR Fallback Rate Alert</h2>
-          <p>Полето <strong>${field}</strong> е надхвърлило прага от 20% за AWS Textract fallback.</p>
+          <p>Полето <strong>${safeField}</strong> е надхвърлило прага от 20% за AWS Textract fallback.</p>
           <table style="width:100%; border-collapse:collapse; margin-top:16px;">
             <tr>
               <td style="padding:8px; border:1px solid #ddd;"><strong>Поле</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">${field}</td>
+              <td style="padding:8px; border:1px solid #ddd;">${safeField}</td>
             </tr>
             <tr>
               <td style="padding:8px; border:1px solid #ddd;"><strong>Fallback Rate</strong></td>
@@ -72,12 +83,35 @@ export class EmailService {
             </tr>
             <tr>
               <td style="padding:8px; border:1px solid #ddd;"><strong>Tenant ID</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">${tenantId}</td>
+              <td style="padding:8px; border:1px solid #ddd;">${safeTenantId}</td>
             </tr>
           </table>
           <p style="color:#666; font-size:14px; margin-top:16px;">
             Отворете OCR Analytics Dashboard за детайли.
           </p>
+        </div>
+      `,
+    };
+
+    await this.sendWithRetry(mailOptions);
+  }
+
+  async sendInactivityAlert(
+    to: string,
+    tenantName: string,
+    inactiveDays: number,
+  ): Promise<void> {
+    const safeName = escapeHtml(tenantName);
+    const mailOptions: Mail.Options = {
+      from: this.fromAddress,
+      to,
+      subject: `[Branivo] Неактивен тенант: ${safeName} (${inactiveDays} дни)`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>⚠️ Tenant Inactivity Alert</h2>
+          <p>Тенантът <strong>${safeName}</strong> не е продал полица от <strong>${inactiveDays} дни</strong>.</p>
+          <p>Влезте в Platform Health Dashboard за повече детайли.</p>
+          <p style="color: #666; font-size: 14px;">Branivo Super Admin система</p>
         </div>
       `,
     };

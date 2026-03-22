@@ -1,5 +1,5 @@
 /**
- * Component tests for Admin Tenants page.
+ * Component tests for Admin Tenants page (Health Dashboard).
  * Tests action buttons (Деактивирай/Реактивирай) and ConfirmStatusModal interaction.
  */
 import '@testing-library/jest-dom';
@@ -8,27 +8,41 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AdminTenantsPage from '@/app/[locale]/(admin)/tenants/page';
 
-const mockTenants = [
+const mockPush = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
+const mockTenantsHealth = [
   {
-    id: 'tenant-1',
-    name: 'Активен Брокер',
+    tenantId: 'tenant-1',
+    tenantName: 'Активен Брокер',
     slug: 'active-broker',
     status: 'active' as const,
-    createdAt: '2026-01-01T00:00:00Z',
+    subscriptionTier: 'starter',
+    policiesLast30Days: 5,
+    lastActivityAt: '2026-03-20T10:00:00Z',
+    inactiveDays: 2,
   },
   {
-    id: 'tenant-2',
-    name: 'Спрян Брокер',
+    tenantId: 'tenant-2',
+    tenantName: 'Спрян Брокер',
     slug: 'suspended-broker',
     status: 'suspended' as const,
-    createdAt: '2026-01-02T00:00:00Z',
+    subscriptionTier: 'pro',
+    policiesLast30Days: 0,
+    lastActivityAt: '2026-03-10T10:00:00Z',
+    inactiveDays: 12,
   },
   {
-    id: 'tenant-3',
-    name: 'Поканен Брокер',
+    tenantId: 'tenant-3',
+    tenantName: 'Поканен Брокер',
     slug: 'invited-broker',
     status: 'invited' as const,
-    createdAt: '2026-01-03T00:00:00Z',
+    subscriptionTier: null,
+    policiesLast30Days: 0,
+    lastActivityAt: null,
+    inactiveDays: null,
   },
 ];
 
@@ -43,16 +57,10 @@ beforeEach(() => {
   jest.clearAllMocks();
 
   global.fetch = jest.fn().mockImplementation((url: string) => {
-    if (String(url).includes('/api/v1/admin/tenants') && !String(url).includes('/status')) {
+    if (String(url).includes('/api/v1/admin/health') && !String(url).includes('/tenant-')) {
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({
-            data: mockTenants,
-            total: mockTenants.length,
-            page: 1,
-            limit: 20,
-          }),
+        json: () => Promise.resolve(mockTenantsHealth),
       });
     }
     if (String(url).includes('/status')) {
@@ -60,6 +68,43 @@ beforeEach(() => {
     }
     return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
   }) as jest.Mock;
+});
+
+describe('AdminTenantsPage — health columns', () => {
+  it('renders new health columns in table header', async () => {
+    renderWithQuery(<AdminTenantsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Активен Брокер')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Полици (30 дни)')).toBeInTheDocument();
+    expect(screen.getByText('Последна активност')).toBeInTheDocument();
+    expect(screen.getByText('Тиер')).toBeInTheDocument();
+  });
+
+  it('shows inactiveDays for tenants', async () => {
+    renderWithQuery(<AdminTenantsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Активен Брокер')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('2 дни')).toBeInTheDocument();
+    expect(screen.getByText('12 дни')).toBeInTheDocument();
+  });
+
+  it('navigates to drill-down page on row click', async () => {
+    renderWithQuery(<AdminTenantsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Активен Брокер')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Активен Брокер'));
+
+    expect(mockPush).toHaveBeenCalledWith('/admin/tenants/tenant-1');
+  });
 });
 
 describe('AdminTenantsPage — action buttons', () => {
