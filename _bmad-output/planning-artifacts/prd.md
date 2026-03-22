@@ -114,13 +114,25 @@ Branivo е white-label, мулти-тенант B2B2C SaaS платформа, �
 
 ### Growth Features (Phase 2, Q3–Q4 2026)
 
-- Каско модул с OCR Part II
-- Собствен DKP wizard (офлайн двустранен констативен протокол)
-- Fleet Management
-- BI Dashboard за брокери
-- Renewal automation (push/email/SMS)
-- Referral програма
-- API Sandbox + Growth tier
+**Вече имплементирани (✅ done):**
+- Fleet Management + Driver role-scoped view (Epic 7)
+- Renewal automation — push/SMS/имейл/dashboard + escalation config (Epic 6)
+- Broker commission dashboard + месечна фактура + Stripe revocation handling (Epic 5)
+
+**В процес (🔄 in-progress / backlog):**
+- Каско застраховка с пълен quote/purchase цикъл и рисков въпросник (Epic 13)
+- Apple Pay / Google Pay / Borica — алтернативни методи на плащане (Epic 14)
+- Биометричен вход (Face ID / пръстов отпечатък) + социален вход (Google / Apple ID) (Epic 15)
+- Физическа доставка на Зелена карта чрез Speedy/Econt (Epic 16)
+- Електронно подписване — SMS OTP (ЗЕДЕУУ) + QES опция за Enterprise (Epic 17)
+- ГТП напомняния + проверка за КАТ глоби по регистрационен номер (Epic 18)
+- BI Analytics Dashboard — sales funnel, retention, revenue breakdown, CSV/Excel export (Epic 19)
+- After-Service: ПТП wizard (офлайн) + спешни контакти (Epic 20)
+- Affiliate & Referral програма с Loyalty Points (Epic 21)
+- Super Admin Platform Operations — tenant health, insurer API monitoring, tier management (Epic 8)
+- API Sandbox + Growth tier за технически партньори (Epic 9)
+- Цифров Констативен Протокол (ДКП) — офлайн, single-device (Epic 10)
+- Управление на застрахователни претенции (Epic 12)
 
 ### Vision (Phase 3–4, 2027–2029)
 
@@ -684,6 +696,51 @@ Branivo е мулти-тенант SaaS B2B платформа с broker-as-tena
 - **FR63:** Краен клиент може да поиска пълен data export на личните си данни (GDPR right of access)
 - **FR64:** Брокерът може да поиска offboarding с пълен GDPR-съвместим data export; издадените полици остават валидни до изтичането им
 - **FR65:** Системата прилага soft delete с configurable retention period и автоматично физическо изтриване
+
+### Функционални изисквания — Phase 2 Growth (FR66–FR90)
+
+#### Epic 13: Каско застраховка
+- **FR66:** Краен клиент може да получи Каско оферти от всички активни застрахователи, поддържащи Каско продукт
+- **FR67:** Системата събира Каско-специфични рискови данни — пазарна стойност на МПС, клаузи (пълно Каско, кражба, стъкла, частично Каско), паркиране, алармена система, брой водачи
+- **FR68:** Краен клиент може да закупи Каско полица и да получи полицата като PDF на имейл (без стикер)
+- **FR69:** Брокер може да активира Каско модул чрез feature flag `features.casco` без code deploy
+
+#### Epic 14: Разширени методи на плащане
+- **FR70:** Краен клиент може да плати чрез Apple Pay (Stripe Payment Element — iOS Safari)
+- **FR71:** Краен клиент може да плати чрез Google Pay (Stripe Payment Element — Chrome/Android)
+- **FR72:** Краен клиент може да плати чрез Borica — директно с БГ дебитна/кредитна карта
+
+#### Epic 15: Биометричен и социален вход
+- **FR73:** Краен клиент може да влезе с биометрична автентикация (Face ID, пръстов отпечатък) след първоначална регистрация
+- **FR74:** Краен клиент може да се регистрира/влезе с Google акаунт (OAuth 2.0)
+- **FR75:** Краен клиент може да се регистрира/влезе с Apple ID (Sign in with Apple — задължително за iOS App Store)
+
+#### Epic 16: Физическа доставка на Зелена карта
+- **FR76:** Краен клиент може да поръча физическа доставка на Зелена карта при покупка на ГО полица чрез Speedy или Econt
+- **FR77:** Краен клиент въвежда адрес на доставка по време на purchase flow с валидация
+- **FR78:** Системата изпраща push и SMS известия за статуса на куриерска доставка
+
+#### Epic 17: Електронно подписване
+- **FR79:** Краен клиент може да подпише застрахователен документ с SMS код (ЗЕДЕУУ-съвместим електронен подпис)
+
+#### Epic 18: ГТП напомняния и проверка за глоби
+- **FR80:** Системата изпраща автоматично напомняне при изтичащ ГТП — D-30, D-7, D-1 по push/SMS/имейл
+- **FR81:** Системата проверява за активни глоби по регистрационен номер (КАТ API) и изпраща известие при нови
+
+#### Epic 19: BI и Analytics Dashboard
+- **FR82:** Брокерът може да вижда sales funnel метрики — quotes, conversion rate, revenue per period
+- **FR83:** Брокерът може да вижда client retention и renewal rate метрики
+- **FR84:** Брокерът може да вижда revenue breakdown по продукт, застраховател и агент
+- **FR85:** Брокерът може да експортира аналитични данни в CSV/Excel
+
+#### Epic 20: After-Service и клиентска ангажираност
+- **FR86:** Краен клиент може да отвори ПТП wizard с офлайн инструкции стъпка по стъпка при пътен инцидент
+- **FR87:** Краен клиент може да вижда спешни контакти (застраховател, пътна помощ, КАТ) достъпни offline
+
+#### Epic 21: Affiliate и Referral програма
+- **FR88:** Брокерът може да създава и управлява promo кодове с конфигурируема отстъпка и срок
+- **FR89:** Краен клиент може да покани приятел с персонален referral линк и да получи reward при покупка
+- **FR90:** Системата начислява loyalty points при всяка покупка с configurable redemption rules per tenant
 
 ## Non-Functional Requirements
 

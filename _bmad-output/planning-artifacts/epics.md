@@ -81,6 +81,31 @@ FR62: Системата поддържа audit log за всяка write опе
 FR63: Краен клиент може да поиска пълен data export на личните си данни (GDPR right of access)
 FR64: Брокерът може да поиска offboarding с пълен GDPR-съвместим data export; издадените полици остават валидни до изтичането им
 FR65: Системата прилага soft delete с configurable retention period и автоматично физическо изтриване
+FR66: Краен клиент може да получи Каско оферти от всички активни застрахователи, поддържащи Каско продукт
+FR67: Системата събира Каско-специфични рискови данни — пазарна стойност на МПС, клаузи (пълно Каско, кражба, стъкла, частично Каско), паркиране, алармена система, брой водачи
+FR68: Краен клиент може да закупи Каско полица и да получи полицата като PDF на имейл (без стикер — Каско не изисква физическа доставка)
+FR69: Брокер може да активира Каско модул за своя тенант чрез feature flag `features.casco` без code deploy
+FR70: Краен клиент може да плати чрез Apple Pay (Stripe Payment Element — iOS Safari + Apple Pay button)
+FR71: Краен клиент може да плати чрез Google Pay (Stripe Payment Element — Chrome + Android)
+FR72: Краен клиент може да плати чрез Borica — директно плащане с БГ дебитна/кредитна карта без Stripe посредничество
+FR73: Краен клиент може да влезе в приложението с биометрична автентикация (Face ID, пръстов отпечатък) — като алтернатива на PIN/парола след първоначална регистрация
+FR74: Краен клиент може да се регистрира и влезе с Google акаунт (OAuth 2.0) — автоматично попълване на имейл и верификация
+FR75: Краен клиент може да се регистрира и влезе с Apple ID (Sign in with Apple) — задължително за iOS App Store дистрибуция
+FR76: Краен клиент може да поръча физическа доставка на Зелена карта (хартиен екземпляр) при покупка на ГО полица — чрез Speedy или Econt
+FR77: Краен клиент въвежда адрес на доставка по време на purchase flow — с валидация и preview преди потвърждение
+FR78: Системата изпраща push и SMS известия за статуса на куриерска доставка (приет, изпратен, доставен)
+FR79: Краен клиент може да подпише застрахователен документ с SMS код (законово валиден електронен подпис по ЗЕДЕУУ)
+FR80: Системата изпраща автоматично напомняне при изтичащ ГТП (технически преглед) — D-30, D-7, D-1 — по push/SMS/имейл
+FR81: Системата проверява за активни глоби на МПС по регистрационен номер (КАТ публичен API) и изпраща известие при намерени нови глоби
+FR82: Брокерът може да вижда sales funnel метрики в BI Dashboard — quotes генерирани, conversion rate, revenue per period
+FR83: Брокерът може да вижда client retention и renewal rate метрики — active policies, churned clients, average LTV
+FR84: Брокерът може да вижда revenue breakdown по продукт (ГО/Каско), застраховател и агент с период filтрация
+FR85: Брокерът може да експортира аналитични данни в CSV/Excel формат за счетоводни и репортинг нужди
+FR86: Краен клиент може да отвори ПТП wizard с офлайн инструкции стъпка по стъпка при пътен инцидент (без интернет)
+FR87: Краен клиент може да вижда спешни контакти — директна линия на застрахователя, пътна помощ, КАТ — достъпни offline
+FR88: Брокерът може да създава, редактира и деактивира promo кодове с конфигурируема отстъпка (%) и срок на валидност
+FR89: Краен клиент може да покани приятел с персонален referral линк — при покупка на полица от поканения, поканващият получава reward (configurable per tenant)
+FR90: Системата начислява loyalty points при всяка покупка на полица — клиентът може да ги използва за отстъпка при следваща покупка (configurable redemption rules per tenant)
 
 ### NonFunctional Requirements
 
@@ -233,6 +258,31 @@ FR62: Epic 11 — Audit log за 100% write операции (КФН compliance)
 FR63: Epic 11 — GDPR data export за краен клиент
 FR64: Epic 11 — Broker offboarding с GDPR-съвместим data export
 FR65: Epic 11 — Soft delete с configurable retention и авто физическо изтриване
+FR66: Epic 13 — Паралелни Каско оферти от застрахователи с Каско продукт
+FR67: Epic 13 — Каско рисков въпросник (пазарна стойност, клаузи, паркиране, алармена система)
+FR68: Epic 13 — Каско policia purchase, PDF генериране и имейл доставка (без стикер)
+FR69: Epic 13 — Feature flag `features.casco` per tenant — без code deploy
+FR70: Epic 14 — Apple Pay (Stripe Payment Element, iOS Safari)
+FR71: Epic 14 — Google Pay (Stripe Payment Element, Chrome/Android)
+FR72: Epic 14 — Borica интеграция за БГ карти
+FR73: Epic 15 — Биометричен вход (Face ID, пръстов отпечатък) в Flutter
+FR74: Epic 15 — Sign in with Google (OAuth 2.0)
+FR75: Epic 15 — Sign in with Apple (задължителен за iOS App Store)
+FR76: Epic 16 — Физическа доставка на Зелена карта чрез Speedy/Econt
+FR77: Epic 16 — Адрес на доставка в purchase flow
+FR78: Epic 16 — Push и SMS известия за статус на куриерска доставка
+FR79: Epic 17 — SMS-базиран електронен подпис (ЗЕДЕУУ-съвместим)
+FR80: Epic 18 — ГТП напомняния — D-30, D-7, D-1 (push/SMS/имейл)
+FR81: Epic 18 — КАТ глоби проверка по регистрационен номер с известие
+FR82: Epic 19 — Sales funnel и conversion rate метрики в BI Dashboard
+FR83: Epic 19 — Client retention и renewal rate метрики
+FR84: Epic 19 — Revenue breakdown по продукт, застраховател и агент
+FR85: Epic 19 — CSV/Excel аналитичен export
+FR86: Epic 20 — ПТП wizard с офлайн инструкции стъпка по стъпка
+FR87: Epic 20 — Офлайн спешни контакти (застраховател, пътна помощ, КАТ)
+FR88: Epic 21 — Promo кодове — създаване, валидация, per-tenant конфигурация
+FR89: Epic 21 — Referral система с персонален линк и reward tracking
+FR90: Epic 21 — Loyalty points при покупка с configurable redemption rules
 
 ## Epic List
 
@@ -286,6 +336,51 @@ API Consumers могат програматично да получават ГО
 ### Epic 12: Claims Management *(Phase 2)*
 Краен клиент може да подава застрахователна претенция с прикачени документи и снимки; брокерът проследява статуса на претенциите на своите клиенти в Dashboard.
 **FRs покрити:** FR48, FR49
+### Epic 13: Каско застраховка *(Phase 2)*
+Краен клиент може да получи паралелни Каско оферти от всички застрахователи, поддържащи Каско, да попълни рисков въпросник (пазарна стойност, клаузи, паркиране), да закупи Каско полица с карта и да получи PDF полица на имейл — без стикер. Брокерът активира модула чрез feature flag `features.casco` без deploy.
+**FRs покрити:** FR66, FR67, FR68, FR69
+**Техническа бележка:** Разширение на съществуващия `InsurerAdapter` интерфейс с Casco-специфични параметри; нов `product_type = 'casco'` в `policies` таблицата; нова `casco_risk_data` JSONB колона; архитектурата поддържа product_type extensibility от Epic 1.
+
+### Epic 14: Разширени методи на плащане *(Phase 2)*
+Краен клиент може да плати ГО или Каско полица чрез Apple Pay, Google Pay или Borica — директно плащане с БГ карта без задължително Stripe посредничество. Конверсията при mobile checkout се увеличава значително чрез native wallet интеграция.
+**FRs покрити:** FR70, FR71, FR72
+**Техническа бележка:** Apple Pay и Google Pay са native в Stripe Payment Element (front-end промяна + Apple Pay domain verification); Borica изисква отделна gateway интеграция (Борика АД) с отделен payment_provider enum.
+
+### Epic 15: Биометричен и социален вход *(Phase 2)*
+Краен клиент може да влиза в Flutter приложението с Face ID или пръстов отпечатък след първоначална регистрация, и да се регистрира/влезе с Google или Apple акаунт — намалява friction при onboarding и повишава conversion rate.
+**FRs покрити:** FR73, FR74, FR75
+**Техническа бележка:** Биометрия — Flutter `local_auth` package, credentials се пазят в Keychain/Keystore; Sign in with Apple е задължителен за iOS App Store дистрибуция; OAuth tokens се обменят за Branivo JWT при auth.
+
+### Epic 16: Физическа доставка на Зелена карта *(Phase 2)*
+Краен клиент може да поръча физическа доставка на хартиена Зелена карта при покупка на ГО полица — добавяне на delivery address step в purchase flow и интеграция с вече съществуващите Speedy/Econt адаптери от Epic 4.
+**FRs покрити:** FR76, FR77, FR78
+**Техническа бележка:** Speedy/Econt адаптерите вече съществуват от Epic 4 (стикер доставка); Epic 16 ги разширява за Зелена карта доставка с отделен `delivery_type = 'green_card'` — повторна употреба на delivery инфраструктурата.
+
+### Epic 17: Електронно подписване *(Phase 2)*
+Краен клиент може да подпише застрахователни документи чрез SMS код (законово валиден електронен подпис по ЗЕДЕУУ) — необходимо за застрахователни продукти, изискващи подпис преди активация.
+**FRs покрити:** FR79
+**Техническа бележка:** ЗЕДЕУУ (Закон за електронния документ и електронните удостоверителни услуги) — SMS OTP-базиран подпис е технически прост; Qualified Electronic Signature (QES) изисква акредитиран доставчик (Evrotrust, B-trust) — Story 17-2 е optional/Enterprise feature.
+
+### Epic 18: ГТП напомняния и проверка за глоби *(Phase 2)*
+Системата изпраща автоматични напомняния при изтичащ ГТП (технически преглед) D-30/D-7/D-1 по push/SMS/имейл; допълнително проверява за активни КАТ глоби по регистрационен номер и изпраща известие при нови — повишава DAU/MAU и ангажираността с платформата извън моментите на покупка.
+**FRs покрити:** FR80, FR81
+**Техническа бележка:** ГТП напомняния следват същия renewal notification engine от Epic 6 (BullMQ scheduled jobs); КАТ глоби проверка изисква интеграция с КАТ публичен API (или scraping при липса на официален API) — circuit breaker задължителен.
+
+### Epic 19: BI и Analytics Dashboard *(Phase 2)*
+Брокерът може да вижда sales funnel метрики (quotes → conversions → revenue), client retention и renewal rate, revenue breakdown по продукт/застраховател/агент и да експортира данните в CSV/Excel — осигурява видимост на ROI от платформата и намалява churn.
+**FRs покрити:** FR82, FR83, FR84, FR85
+**Техническа бележка:** Архитектурно решение: materialized views в PostgreSQL с refresh при нов webhook (избягва separate analytics DB за текущия scale); dashboard endpoint с per-tenant data isolation; период-базирана filтрация (7д/30д/3м/custom); NFR6 (< 3 сек) задължителен.
+
+### Epic 20: After-Service и клиентска ангажираност *(Phase 2)*
+Краен клиент може да отвори ПТП wizard с офлайн инструкции стъпка по стъпка при пътен инцидент, и да достъпи спешни контакти (застраховател, пътна помощ, КАТ) — всичко без интернет връзка. Увеличава DAU/MAU и задържа клиента в екосистемата на брокера.
+**FRs покрити:** FR86, FR87
+**Техническа бележка:** ПТП wizard е статично съдържание (JSON конфигурация per tenant) — кешира се от Service Worker/Hive при login; спешните контакти се конфигурират per tenant от Broker Admin dashboard.
+
+### Epic 21: Affiliate и Referral програма *(Phase 2)*
+Брокерът може да управлява promo кодове с конфигурируема отстъпка; краен клиент може да покани приятел с персонален referral линк и да получи reward при покупка; системата начислява loyalty points за повторни покупки — PLG viral loop за намаляване на CAC и повишаване на retention.
+**FRs покрити:** FR88, FR89, FR90
+**Техническа бележка:** Promo кодове: нова `promo_codes` таблица с tenant_id scope; валидация при checkout преди Stripe charge; Referral: `referral_links` таблица с UUID token; Loyalty: `loyalty_transactions` таблица с points balance per client — всички с RLS и audit_log.
+
 
 ---
 
@@ -1732,3 +1827,908 @@ So that new sales are immediately blocked while existing policies remain accessi
 **Given** reinstated КФН license,
 **When** Super Admin реактивира тенанта,
 **Then** новите продажби се възобновяват веднага без техническа интервенция
+
+---
+
+## Epic 13: Каско застраховка *(Phase 2)*
+
+Краен клиент може да получи паралелни Каско оферти от всички застрахователи, поддържащи Каско продукт, да попълни рисков въпросник, да закупи Каско полица и да получи PDF на имейл без физическа доставка. Брокерът активира модула чрез `features.casco` feature flag без code deploy.
+
+### Story 13.1: Casco Insurer Adapter & Product Type Extension
+
+As a platform engineer,
+I want to extend the `InsurerAdapter` interface with Casco-specific parameters and add `product_type = 'casco'` support,
+So that the system can aggregate Casco quotes from any insurer without changing core quote logic.
+
+**Acceptance Criteria:**
+
+**Given** the `InsurerAdapter` interface,
+**When** a new Casco adapter is registered,
+**Then** имплементира `getCascoQuote(params: CascoQuoteParams): Promise<CascoQuoteResult>` — отделен метод от `getGoQuote`
+
+**Given** a `CascoQuoteParams` object,
+**When** it is constructed,
+**Then** съдържа задължителни полета: `vehicleValue: number`, `clauses: CascoClause[]`, `parkingType: ParkingType`, `hasAlarm: boolean`, `namedDriversCount: number`, `vehicleData: VehicleData`
+
+**Given** a Casco policy is purchased,
+**When** it is saved to the `policies` table,
+**Then** `product_type = 'casco'`; `casco_risk_data` JSONB колоната съхранява рисковите данни от въпросника
+
+**Given** a tenant without `features.casco = true`,
+**When** the Casco quote endpoint is called,
+**Then** връща `403 Forbidden` с `{ error: 'FEATURE_DISABLED', feature: 'casco' }`
+
+**Given** an insurer adapter that does not support Casco,
+**When** `getCascoQuote` is called for that adapter,
+**Then** връща `null` (skip gracefully) — не блокира останалите застрахователи
+
+**Tasks:**
+- [ ] Добави `CascoQuoteParams`, `CascoClause` enum, `ParkingType` enum типове в `shared/types/insurance.types.ts`
+- [ ] Разшири `InsurerAdapter` интерфейс с `getCascoQuote?` optional метод
+- [ ] Добави `product_type` enum (`go` | `casco`) в `policies` таблица (migration)
+- [ ] Добави `casco_risk_data` JSONB колона в `policies` таблица (migration)
+- [ ] Имплементирай mock Casco adapter за dev/test среда
+- [ ] Seed: добави `features.casco = true` за demo тенант в `seed.service.ts`
+- [ ] Unit тестове: `CascoAdapter`, `feature flag guard`
+
+---
+
+### Story 13.2: Casco Risk Questionnaire
+
+As an end customer,
+I want to fill in a Casco-specific risk questionnaire after selecting my vehicle,
+So that the system can calculate an accurate Casco premium based on my specific risk profile.
+
+**Acceptance Criteria:**
+
+**Given** a customer with a registered vehicle in a Casco-enabled tenant,
+**When** they navigate to "Каско застраховка",
+**Then** виждат въпросник с полета: пазарна стойност (slider + ръчно въвеждане), клаузи (checkboxes: Пълно Каско, Частично Каско, Кражба, Стъкла), вид паркиране (гараж / охраняем паркинг / улица), алармена система (да/не), брой именовани водачи
+
+**Given** the customer enters a vehicle value,
+**When** the value is outside the valid range (< 1 000 лв или > 500 000 лв),
+**Then** полето е маркирано с грешка и продължаването е блокирано
+
+**Given** the questionnaire is completed,
+**When** the customer taps "Виж оферти",
+**Then** данните от въпросника се запазват в анонимната/автентикирана сесия и се подават към Casco quote агрегацията
+
+**Given** a vehicle with existing Go policy,
+**When** the customer navigates to Casco,
+**Then** данните за МПС (рег. номер, марка, модел, VIN, година) се зареждат автоматично без повторно въвеждане
+
+**Tasks:**
+- [ ] Flutter: `CascoQuestionnaireScreen` widget с всички полета и валидация
+- [ ] Next.js: `CascoQuestionnairePage` компонент (PWA parity)
+- [ ] Запазване на questionnaire данни в session (Redux/Provider)
+- [ ] Widget тест: `CascoQuestionnaireScreen` — всички валидации
+- [ ] Component тест: `CascoQuestionnairePage`
+
+---
+
+### Story 13.3: Parallel Casco Quote Aggregation
+
+As an end customer,
+I want to see parallel Casco quotes from all supporting insurers simultaneously,
+So that I can compare premiums and choose the best offer.
+
+**Acceptance Criteria:**
+
+**Given** a completed Casco questionnaire,
+**When** the customer requests quotes,
+**Then** системата изпраща паралелни заявки към всички активни застрахователи с `getCascoQuote` имплементация (`Promise.allSettled` с 5-сек timeout per insurer)
+
+**Given** quote results are returned,
+**When** displayed,
+**Then** картите показват: застраховател, годишна премия, покрити клаузи, `is_recommended` badge (highest score)
+
+**Given** an insurer does not support Casco,
+**When** quotes are aggregated,
+**Then** застрахователят се пропуска без грешка — останалите оферти се показват нормално
+
+**Given** all Casco insurers fail (network error),
+**When** quotes are requested,
+**Then** показва error state с "Временен проблем — моля, опитайте отново" и retry бутон
+
+**Given** a recommended Casco quote,
+**When** the scoring algorithm runs,
+**Then** `is_recommended` се изчислява по: premium (40%), clauses coverage (40%), insurer rating (20%) — логва се в audit_log за КЗ одитируемост
+
+**Tasks:**
+- [ ] `CascoQuoteService` с `aggregateCascoQuotes(params)` използвайки `Promise.allSettled`
+- [ ] `CascoQuoteController` — `POST /quotes/casco` с feature flag guard
+- [ ] Scoring алгоритъм за Каско (адаптиран от ГО scoring)
+- [ ] Flutter: `CascoQuoteListScreen` с quote cards и `is_recommended` badge
+- [ ] Unit тест: `CascoQuoteService`, scoring логика
+- [ ] Integration тест: `POST /quotes/casco`
+
+---
+
+### Story 13.4: Casco Policy Purchase & Document Generation
+
+As an end customer,
+I want to purchase a selected Casco quote and receive the policy PDF by email,
+So that I have valid proof of insurance immediately after payment.
+
+**Acceptance Criteria:**
+
+**Given** a selected Casco quote,
+**When** the customer proceeds to payment,
+**Then** Stripe Payment Intent се създава с `product_type: 'casco'` метаданни; 3DS 2.0 е задължителен (PSD2)
+
+**Given** `payment_intent.succeeded` webhook is received,
+**When** processed,
+**Then** Casco полицата се записва в `policies` таблицата с `product_type = 'casco'`, `status = 'active'`, `casco_risk_data` попълнено
+
+**Given** a Casco policy is activated,
+**When** the PDF job runs,
+**Then** генерира PDF полица (без Зелена карта — Каско не изисква; без стикер — Каско не изисква физически стикер)
+
+**Given** the PDF is generated,
+**When** complete,
+**Then** изпраща имейл с PDF прикачен в < 5 минути след потвърдено плащане (NFR4)
+
+**Given** a Casco policy,
+**When** the customer opens the digital wallet,
+**Then** полицата е достъпна offline заедно с ГО полиците
+
+**Tasks:**
+- [ ] Разшири `PolicyService.createPolicy()` за Casco product_type
+- [ ] PDF template за Каско полица (без стикер секция)
+- [ ] Stripe webhook handler: разпознава `product_type: 'casco'` от metadata
+- [ ] BullMQ job `casco-pdf-generation`
+- [ ] Flutter: Casco полицата в `DigitalWalletScreen`
+- [ ] Integration тест: full Casco purchase flow (mock Stripe webhook)
+
+---
+
+### Story 13.5: Casco Feature Flag & Tenant Activation Flow
+
+As a Broker Admin,
+I want to activate the Casco module for my tenant via a feature flag,
+So that my clients see Casco options without requiring a platform deployment.
+
+**Acceptance Criteria:**
+
+**Given** a Broker Admin in Tenant Settings,
+**When** they toggle "Каско застраховка" feature,
+**Then** `features.casco` се записва в `tenant_config` и се инвалидира Redis кешът
+
+**Given** `features.casco = false`,
+**When** an end customer navigates to the purchase flow,
+**Then** Каско опцията не се показва в UI; API endpoint връща 403 ако се достъпи директно
+
+**Given** `features.casco = true`,
+**When** enabled for the first time,
+**Then** Broker Admin вижда onboarding modal: "Каско е активирано — уверете се, че сте конфигурирали комисионната матрица за Каско продукти"
+
+**Tasks:**
+- [ ] UI toggle за `features.casco` в Broker Admin Settings (Next.js)
+- [ ] API: `PATCH /tenants/:id/features` — extend за `casco` flag
+- [ ] Onboarding modal компонент при първо активиране
+- [ ] Commission matrix extension: поддръжка на `product_type: 'casco'` в матрицата
+- [ ] E2E тест: feature toggle → quote flow → Casco not shown when disabled
+
+---
+
+## Epic 14: Разширени методи на плащане *(Phase 2)*
+
+Краен клиент може да плати полица с Apple Pay, Google Pay или Borica — намалява friction при mobile checkout и увеличава conversion rate, особено при млада аудитория и корпоративни клиенти с БГ дебитни карти.
+
+### Story 14.1: Apple Pay & Google Pay (Stripe Payment Element)
+
+As an end customer,
+I want to pay for an insurance policy using Apple Pay or Google Pay,
+So that I can complete my purchase with a single biometric confirmation without entering card details.
+
+**Acceptance Criteria:**
+
+**Given** a customer on iOS Safari or Chrome/Android,
+**When** they reach the payment step,
+**Then** Apple Pay / Google Pay бутон се показва автоматично ако устройството го поддържа (Stripe Payment Element auto-detection)
+
+**Given** Apple Pay button is shown,
+**When** the customer taps it,
+**Then** iOS native Apple Pay sheet се отваря; след Face ID/Touch ID потвърждение — Stripe обработва плащането; 3DS 2.0 се прилага ако е необходимо
+
+**Given** a successful Apple Pay / Google Pay payment,
+**When** `payment_intent.succeeded` webhook fires,
+**Then** политика се активира; PDF + имейл flow е идентичен с карта плащане
+
+**Given** the payment form on a non-supporting device,
+**When** rendered,
+**Then** Apple Pay / Google Pay бутони не се показват; само card form е видим (graceful degradation)
+
+**Tasks:**
+- [ ] Next.js: замени custom card form с Stripe Payment Element (поддържа Apple Pay/Google Pay нативно)
+- [ ] Flutter: Stripe Flutter SDK — `presentPaymentSheet()` с `applePay` и `googlePay` конфигурация
+- [ ] Apple Pay domain verification file (`.well-known/apple-developer-merchantid-domain-association`)
+- [ ] Google Pay merchant registration в Google Pay & Wallet Console
+- [ ] Integration тест: mock Apple Pay / Google Pay payment confirmation
+- [ ] Widget тест: payment method selection UI
+
+---
+
+### Story 14.2: Borica Integration
+
+As an end customer with a Bulgarian debit card,
+I want to pay through Borica without needing a Stripe-supported card,
+So that I can purchase an insurance policy using my standard Bulgarian bank card.
+
+**Acceptance Criteria:**
+
+**Given** a customer at the payment step,
+**When** they select "Borica" as payment method,
+**Then** редиректират се към Borica hosted payment page с pre-filled amount и order ID
+
+**Given** a successful Borica payment,
+**When** Borica sends a server-to-server callback,
+**Then** системата верифицира подписа на callback-а (RSA signature); активира полицата; записва `payment_provider = 'borica'` в `payments` таблицата
+
+**Given** a failed or cancelled Borica payment,
+**When** the customer is redirected back,
+**Then** вижда error state с конкретна причина; може да опита отново с Borica или да превключи към карта/Apple Pay
+
+**Given** a Borica payment record,
+**When** viewed in commission dashboard,
+**Then** комисионните се изчисляват идентично с Stripe плащания — `payment_provider` е прозрачен за комисионната логика
+
+**Tasks:**
+- [ ] Borica SDK/HTTP client интеграция (`borica-merchant` npm package или директен API)
+- [ ] `payment_provider` enum в `payments` таблица: `stripe` | `borica`
+- [ ] `POST /payments/borica/callback` endpoint с RSA signature верификация
+- [ ] Next.js: Borica payment method option в checkout
+- [ ] Flutter: WebView redirect за Borica hosted page
+- [ ] Feature flag `features.borica` per tenant
+- [ ] Unit тест: Borica callback signature verification
+- [ ] Integration тест: full Borica payment flow (mock callback)
+
+---
+
+## Epic 15: Биометричен и социален вход *(Phase 2)*
+
+Краен клиент може да влиза в приложението с Face ID или пръстов отпечатък, и да се регистрира/влезе с Google или Apple акаунт — намалява onboarding friction и увеличава conversion rate при нови клиенти.
+
+### Story 15.1: Biometric Login (Face ID & Fingerprint)
+
+As a returning end customer on mobile,
+I want to log in using Face ID or fingerprint recognition,
+So that I can access my policies instantly without entering a password.
+
+**Acceptance Criteria:**
+
+**Given** a customer who has previously logged in with SMS OTP,
+**When** they open the app,
+**Then** виждат prompt "Активирайте бързо влизане с Face ID / пръстов отпечатък"
+
+**Given** the customer enables biometric login,
+**When** confirmed with biometric,
+**Then** refresh token се съхранява в iOS Keychain / Android Keystore (encrypted); при следващо отваряне — biometric prompt стартира автоматично
+
+**Given** a successful biometric authentication,
+**When** completed,
+**Then** нов access token се издава чрез refresh token rotation; biometric данни никога не напускат устройството
+
+**Given** 3 consecutive biometric failures,
+**When** triggered,
+**Then** приложението изисква SMS OTP повторна автентикация; biometric session се инвалидира
+
+**Given** the user disables biometric in device settings,
+**When** the app is opened,
+**Then** gracefully fallback към SMS OTP без грешка
+
+**Tasks:**
+- [ ] Flutter: `local_auth` package — `BiometricAuthService` wrapper
+- [ ] Keychain/Keystore encrypted storage за refresh token (`flutter_secure_storage`)
+- [ ] `AuthService.refreshWithBiometric()` endpoint в API
+- [ ] Settings screen: toggle за биометрично влизане
+- [ ] Widget тест: biometric prompt и fallback flow
+
+---
+
+### Story 15.2: Sign in with Google
+
+As a new end customer,
+I want to register and log in using my Google account,
+So that I can start using the platform without going through the SMS OTP flow.
+
+**Acceptance Criteria:**
+
+**Given** a new customer on the registration screen,
+**When** they tap "Продължи с Google",
+**Then** Google OAuth 2.0 consent screen се отваря
+
+**Given** the customer grants consent,
+**When** Google token is received,
+**Then** API верифицира Google ID token; ако имейлът не съществува — създава нов `customers` запис с `auth_provider = 'google'`; ако съществува — логва в акаунта
+
+**Given** a new Google OAuth customer,
+**When** registered,
+**Then** телефонният номер все още е задължителен за SMS OTP верификация при първа покупка (КФН изискване за идентификация)
+
+**Given** an existing customer with SMS OTP,
+**When** they log in with the same email via Google,
+**Then** акаунтите се сливат автоматично; customer вижда съобщение "Свързахме Google акаунта ви"
+
+**Tasks:**
+- [ ] Flutter: `google_sign_in` package
+- [ ] Next.js: Google OAuth button (NextAuth.js или директен OAuth)
+- [ ] API: `POST /auth/google` — верифицира Google ID token, издава Branivo JWT
+- [ ] `auth_provider` enum в `customers` таблица: `sms` | `google` | `apple`
+- [ ] Phone verification gate при първа покупка за OAuth customers
+- [ ] Unit тест: Google token verification
+- [ ] Integration тест: `POST /auth/google` — нов и съществуващ customer
+
+---
+
+### Story 15.3: Sign in with Apple
+
+As a new iOS customer,
+I want to register and log in using my Apple ID,
+So that I can use the platform with maximum privacy (Hide My Email) and without a separate password.
+
+**Acceptance Criteria:**
+
+**Given** the app is distributed via iOS App Store,
+**When** the registration screen is shown,
+**Then** "Sign in with Apple" бутонът е задължително видим (Apple App Store Guideline 4.8)
+
+**Given** a customer taps "Sign in with Apple",
+**When** Apple ID authentication completes,
+**Then** API получава Apple identity token; верифицира го срещу Apple's public keys; създава или логва customer с `auth_provider = 'apple'`
+
+**Given** a customer uses "Hide My Email",
+**When** registered,
+**Then** системата приема Apple relay email (`@privaterelay.appleid.com`); имейл нотификациите работят нормално чрез Apple relay
+
+**Given** Apple revokes a user's token,
+**When** detected via Apple's server-to-server notification,
+**Then** customer session се инвалидира; при следващо отваряне — изисква повторна автентикация
+
+**Tasks:**
+- [ ] Flutter: `sign_in_with_apple` package
+- [ ] API: `POST /auth/apple` — Apple identity token verification (JWT verify с Apple public keys)
+- [ ] Apple relay email обработка в notification templates
+- [ ] Apple server-to-server notification endpoint (`/auth/apple/callback`)
+- [ ] Unit тест: Apple token verification
+- [ ] Integration тест: `POST /auth/apple`
+
+---
+
+## Epic 16: Физическа доставка на Зелена карта *(Phase 2)*
+
+Краен клиент може да поръча физическа доставка на хартиена Зелена карта при покупка на ГО полица — използва вече съществуващата Speedy/Econt инфраструктура от Epic 4 с нов `delivery_type = 'green_card'`.
+
+### Story 16.1: Physical Green Card Delivery via Courier
+
+As an end customer purchasing a GO policy,
+I want to optionally receive a physical printed Green Card by courier,
+So that I have a paper copy in addition to the digital PDF.
+
+**Acceptance Criteria:**
+
+**Given** a customer at the last step of GO policy purchase,
+**When** the delivery options are shown,
+**Then** вижда опция "Хартиена Зелена карта — доставка чрез куриер (Speedy / Econt)" с цена на доставката
+
+**Given** the customer selects physical delivery,
+**When** the policy is activated (after `payment_intent.succeeded`),
+**Then** системата създава `delivery_orders` запис с `delivery_type = 'green_card'`; Speedy/Econt API се извиква с адреса на клиента
+
+**Given** the delivery order is created,
+**When** the courier job runs (BullMQ),
+**Then** Speedy/Econt waybill number се записва в `delivery_orders.tracking_number`
+
+**Given** the feature flag `features.sticker_delivery` is false for the tenant,
+**When** the purchase flow runs,
+**Then** физическата доставка на Зелена карта е скрита; само PDF опцията е налична
+
+**Tasks:**
+- [ ] Разшири `delivery_type` enum: `sticker` | `green_card` (migration)
+- [ ] Разшири `DeliveryService` за `green_card` delivery type
+- [ ] Print-ready PDF template за Зелена карта (A4, двустранен)
+- [ ] BullMQ job `green-card-print-and-dispatch`
+- [ ] Unit тест: `DeliveryService.createGreenCardDelivery()`
+- [ ] Integration тест: delivery order creation after policy activation
+
+---
+
+### Story 16.2: Delivery Address Selection in Purchase Flow
+
+As an end customer who chose physical delivery,
+I want to enter and confirm my delivery address during the purchase flow,
+So that the Green Card reaches the correct location.
+
+**Acceptance Criteria:**
+
+**Given** the customer selects physical Green Card delivery,
+**When** the address step appears,
+**Then** виждат form с полета: улица, номер, град, пощенски код, тел. за контакт с куриера
+
+**Given** a customer with a previously saved delivery address,
+**When** the address step appears,
+**Then** последният използван адрес е pre-filled с опция "Промени адреса"
+
+**Given** the address is entered,
+**When** "Потвърди" is tapped,
+**Then** адресът се валидира за покритие от Speedy/Econt (API validation call); ако не е покрит — показва съобщение и предлага офис доставка като алтернатива
+
+**Tasks:**
+- [ ] Flutter: `DeliveryAddressScreen` widget
+- [ ] Next.js: Delivery address step в checkout flow
+- [ ] API: address coverage validation endpoint
+- [ ] `customer_addresses` таблица за saved addresses (с RLS)
+- [ ] Widget тест: address form validation
+
+---
+
+### Story 16.3: Delivery Status Tracking Notifications
+
+As an end customer who ordered physical delivery,
+I want to receive status updates about my Green Card delivery,
+So that I know when to expect it.
+
+**Acceptance Criteria:**
+
+**Given** a delivery order is created,
+**When** Speedy/Econt sends a status webhook,
+**Then** `delivery_orders.status` се обновява: `pending` → `dispatched` → `delivered`
+
+**Given** status changes to `dispatched`,
+**When** detected,
+**Then** push notification + SMS: "Зелената ви карта е изпратена. Проследете: [tracking link]"
+
+**Given** status changes to `delivered`,
+**When** detected,
+**Then** push notification + имейл: "Зелената ви карта е доставена успешно"
+
+**Given** delivery fails after 3 attempts,
+**When** courier marks as undeliverable,
+**Then** broker получава алерт; клиентът получава имейл с инструкции за офис вземане
+
+**Tasks:**
+- [ ] `POST /webhooks/speedy` и `POST /webhooks/econt` endpoint за статус callbacks
+- [ ] BullMQ job `delivery-status-notification`
+- [ ] Push + SMS + имейл templates за delivery статуси
+- [ ] Integration тест: delivery status webhook processing
+
+---
+
+## Epic 17: Електронно подписване *(Phase 2)*
+
+Краен клиент може да подпише застрахователни документи чрез SMS код — законово валиден електронен подпис по ЗЕДЕУУ. Необходим за застрахователни продукти, изискващи подпис преди активация.
+
+### Story 17.1: SMS-Based Electronic Signature (ЗЕДЕУУ-compliant)
+
+As an end customer purchasing a policy that requires a signature,
+I want to sign the insurance document using an SMS code,
+So that I can complete the purchase legally and digitally without a physical signature.
+
+**Acceptance Criteria:**
+
+**Given** a policy product that requires signature (`requires_signature = true`),
+**When** the customer reaches the signature step,
+**Then** виждат preview на документа за подписване и бутон "Подпиши с SMS код"
+
+**Given** the customer taps "Подпиши с SMS код",
+**When** triggered,
+**Then** изпраща SMS с 6-цифрен код (TTL 5 мин, max 3 опита/час) — идентично с OTP инфраструктурата от Epic 1
+
+**Given** the correct SMS code is entered,
+**When** verified,
+**Then** системата записва: `signed_at` timestamp, `signing_method = 'sms_otp'`, SHA-256 hash на подписания документ в `policy_signatures` таблица — одитна следа
+
+**Given** a signed document,
+**When** stored,
+**Then** подписът е immutable (не може да се редактира или изтрива) — `policy_signatures` таблицата е append-only
+
+**Tasks:**
+- [ ] `policy_signatures` таблица: `policy_id`, `customer_id`, `signed_at`, `signing_method`, `document_hash`, `otp_phone` (migration + RLS)
+- [ ] `SignatureService`: OTP генериране, верификация, hash изчисляване
+- [ ] Flutter: `SignatureScreen` с document preview и OTP input
+- [ ] Next.js: signature step в purchase flow
+- [ ] Unit тест: `SignatureService`
+- [ ] Integration тест: signature flow end-to-end
+
+---
+
+### Story 17.2: Qualified Electronic Signature (QES) — Enterprise
+
+As an enterprise broker requiring legally binding qualified signatures,
+I want to offer QES (Qualified Electronic Signature) to my clients via an accredited provider,
+So that my policies comply with the highest level of electronic signature regulation (eIDAS).
+
+**Acceptance Criteria:**
+
+**Given** a tenant with `features.qes = true`,
+**When** the signature step is shown,
+**Then** клиентът вижда допълнителна опция "Квалифициран електронен подпис (Evrotrust / B-Trust)"
+
+**Given** the customer selects QES,
+**When** initiated,
+**Then** системата интегрира с Evrotrust или B-Trust SDK за remote QES подписване
+
+**Given** QES signing is complete,
+**When** confirmed by the QES provider,
+**Then** подписаният документ (с вграден QES) се съхранява в S3; `signing_method = 'qes'` в `policy_signatures`
+
+**Tasks:**
+- [ ] QES provider evaluation: Evrotrust vs B-Trust SDK
+- [ ] `signing_method` enum extension: `sms_otp` | `qes` (migration)
+- [ ] Feature flag `features.qes` per tenant
+- [ ] Evrotrust или B-Trust SDK интеграция
+- [ ] Unit тест: QES callback verification
+
+---
+
+## Epic 18: ГТП напомняния и проверка за глоби *(Phase 2)*
+
+Системата изпраща автоматични напомняния при изтичащ ГТП (технически преглед) и проверява за КАТ глоби по регистрационен номер — повишава ангажираността с платформата извън моментите на покупка.
+
+### Story 18.1: ГТП Expiry Reminders
+
+As an end customer,
+I want to receive reminders when my vehicle's annual technical inspection (ГТП) is about to expire,
+So that I don't miss the inspection deadline and risk driving with an expired certificate.
+
+**Acceptance Criteria:**
+
+**Given** a customer with a registered vehicle that has a known ГТП expiry date,
+**When** the scheduled check runs daily at 09:00 EET,
+**Then** системата изпраща напомняния при: D-30 (push), D-7 (push + SMS), D-1 (push + SMS + имейл)
+
+**Given** a ГТП reminder is sent,
+**When** the customer taps it,
+**Then** отваря списък с ГТП станции наблизо (Google Maps deep link)
+
+**Given** the ГТП expiry date is unknown for a vehicle,
+**When** the customer opens the vehicle profile,
+**Then** вижда prompt "Добавете дата на ГТП, за да получавате напомняния"
+
+**Given** a tenant with `features.gtp_reminders = false`,
+**When** the scheduler runs,
+**Then** напомнянията за ГТП са деактивирани за клиентите на тенанта
+
+**Tasks:**
+- [ ] `gtp_expiry_date` колона в `vehicles` таблица (migration)
+- [ ] BullMQ scheduled job `gtp-expiry-check` (daily 09:00 EET, extension на renewal engine от Epic 6)
+- [ ] Push + SMS + имейл templates за ГТП напомняния
+- [ ] Flutter: `gtp_expiry_date` поле в vehicle profile screen
+- [ ] Google Maps deep link за ГТП станции
+- [ ] Feature flag `features.gtp_reminders` per tenant
+- [ ] Unit тест: ГТП reminder scheduling logic
+
+---
+
+### Story 18.2: KAT Fines Check & Notifications
+
+As an end customer,
+I want to be notified when new fines appear for my vehicle's registration number,
+So that I can pay them promptly and avoid additional penalties.
+
+**Acceptance Criteria:**
+
+**Given** a customer with a registered vehicle,
+**When** the scheduled check runs (every 24 hours),
+**Then** системата проверява за нови КАТ глоби по регистрационен номер; сравнява с последно известните глоби
+
+**Given** new fines are detected,
+**When** confirmed,
+**Then** изпраща push notification: "Открита е нова глоба за [рег. номер] — €[сума]. Платете онлайн."
+
+**Given** the КАТ API is unavailable,
+**When** the check fails,
+**Then** circuit breaker активира (5 грешки / 60 сек); следващият check се retry-ва след 24 часа; клиентът не получава false-negative известие
+
+**Given** a customer taps the fine notification,
+**When** opened,
+**Then** deep link отваря КАТ глоби portal (e-uslugi.mvr.bg) в in-app browser
+
+**Tasks:**
+- [ ] КАТ fines API client (официален API или scraping с disclamer) с circuit breaker
+- [ ] `vehicle_fines` таблица: `vehicle_id`, `fine_id`, `amount`, `detected_at`, `notified_at` (migration + RLS)
+- [ ] BullMQ scheduled job `kat-fines-check` (daily)
+- [ ] Push notification template за нова глоба
+- [ ] Deep link към e-uslugi.mvr.bg
+- [ ] Unit тест: fines diff logic (нови vs. вече известни)
+- [ ] Integration тест: КАТ API circuit breaker behavior
+
+---
+
+## Epic 19: BI и Analytics Dashboard *(Phase 2)*
+
+Брокерът може да вижда sales funnel метрики, client retention, revenue breakdown и да експортира аналитични данни — осигурява видимост на ROI от платформата и намалява churn.
+
+### Story 19.1: Sales Funnel & Conversion Dashboard
+
+As a Broker Admin,
+I want to see how many quotes are generated and what percentage convert to purchases,
+So that I can identify friction points in the sales funnel and optimize my agents' performance.
+
+**Acceptance Criteria:**
+
+**Given** a Broker Admin in the Analytics section,
+**When** the dashboard loads,
+**Then** вижда за избран период (7д / 30д / 3м / custom): брой генерирани оферти, брой покупки, conversion rate (%), средна стойност на полица, revenue generated
+
+**Given** the dashboard is filtered by period,
+**When** the data loads,
+**Then** зарежда в < 3 секунди (NFR6) — materialized view refresh при нов webhook
+
+**Given** the data is broken down by agent,
+**When** an agent name is clicked,
+**Then** показва funnel само за конкретния агент
+
+**Given** a tenant with multiple product types (ГО + Каско),
+**When** the dashboard is shown,
+**Then** funnel е breakdown по продукт (ГО / Каско) с отделни conversion rates
+
+**Tasks:**
+- [ ] PostgreSQL materialized view `mv_broker_sales_funnel` (per tenant, period-indexed)
+- [ ] Refresh trigger: при всеки `payment_intent.succeeded` webhook
+- [ ] API: `GET /analytics/sales-funnel?period=30d&agentId=...`
+- [ ] Next.js: `SalesFunnelDashboard` компонент с recharts/chart.js
+- [ ] Flutter: Analytics tab в Broker Dashboard
+- [ ] Unit тест: materialized view refresh logic
+- [ ] Component тест: `SalesFunnelDashboard`
+
+---
+
+### Story 19.2: Client Retention & Renewal Rate Metrics
+
+As a Broker Admin,
+I want to see how many clients renew their policies and what the average client lifetime value is,
+So that I can focus retention efforts on at-risk clients.
+
+**Acceptance Criteria:**
+
+**Given** a Broker Admin in Analytics,
+**When** the Retention tab is selected,
+**Then** вижда: renewal rate (% клиенти, подновили полицата), churned clients (не са подновили след D+14), average policies per client, estimated LTV
+
+**Given** a client who did not renew,
+**When** listed in "Churn risk",
+**Then** показва: клиент, полица, дата на изтичане, брой изпратени напомняния — Broker може да се свърже директно
+
+**Tasks:**
+- [ ] Materialized view `mv_client_retention` (per tenant)
+- [ ] `ChurnRiskList` компонент с export за broker follow-up
+- [ ] API: `GET /analytics/retention?period=...`
+- [ ] Component тест: retention metrics display
+
+---
+
+### Story 19.3: Revenue Breakdown by Product & Insurer
+
+As a Broker Admin,
+I want to see revenue split by product type (GO/Casco), insurer, and agent,
+So that I can understand which partnerships and team members drive the most value.
+
+**Acceptance Criteria:**
+
+**Given** a Broker Admin in Analytics,
+**When** the Revenue tab is selected,
+**Then** вижда stacked bar chart: revenue per period, breakdown по ГО / Каско
+
+**Given** the insurer breakdown view,
+**When** shown,
+**Then** таблица: застраховател, брой полици, total premium, комисионен %
+
+**Given** the agent breakdown,
+**When** shown,
+**Then** таблица: агент, брой продажби, total commission earned — sorted by revenue desc
+
+**Tasks:**
+- [ ] Materialized view `mv_revenue_breakdown`
+- [ ] API: `GET /analytics/revenue?groupBy=product|insurer|agent&period=...`
+- [ ] Next.js: `RevenueBreakdownChart` + `RevenueTable` компоненти
+- [ ] Component тест: chart rendering с mock data
+
+---
+
+### Story 19.4: Analytics Data Export
+
+As a Broker Admin,
+I want to export analytics data to CSV or Excel,
+So that I can share reports with my accountant or management.
+
+**Acceptance Criteria:**
+
+**Given** any analytics view (sales funnel, retention, revenue),
+**When** the broker clicks "Изтегли CSV" / "Изтегли Excel",
+**Then** файлът се генерира server-side и се сваля с правилното заглавие (tenant name + период + data type)
+
+**Given** the export includes personal data (client names),
+**When** generated,
+**Then** само Broker Admin и Agent с `can_export_reports` permission могат да генерират; export събитието се логва в `audit_log`
+
+**Tasks:**
+- [ ] `ExportService.generateCsv()` и `generateExcel()` (с `exceljs` library)
+- [ ] `GET /analytics/export?type=sales|retention|revenue&format=csv|xlsx`
+- [ ] Permission guard: `can_export_reports`
+- [ ] Audit log запис при всеки export
+- [ ] Unit тест: CSV/Excel generation
+
+---
+
+## Epic 20: After-Service и клиентска ангажираност *(Phase 2)*
+
+Краен клиент може да отвори ПТП wizard с офлайн инструкции при пътен инцидент и да достъпи спешни контакти без интернет — повишава DAU/MAU и ангажираността с платформата извън моментите на покупка.
+
+### Story 20.1: ПТП Accident Wizard (Offline)
+
+As an end customer involved in a road accident,
+I want to access step-by-step instructions for handling the situation,
+So that I know exactly what to do even without an internet connection.
+
+**Acceptance Criteria:**
+
+**Given** a customer without internet,
+**When** they open the ПТП Wizard,
+**Then** всички стъпки са достъпни от локален кеш (Hive / Service Worker) — zero network dependency
+
+**Given** the wizard is opened,
+**When** step 1 loads,
+**Then** показва: "Спрете на безопасно място и включете аварийните светлини" — с icon и кратко описание
+
+**Given** the full wizard flow,
+**When** completed,
+**Then** съдържа стъпки: 1) Безопасност и аварийни светлини, 2) Проверка за наранявания (112), 3) Сигнализиране с триъгълник, 4) Документиране на щетите (снимки), 5) Размяна на данни с другия участник, 6) Попълване на ДКП (link към Epic 10), 7) Уведомяване на застрахователя
+
+**Given** the wizard content is configured,
+**When** a Broker Admin updates emergency contacts,
+**Then** wizard съдържанието се обновява при следващо отваряне на приложението (не изисква app update)
+
+**Tasks:**
+- [ ] Flutter: `PtpWizardScreen` — step-by-step wizard (Hive offline storage)
+- [ ] JSON конфигурация за wizard стъпките (per tenant override)
+- [ ] Service Worker кешира wizard JSON при login (Next.js PWA)
+- [ ] Broker Admin: UI за конфигуриране на спешни контакти
+- [ ] API: `GET /tenant/after-service-config` (cached, TTL 24h)
+- [ ] Widget тест: wizard navigation и offline behavior
+
+---
+
+### Story 20.2: Emergency Contacts & Insurer Hotlines
+
+As an end customer after an accident,
+I want to see direct emergency contact numbers for my insurer, roadside assistance, and traffic police,
+So that I can reach the right person immediately without searching.
+
+**Acceptance Criteria:**
+
+**Given** the After-Service section,
+**When** opened,
+**Then** показва: телефон на застрахователя от активната ми полица (auto-detected), пътна помощ (от активната полица), КАТ (166), Спешна помощ (112)
+
+**Given** the customer has multiple active policies with different insurers,
+**When** Emergency Contacts is opened,
+**Then** показва контакти за всеки активен застраховател в отделни expandable cards
+
+**Given** the contacts screen,
+**When** a phone number is tapped,
+**Then** стартира телефонно обаждане директно (tel: deep link)
+
+**Given** the page is offline,
+**When** opened,
+**Then** последно кешираните контакти са достъпни (Hive / Service Worker, TTL: 7 дни)
+
+**Tasks:**
+- [ ] Flutter: `EmergencyContactsScreen` с tap-to-call
+- [ ] Next.js: Emergency contacts section в PWA
+- [ ] `insurer_contacts` таблица/config в tenant settings (phone, email per insurer)
+- [ ] Offline cache с Hive (Flutter) и Service Worker (web)
+- [ ] Widget тест: contacts display и offline fallback
+
+---
+
+## Epic 21: Affiliate и Referral програма *(Phase 2)*
+
+Брокерът може да управлява promo кодове; краен клиент може да покани приятел с referral линк и да получи reward; системата начислява loyalty points при покупки — PLG viral loop за намаляване на CAC и повишаване на retention.
+
+### Story 21.1: Promo Codes
+
+As a Broker Admin,
+I want to create and manage promotional discount codes,
+So that I can run marketing campaigns and attract new clients.
+
+**Acceptance Criteria:**
+
+**Given** a Broker Admin in the Marketing section,
+**When** they create a promo code,
+**Then** задават: код (alphanumeric, 6-12 chars), тип отстъпка (% или фиксирана сума), стойност, максимален брой употреби, срок на валидност, per-product ограничение (ГО / Каско / всички)
+
+**Given** a customer at checkout enters a promo code,
+**When** validated,
+**Then** `POST /promo-codes/validate` проверява: код съществува, не е изтекъл, не е достигнал max_uses, tenant_id match; връща discount details
+
+**Given** a valid promo code at checkout,
+**When** applied,
+**Then** отстъпката се прилага преди Stripe Payment Intent creation; `promo_code_uses` таблицата записва употребата (idempotent)
+
+**Given** an invalid or expired code,
+**When** entered,
+**Then** показва конкретна грешка: "Невалиден код", "Изтекъл код", или "Кодът е изчерпан"
+
+**Tasks:**
+- [ ] `promo_codes` таблица: `id`, `tenant_id`, `code`, `discount_type`, `discount_value`, `max_uses`, `used_count`, `valid_until`, `product_scope` (migration + RLS)
+- [ ] `promo_code_uses` таблица: `promo_code_id`, `customer_id`, `policy_id`, `used_at` (append-only)
+- [ ] `PromoCodeService`: validate, apply, usage tracking
+- [ ] API: `POST /promo-codes/validate`, `POST /promo-codes` (Broker Admin CRUD)
+- [ ] Flutter: promo code input в checkout screen
+- [ ] Next.js: promo code field в checkout
+- [ ] Unit тест: `PromoCodeService` — всички валидационни cases
+- [ ] Integration тест: promo code at checkout
+
+---
+
+### Story 21.2: Client Referral System
+
+As an end customer,
+I want to invite friends using a personal referral link,
+So that when they buy a policy I receive a reward (discount or cashback).
+
+**Acceptance Criteria:**
+
+**Given** a logged-in customer,
+**When** they open "Покани приятел",
+**Then** виждат персонален referral линк (`branivo.bg/r/{token}`) с share бутони (копиране, WhatsApp, Viber)
+
+**Given** a new customer registers via referral link,
+**When** they complete their first policy purchase,
+**Then** системата детектира referral token; начислява reward на поканващия (configurable per tenant: % отстъпка при следваща покупка или cashback)
+
+**Given** a referral reward is earned,
+**When** credited,
+**Then** поканващият получава push notification + имейл: "Получихте reward за вашата покана!"
+
+**Given** the referral dashboard,
+**When** opened,
+**Then** показва: брой изпратени покани, брой регистрации, брой успешни покупки, earned rewards
+
+**Tasks:**
+- [ ] `referral_links` таблица: `id`, `customer_id`, `tenant_id`, `token` (UUID), `created_at` (migration + RLS)
+- [ ] `referral_conversions` таблица: `referral_link_id`, `referred_customer_id`, `policy_id`, `reward_credited_at` (append-only)
+- [ ] `ReferralService`: link generation, conversion tracking, reward crediting
+- [ ] API: `GET /referrals/link`, `GET /referrals/stats`
+- [ ] Referral reward configuration в tenant settings (per tenant: reward type, value)
+- [ ] Flutter: `ReferralScreen` с share бутони и stats
+- [ ] Unit тест: `ReferralService`
+- [ ] Integration тест: referral conversion flow
+
+---
+
+### Story 21.3: Loyalty Points
+
+As a returning end customer,
+I want to earn loyalty points with every policy purchase,
+So that I can redeem them for discounts on future purchases.
+
+**Acceptance Criteria:**
+
+**Given** a customer completes a policy purchase,
+**When** `payment_intent.succeeded` fires,
+**Then** системата начислява loyalty points: configurable per tenant (напр. 1 точка = 1 лв. premium); записва в `loyalty_transactions`
+
+**Given** a customer at checkout with loyalty points balance,
+**When** they choose to redeem,
+**Then** могат да приложат точки за частична отстъпка (max redemption % е configurable per tenant); остатъкът се плаща с карта/Apple Pay/Borica
+
+**Given** a loyalty points redemption,
+**When** applied,
+**Then** `loyalty_transactions` записва redemption event (append-only); Stripe Payment Intent отразява намалената сума
+
+**Given** the customer opens their profile,
+**When** the loyalty section is shown,
+**Then** вижда: текущ баланс (точки + стойност в лв), история на начислявания, история на редемпции
+
+**Tasks:**
+- [ ] `loyalty_transactions` таблица: `customer_id`, `tenant_id`, `type` (`earn` | `redeem`), `points`, `policy_id`, `created_at` (append-only + RLS)
+- [ ] Tenant config: `loyalty_earn_rate`, `loyalty_max_redemption_pct`
+- [ ] `LoyaltyService`: earn, balance, redeem логика
+- [ ] Разшири Stripe Payment Intent creation за partial loyalty redemption
+- [ ] Flutter: Loyalty section в customer profile
+- [ ] Unit тест: `LoyaltyService` — earn, redeem, balance
+- [ ] Integration тест: loyalty points at checkout
+
+---

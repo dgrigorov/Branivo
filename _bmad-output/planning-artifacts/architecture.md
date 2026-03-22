@@ -1370,3 +1370,320 @@ Before every PR merge, verify:
 - [ ] Scoring formula untouched: `0.40×price + 0.30×rating + 0.20×claim_speed + 0.10×extras`
 - [ ] Policy numbers generated via PostgreSQL DB sequence (NEVER application-generated)
 - [ ] `staleTime: 0, gcTime: 0` on all TanStack Query hooks for quote results
+
+---
+
+## Phase 2 Architectural Extensions
+
+Този раздел документира архитектурните решения за новите Phase 2 модули (Epics 13–21, FR66–FR90). Всички решения са **additive** — не изискват промяна на съществуващата Phase 1 архитектура.
+
+---
+
+### Epic 13 — Каско застраховка
+
+**Ключово решение: `InsurerAdapter` extension (NFR33 compliant)**
+
+```typescript
+// Разширение на съществуващия интерфейс — обратно съвместимо
+interface InsurerAdapter {
+  getGoQuote(params: GoQuoteParams): Promise<GoQuoteResult>;
+  getCascoQuote?(params: CascoQuoteParams): Promise<CascoQuoteResult | null>; // optional
+}
+```
+
+- Нов `product_type` enum в `policies` таблица: `'go' | 'casco'` (TypeORM migration, не breaking)
+- Нова `casco_risk_data` JSONB колона в `policies` — съхранява рисковия въпросник snapshot
+- Нов BullMQ queue: `casco-pdf-generation` (отделен от `pdf-generation` за ГО — изолиран worker scaling)
+- Feature flag: `features.casco` per tenant — guard на `CascoQuoteController` и `CascoPolicyController`
+- Commission matrix: extension за `product_type: 'casco'` — без schema промяна (JSONB config)
+- **Scoring алгоритъм Каско:** `0.40×premium + 0.40×clauses_coverage + 0.20×insurer_rating` — логва се в `audit_log` (NFR44)
+
+**DB schema additions:**
+```sql
+ALTER TABLE policies ADD COLUMN product_type VARCHAR(10) NOT NULL DEFAULT 'go';
+ALTER TABLE policies ADD COLUMN casco_risk_data JSONB;
+CREATE INDEX idx_policies_product_type ON policies(tenant_id, product_type);
+```
+
+---
+
+### Epic 14 — Разширени методи на плащане
+
+**Apple Pay / Google Pay — нулева backend промяна:**
+- Stripe Payment Element нативно поддържа Apple Pay и Google Pay на frontend
+- Backend: нова колона `payment_method` в `payments` таблица (`'card' | 'apple_pay' | 'google_pay' | 'borica'`)
+- Apple Pay domain verification: `.well-known/apple-developer-merchantid-domain-association` (static file, CloudFront served)
+
+**Borica — отделен payment gateway:**
+```typescript
+// Нов модул: src/modules/payments/gateways/borica.gateway.ts
+class BoricaGatewayService {
+  initiatePayment(order: BoricaOrder): Promise<{ redirectUrl: string }>;
+  verifyCallback(payload: string, signature: string): Promise<BoricaVerifyResult>;
+}
+```
+
+- RSA signature verification на Borica callback (публичен ключ от Борика АД)
+- `payment_provider` enum: `'stripe' | 'borica'` — commission logic е provider-agnostic
+- Feature flag: `features.borica` per tenant
+- Borica callback endpoint: `POST /webhooks/borica` — separate от Stripe webhooks
+
+**DB schema additions:**
+```sql
+ALTER TABLE payments ADD COLUMN payment_method VARCHAR(20) DEFAULT 'card';
+ALTER TABLE payments ADD COLUMN payment_provider VARCHAR(20) DEFAULT 'stripe';
+```
+
+---
+
+### Epic 15 — Биометричен и социален вход
+
+**Flutter Biometric — zero API changes:**
+- `flutter local_auth` package за Face ID / Touch ID
+- Refresh token се съхранява в iOS Keychain / Android Keystore (`flutter_secure_storage`)
+- При успешна биометрия → `POST /auth/refresh` с encrypted refresh token → нов access token
+- Биометричните данни **никога** не напускат устройството
+
+**OAuth Social Login:**
+```typescript
+// Нови endpoints:
+POST /auth/google  // Google ID token → verify → Branivo JWT
+POST /auth/apple   // Apple identity token → verify → Branivo JWT
+POST /auth/apple/callback  // Apple server-to-server revocation
+```
+
+- `auth_provider` enum в `customers`: `'sms' | 'google' | 'apple'`
+- Google token verification: `google-auth-library` npm package
+- Apple token verification: JWT verify срещу Apple public keys (`/.well-known/openid-configuration`)
+- Phone verification gate остава задължителен при първа покупка (КФН изискване)
+- Sign in with Apple е **задължителен** за iOS App Store distribution (Apple Guideline 4.8)
+
+**DB schema additions:**
+```sql
+ALTER TABLE customers ADD COLUMN auth_provider VARCHAR(20) DEFAULT 'sms';
+ALTER TABLE customers ADD COLUMN google_sub VARCHAR(255);
+ALTER TABLE customers ADD COLUMN apple_sub VARCHAR(255);
+```
+
+---
+
+### Epic 16 — Физическа доставка на Зелена карта
+
+**Reuse на съществуващата Speedy/Econt инфраструктура (Epic 4):**
+- `delivery_type` enum extension: `'sticker' | 'green_card'`
+- `DeliveryService.createDelivery(type, address, policyId)` — общ метод за двата типа
+- Print-ready PDF template за Зелена карта (A4, двустранен) — отделен Puppeteer template
+- Webhook endpoints вече съществуват (`/webhooks/speedy`, `/webhooks/econt`) — extension за `green_card` delivery status
+
+**DB schema additions:**
+```sql
+ALTER TYPE delivery_type_enum ADD VALUE 'green_card';
+CREATE TABLE customer_addresses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  customer_id UUID NOT NULL,
+  street VARCHAR(300), city VARCHAR(100), postal_code VARCHAR(20),
+  phone VARCHAR(50), is_default BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
+```
+
+---
+
+### Epic 17 — Електронно подписване
+
+**Reuse на SMS OTP инфраструктура (Epic 1) — минимален нов код:**
+
+```typescript
+// Нов append-only table — IMMUTABLE (като audit_log)
+CREATE TABLE policy_signatures (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  policy_id UUID NOT NULL REFERENCES policies(id),
+  customer_id UUID NOT NULL,
+  signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  signing_method VARCHAR(20) NOT NULL, -- 'sms_otp' | 'qes'
+  document_hash VARCHAR(64) NOT NULL,  -- SHA-256 на подписания документ
+  otp_phone VARCHAR(50),
+  qes_provider VARCHAR(50)
+);
+-- NO UPDATE or DELETE — append-only by convention + no endpoint exposed
+```
+
+- `SignatureService.sign()` reuse-ва OTP generation от `AuthService`
+- Document hash: SHA-256 на PDF байтовете преди подписване
+- ЗЕДЕУУ compliance: SMS кодът + timestamp + document hash образуват одитируема следа
+
+---
+
+### Epic 18 — ГТП напомняния и КАТ глоби
+
+**Extension на BullMQ Renewal Engine (Epic 6) — нови scheduled jobs:**
+
+```typescript
+// Нови BullMQ queues в съществуващия notifications worker:
+'gtp-expiry-check'    // daily 09:00 EET — extension на renewal-checks worker
+'kat-fines-check'     // daily — нов job type
+```
+
+- `gtp_expiry_date` колона в `vehicles` таблица
+- KAT API client: circuit breaker (5/60s) + timeout 10s + graceful degradation (NFR34)
+- `vehicle_fines` таблица: diff logic — нотификация само при **нови** глоби спрямо последно известните
+
+**DB schema additions:**
+```sql
+ALTER TABLE vehicles ADD COLUMN gtp_expiry_date DATE;
+
+CREATE TABLE vehicle_fines (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  vehicle_id UUID NOT NULL,
+  fine_id VARCHAR(100) NOT NULL,  -- external KAT fine ID
+  amount DECIMAL(10,2),
+  detected_at TIMESTAMPTZ DEFAULT NOW(),
+  notified_at TIMESTAMPTZ,
+  UNIQUE(vehicle_id, fine_id)     -- prevents duplicate detection
+);
+```
+
+---
+
+### Epic 19 — BI и Analytics Dashboard
+
+**Архитектурно решение: PostgreSQL Materialized Views (не отделна analytics DB)**
+
+Обосновка: При текущия scale (25–65 тенанта, < 22,000 полици/месец) materialized views са достатъчни и избягват отделна infrastructure. Преминаване към event-driven analytics (Redshift/ClickHouse) се активира при > 500 тенанта.
+
+```sql
+-- Refresh при всеки payment_intent.succeeded webhook
+CREATE MATERIALIZED VIEW mv_broker_sales_funnel AS
+SELECT
+  tenant_id,
+  DATE_TRUNC('day', created_at) AS day,
+  product_type,
+  COUNT(*) FILTER (WHERE status = 'pending') AS quotes_count,
+  COUNT(*) FILTER (WHERE status = 'active') AS purchases_count,
+  SUM(premium_amount) FILTER (WHERE status = 'active') AS revenue
+FROM policies
+GROUP BY tenant_id, day, product_type;
+
+CREATE UNIQUE INDEX ON mv_broker_sales_funnel(tenant_id, day, product_type);
+
+-- Concurrent refresh (no lock):
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv_broker_sales_funnel;
+```
+
+- Refresh стратегия: `CONCURRENTLY` при всеки Stripe webhook (async, BullMQ job)
+- RLS на materialized view: enforced чрез app-level `WHERE tenant_id = $tenantId` (NFR16)
+- Export: `exceljs` library за `.xlsx`; plain CSV за `.csv` — streaming response за големи datasets
+- NFR6 compliance (< 3 сек): materialized view + `tenant_id` index гарантира sub-second query time
+
+**Нови BullMQ jobs:**
+- `analytics-refresh` — triggered след `payment_intent.succeeded`
+
+---
+
+### Epic 20 — After-Service и клиентска ангажираност
+
+**Архитектура: Static JSON config + Offline-first**
+
+```typescript
+// API: GET /tenant/after-service-config
+// Response cached: Redis TTL 24h (per tenant)
+// Flutter: Hive box 'after_service' — updated at login
+// Next.js: Service Worker cache — updated at login
+interface AfterServiceConfig {
+  ptpSteps: PtpStep[];           // ПТП wizard стъпки
+  emergencyContacts: Contact[];  // per insurer + static (КАТ, 112)
+  configVersion: string;         // cache invalidation key
+}
+```
+
+- Нула network dependency при отваряне — всичко е pre-cached
+- Broker Admin конфигурира контакти в Dashboard → записват се в `tenant_config` JSONB
+- Конфигурационна версия за cache invalidation без forced update
+
+---
+
+### Epic 21 — Affiliate и Referral програма
+
+**Нови таблици — всички с RLS и audit_log coverage:**
+
+```sql
+-- Promo codes (mutable — Broker Admin управлява)
+CREATE TABLE promo_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  code VARCHAR(20) NOT NULL,
+  discount_type VARCHAR(10) NOT NULL,  -- 'percent' | 'fixed'
+  discount_value DECIMAL(10,2) NOT NULL,
+  max_uses INTEGER,
+  used_count INTEGER DEFAULT 0,
+  valid_until TIMESTAMPTZ,
+  product_scope VARCHAR(10),           -- 'go' | 'casco' | NULL (all)
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  UNIQUE(tenant_id, code)
+);
+
+-- Promo code uses (append-only)
+CREATE TABLE promo_code_uses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  promo_code_id UUID NOT NULL,
+  customer_id UUID NOT NULL,
+  policy_id UUID NOT NULL,
+  used_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Referral links
+CREATE TABLE referral_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  customer_id UUID NOT NULL,
+  token UUID UNIQUE DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Referral conversions (append-only)
+CREATE TABLE referral_conversions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  referral_link_id UUID NOT NULL,
+  referred_customer_id UUID NOT NULL,
+  policy_id UUID NOT NULL,
+  reward_credited_at TIMESTAMPTZ
+);
+
+-- Loyalty transactions (append-only — IMMUTABLE like audit_log)
+CREATE TABLE loyalty_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  customer_id UUID NOT NULL,
+  type VARCHAR(10) NOT NULL,  -- 'earn' | 'redeem'
+  points INTEGER NOT NULL,
+  policy_id UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- NO UPDATE or DELETE on loyalty_transactions — append-only by convention
+```
+
+- `LoyaltyService.getBalance()`: `SUM(points) FILTER (earn) - SUM(points) FILTER (redeem)`
+- Promo code validation: atomic `UPDATE promo_codes SET used_count = used_count + 1 WHERE id = $id AND used_count < max_uses` — race condition safe
+- Referral reward config в `tenant_config` JSONB: `{ referral_reward_type, referral_reward_value }`
+
+---
+
+### Phase 2 — 14-Point Checklist Extensions
+
+Добавя се към съществуващия 14-Point Enforcement Checklist:
+
+- [ ] `getCascoQuote?` е optional в `InsurerAdapter` — нов adapter не е задължен да го имплементира
+- [ ] `features.casco` проверен преди всеки Casco endpoint
+- [ ] Borica callback RSA signature верифициран преди processing
+- [ ] OAuth tokens (Google/Apple) никога не се съхраняват — само Branivo JWT се издава
+- [ ] `policy_signatures` и `loyalty_transactions` са append-only — без UPDATE/DELETE endpoints
+- [ ] Materialized view refresh е `CONCURRENTLY` — не блокира reads
+- [ ] KAT fines check: circuit breaker активен; без false-negative нотификации при API failure
+- [ ] Analytics export логва се в `audit_log` при съдържащи лични данни exports
