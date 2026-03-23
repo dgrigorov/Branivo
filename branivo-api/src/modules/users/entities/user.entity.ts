@@ -1,4 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { PiiField } from '../../../shared/decorators/pii-field.decorator';
+import { PiiClassification } from '../../../shared/types/pii.types';
 
 export type UserRole =
   | 'super_admin'
@@ -16,6 +18,7 @@ export class User {
   @Column({ name: 'tenant_id' })
   tenantId!: string;
 
+  @PiiField(PiiClassification.PII_BASIC)
   @Column({ name: 'email' })
   email!: string;
 
@@ -28,6 +31,7 @@ export class User {
   @Column({ name: 'two_fa_enabled', default: false })
   twoFaEnabled!: boolean;
 
+  @PiiField(PiiClassification.PII_SENSITIVE)
   @Column({ name: 'two_fa_secret_enc', nullable: true, type: 'text' })
   twoFaSecretEnc!: string | null;
 

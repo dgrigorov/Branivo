@@ -6,6 +6,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { PiiField } from '../../../shared/decorators/pii-field.decorator';
+import { PiiClassification } from '../../../shared/types/pii.types';
 
 @Entity('vehicles')
 export class Vehicle {
@@ -18,9 +20,11 @@ export class Vehicle {
   @Column({ name: 'owner_id' })
   ownerId!: string;
 
+  @PiiField(PiiClassification.PII_BASIC)
   @Column({ name: 'vin' })
   vin!: string;
 
+  @PiiField(PiiClassification.PII_BASIC)
   @Column({ name: 'license_plate' })
   licensePlate!: string;
 

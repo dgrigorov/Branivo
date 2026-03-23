@@ -28,6 +28,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { FleetModule } from './modules/fleet/fleet.module';
+import { ComplianceModule } from './modules/compliance/compliance.module';
 import { TenantDomain } from './modules/tenants/entities/tenant-domain.entity';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
@@ -68,6 +69,7 @@ import { HealthModule } from './health/health.module';
     ClientsModule,
     VehiclesModule,
     FleetModule,
+    ComplianceModule,
   ],
 })
 export class AppModule implements NestModule {

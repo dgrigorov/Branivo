@@ -156,10 +156,10 @@ development_status:
   #   Wave 4 (Operational Excellence):
   #     11-15 → 11-3
   # ─────────────────────────────────────────────────────────────
-  epic-11: backlog
+  epic-11: in-progress
 
   # — Wave 1: Foundation & Legal Blockers —
-  11-1-data-classification-pii-taxonomy: backlog           # Foundation за всичко; PII_BASIC / PII_SENSITIVE / PII_SPECIAL_CATEGORY таксономия
+  11-1-data-classification-pii-taxonomy: done              # Foundation за всичко; PII_BASIC / PII_SENSITIVE / PII_SPECIAL_CATEGORY таксономия
   11-11-privacy-policy-white-label: backlog                # White-label Privacy Policy per tenant; GDPR чл. 13; версионирана
   11-12-terms-of-service-version-tracking: backlog         # ToS с version accept tracking; force re-accept при нова версия
   11-13-cookie-policy-banner: backlog                      # Cookie banner + granular consent (IAB TCF 2.2); GDPR чл. 7
@@ -272,3 +272,17 @@ development_status:
   21-2-client-referral-system: backlog
   21-3-loyalty-points: backlog
   epic-21-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 22: Production Hardening — Пропуснати Фундаментални Изисквания
+  # Открити чрез party-mode code audit (2026-03-22)
+  # ПРИОРИТЕТ: Имплементирай в тази последователност
+  # ─────────────────────────────────────────────────────────────
+  epic-22: backlog
+  22-1-stripe-webhook-idempotency-fix: backlog        # КРИТИЧНО — data integrity (NFR35/NFR9)
+  22-2-broker-password-reset-flow: backlog            # КРИТИЧНО — operational blocker
+  22-3-gdpr-client-data-export: backlog               # Законово задължително (FR63)
+  22-4-pwa-browser-push-notifications: backlog        # Phase 1 requirement (FR42)
+  22-5-guarantee-fund-api-integration: backlog        # Phase 1 requirement (FR20)
+  22-6-terraform-iac-infrastructure: backlog          # Infrastructure (NFR38)
+  epic-22-retrospective: optional

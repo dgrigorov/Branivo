@@ -9,6 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Quote } from '../../quotes/entities/quote.entity';
+import { PiiField } from '../../../shared/decorators/pii-field.decorator';
+import { PiiClassification } from '../../../shared/types/pii.types';
 
 export enum PaymentStatus {
   PENDING = 'pending',
@@ -45,12 +47,14 @@ export class Payment {
   @Column({ name: 'end_client_id', nullable: true })
   endClientId!: string | null;
 
+  @PiiField(PiiClassification.PII_SENSITIVE)
   @Column({ name: 'stripe_payment_intent_id' })
   stripePaymentIntentId!: string;
 
   @Column({ name: 'idempotency_key' })
   idempotencyKey!: string;
 
+  @PiiField(PiiClassification.PII_SENSITIVE)
   @Column({ name: 'amount', type: 'decimal', precision: 10, scale: 2 })
   amount!: number;
 
@@ -71,6 +75,7 @@ export class Payment {
   @Column({ name: 'status', type: 'varchar', default: PaymentStatus.PENDING })
   status!: PaymentStatus;
 
+  @PiiField(PiiClassification.PII_SENSITIVE)
   @Column({ name: 'stripe_client_secret' })
   stripeClientSecret!: string;
 

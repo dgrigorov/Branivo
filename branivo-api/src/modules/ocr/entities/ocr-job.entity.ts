@@ -6,6 +6,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { PiiField } from '../../../shared/decorators/pii-field.decorator';
+import { PiiClassification } from '../../../shared/types/pii.types';
 
 export enum OcrJobStatus {
   PENDING = 'pending',
@@ -65,6 +67,7 @@ export class OcrJobEntity {
   @Column({ name: 'images_count', type: 'smallint', default: 0 })
   imagesCount!: number;
 
+  @PiiField(PiiClassification.PII_SENSITIVE)
   @Column({ name: 'result', type: 'jsonb', nullable: true })
   result!: OcrFieldResult | null;
 

@@ -7,6 +7,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import type { DeliveryAddress } from '../interfaces/delivery-address.interface';
+import { PiiField } from '../../../shared/decorators/pii-field.decorator';
+import { PiiClassification } from '../../../shared/types/pii.types';
 
 @Entity('shipments')
 export class Shipment {
@@ -39,6 +41,7 @@ export class Shipment {
   @Column({ name: 'receipt_s3_key', nullable: true })
   receiptS3Key!: string | null;
 
+  @PiiField(PiiClassification.PII_BASIC)
   @Column({ name: 'delivery_address', type: 'jsonb' })
   deliveryAddress!: DeliveryAddress;
 

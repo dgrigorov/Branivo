@@ -7,6 +7,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { DeliveryAddress } from '../../../modules/logistics/interfaces/delivery-address.interface';
+import { PiiField } from '../../../shared/decorators/pii-field.decorator';
+import { PiiClassification } from '../../../shared/types/pii.types';
 
 export enum PolicyStatus {
   PENDING = 'pending',
@@ -35,12 +37,14 @@ export class Policy {
   @Column({ name: 'insurer_id' })
   insurerId!: string;
 
+  @PiiField(PiiClassification.PII_BASIC)
   @Column({ name: 'policy_number' })
   policyNumber!: string;
 
   @Column({ name: 'status', type: 'varchar', default: PolicyStatus.PENDING })
   status!: PolicyStatus;
 
+  @PiiField(PiiClassification.PII_SENSITIVE)
   @Column({ name: 'stripe_payment_intent_id' })
   stripePaymentIntentId!: string;
 
@@ -79,6 +83,7 @@ export class Policy {
   @Column({ name: 'documents_emailed_at', type: 'timestamptz', nullable: true })
   documentsEmailedAt?: Date;
 
+  @PiiField(PiiClassification.PII_BASIC)
   @Column({ name: 'delivery_address', type: 'jsonb', nullable: true })
   deliveryAddress!: DeliveryAddress | null;
 
