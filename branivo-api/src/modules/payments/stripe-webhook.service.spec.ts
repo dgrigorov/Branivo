@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bull';
 import { ConfigService } from '@nestjs/config';
@@ -57,6 +58,7 @@ const mockPoliciesRepo = {
 };
 
 const mockPolicyEventsRepo = {
+  findByStripeEventId: jest.fn(),
   createEvent: jest.fn(),
 };
 
@@ -172,6 +174,7 @@ describe('StripeWebhookService', () => {
 
   describe('handleEvent — payment_intent.succeeded (AC1)', () => {
     it('Тест 1: activates policy, creates events, queues PDF', async () => {
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue(null);
       mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(mockPayment);
       mockPoliciesRepo.findByStripeIntentId.mockResolvedValue(null);
       const savedPolicy = {
@@ -224,6 +227,7 @@ describe('StripeWebhookService', () => {
 
   describe('handleEvent — idempotency (AC2)', () => {
     it('Тест 2: policy already ACTIVE → no-op, activatePolicy not called', async () => {
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue(null);
       mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(mockPayment);
       mockPoliciesRepo.findByStripeIntentId.mockResolvedValue({
         id: POLICY_ID,
@@ -241,6 +245,7 @@ describe('StripeWebhookService', () => {
       expect(mockPoliciesRepo.activatePolicy).not.toHaveBeenCalled();
       expect(mockPoliciesRepo.saveWithoutTenantScope).not.toHaveBeenCalled();
       expect(mockPdfQueue.add).not.toHaveBeenCalled();
+      expect(mockPolicyEventsRepo.createEvent).not.toHaveBeenCalled();
     });
   });
 
@@ -273,10 +278,34 @@ describe('StripeWebhookService', () => {
         TENANT_ID,
       );
     });
+
+    it('AC4: duplicate payment_failed event (already FAILED) → idempotency skip, no double failPendingEvent', async () => {
+      mockPaymentsRepo.findByStripeIntentId.mockResolvedValue({
+        ...mockPayment,
+        status: PaymentStatus.FAILED,
+      });
+
+      const event = {
+        id: STRIPE_EVENT_ID,
+        type: 'payment_intent.payment_failed',
+        data: {
+          object: {
+            id: INTENT_ID,
+            last_payment_error: { message: 'Card declined' },
+          },
+        },
+      } as unknown as Stripe.Event;
+
+      await service.handleEvent(event);
+
+      expect(mockPaymentsRepo.updateStatus).not.toHaveBeenCalled();
+      expect(mockCommissionsService.failPendingEvent).not.toHaveBeenCalled();
+    });
   });
 
   describe('handleEvent — policy events (AC5)', () => {
     it('Тест 4: ACTIVATED + PDF_QUEUED events created on successful activation', async () => {
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue(null);
       mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(mockPayment);
       mockPoliciesRepo.findByStripeIntentId.mockResolvedValue(null);
       mockPoliciesRepo.saveWithoutTenantScope.mockResolvedValue({
@@ -312,6 +341,7 @@ describe('StripeWebhookService', () => {
 
   describe('handleEvent — payment not found (AC3)', () => {
     it('Тест 5: payment not found → early return without error', async () => {
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue(null);
       mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(null);
 
       const event = {
@@ -404,16 +434,20 @@ describe('StripeWebhookService', () => {
       );
     });
 
-    it('Idempotency: already stripe_revoked + new revocation event → no update or email', async () => {
+    it('AC4: already stripe_revoked + new revocation event → [IDEMPOTENCY] skip, no update or email', async () => {
       mockTenantsRepo.findByStripeAccountId.mockResolvedValue({
         ...mockTenant,
         status: 'stripe_revoked',
       });
+      const logSpy = jest.spyOn(Logger.prototype, 'log');
 
       await service.handleEvent(makeAccountEvent(false));
 
       expect(mockTenantsRepo.updateStatus).not.toHaveBeenCalled();
       expect(mockEmailService.sendStripeRevocationEmail).not.toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[IDEMPOTENCY]'),
+      );
     });
 
     it('Tenant not found → warn log, no error, no updateStatus', async () => {
@@ -486,6 +520,7 @@ describe('StripeWebhookService', () => {
       }) as unknown as Stripe.Event;
 
     beforeEach(() => {
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue(null);
       mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(mockPayment);
       mockPoliciesRepo.findByStripeIntentId.mockResolvedValue(null);
       mockPoliciesRepo.saveWithoutTenantScope.mockResolvedValue({
@@ -548,6 +583,120 @@ describe('StripeWebhookService', () => {
       expect(mockPaymentsRepo.updatePaymentMethod).toHaveBeenCalledWith(
         PAYMENT_ID,
         PaymentMethod.CARD,
+      );
+    });
+  });
+
+  describe('handleEvent — stripe_event_id idempotency (AC1, AC5)', () => {
+    const makeSucceededEvent = (): Stripe.Event =>
+      ({
+        id: STRIPE_EVENT_ID,
+        type: 'payment_intent.succeeded',
+        data: { object: { id: INTENT_ID } },
+      }) as unknown as Stripe.Event;
+
+    it('AC1: duplicate stripe_event_id → early return, no policy activation or events created', async () => {
+      // Simulate: event already processed (policy_event with this stripe_event_id exists)
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue({
+        id: 'existing-evt-uuid',
+        stripeEventId: STRIPE_EVENT_ID,
+      });
+
+      await service.handleEvent(makeSucceededEvent());
+
+      // CRITICAL: none of these should be called after idempotency check
+      expect(mockPaymentsRepo.findByStripeIntentId).not.toHaveBeenCalled();
+      expect(mockPoliciesRepo.saveWithoutTenantScope).not.toHaveBeenCalled();
+      expect(mockPolicyEventsRepo.createEvent).not.toHaveBeenCalled();
+    });
+
+    it('AC1: duplicate stripe_event_id → logs [IDEMPOTENCY] skip message', async () => {
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue({
+        id: 'existing-evt-uuid',
+        stripeEventId: STRIPE_EVENT_ID,
+      });
+      const logSpy = jest.spyOn(Logger.prototype, 'log');
+
+      await service.handleEvent(makeSucceededEvent());
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[IDEMPOTENCY]'),
+      );
+    });
+
+    it('AC3: race condition — UniqueConstraintError on createEvent → graceful handling, no throw', async () => {
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue(null);
+      mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(mockPayment);
+      mockPoliciesRepo.findByStripeIntentId.mockResolvedValue(null);
+      mockPoliciesRepo.saveWithoutTenantScope.mockResolvedValue({
+        id: POLICY_ID,
+        policyNumber: 'DEMO-001',
+        deliveryAddress: null,
+      });
+      mockPaymentsRepo.updatePaymentMethod.mockResolvedValue(undefined);
+      mockPdfQueue.add.mockResolvedValue({});
+
+      // Simulate race condition: unique constraint violation on INSERT
+      const uniqueConstraintError = Object.assign(
+        new Error('unique violation'),
+        { code: '23505' },
+      );
+      mockPolicyEventsRepo.createEvent.mockRejectedValueOnce(
+        uniqueConstraintError,
+      );
+
+      await expect(
+        service.handleEvent(makeSucceededEvent()),
+      ).resolves.not.toThrow();
+    });
+
+    it('AC3: race condition — UniqueConstraintError → logs [IDEMPOTENCY] Race condition warn', async () => {
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue(null);
+      mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(mockPayment);
+      mockPoliciesRepo.findByStripeIntentId.mockResolvedValue(null);
+      mockPoliciesRepo.saveWithoutTenantScope.mockResolvedValue({
+        id: POLICY_ID,
+        policyNumber: 'DEMO-001',
+        deliveryAddress: null,
+      });
+      mockPaymentsRepo.updatePaymentMethod.mockResolvedValue(undefined);
+      mockPdfQueue.add.mockResolvedValue({});
+
+      const uniqueConstraintError = Object.assign(
+        new Error('unique violation'),
+        { code: '23505' },
+      );
+      mockPolicyEventsRepo.createEvent.mockRejectedValueOnce(
+        uniqueConstraintError,
+      );
+      const warnSpy = jest.spyOn(Logger.prototype, 'warn');
+
+      await service.handleEvent(makeSucceededEvent());
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[IDEMPOTENCY] Race condition'),
+      );
+    });
+
+    it('AC3: non-unique DB error is re-thrown', async () => {
+      mockPolicyEventsRepo.findByStripeEventId.mockResolvedValue(null);
+      mockPaymentsRepo.findByStripeIntentId.mockResolvedValue(mockPayment);
+      mockPoliciesRepo.findByStripeIntentId.mockResolvedValue(null);
+      mockPoliciesRepo.saveWithoutTenantScope.mockResolvedValue({
+        id: POLICY_ID,
+        policyNumber: 'DEMO-001',
+        deliveryAddress: null,
+      });
+      mockPaymentsRepo.updatePaymentMethod.mockResolvedValue(undefined);
+      mockPdfQueue.add.mockResolvedValue({});
+
+      const otherError = Object.assign(new Error('connection lost'), {
+        code: '08006',
+      });
+      mockPolicyEventsRepo.createEvent.mockRejectedValueOnce(otherError);
+
+      await expect(service.handleEvent(makeSucceededEvent())).rejects.toThrow(
+        'connection lost',
       );
     });
   });

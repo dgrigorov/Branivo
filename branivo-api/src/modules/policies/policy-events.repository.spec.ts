@@ -9,6 +9,7 @@ const TENANT_ID = 'tenant-uuid-222';
 const mockTypeormRepo = {
   create: jest.fn(),
   save: jest.fn(),
+  findOne: jest.fn(),
 };
 
 describe('PolicyEventsRepository', () => {
@@ -83,6 +84,36 @@ describe('PolicyEventsRepository', () => {
       expect(repo).not.toHaveProperty('update');
       expect(repo).not.toHaveProperty('delete');
       expect(repo).not.toHaveProperty('softDelete');
+    });
+  });
+
+  describe('findByStripeEventId', () => {
+    it('existing stripe_event_id → returns PolicyEvent', async () => {
+      const existingEvent = {
+        id: 'evt-uuid-001',
+        tenantId: TENANT_ID,
+        policyId: POLICY_ID,
+        eventType: PolicyEventType.ACTIVATED,
+        stripeEventId: 'evt_test_123',
+        payload: {},
+        createdBy: 'system',
+      };
+      mockTypeormRepo.findOne.mockResolvedValue(existingEvent);
+
+      const result = await repo.findByStripeEventId('evt_test_123');
+
+      expect(mockTypeormRepo.findOne).toHaveBeenCalledWith({
+        where: { stripeEventId: 'evt_test_123' },
+      });
+      expect(result).toBe(existingEvent);
+    });
+
+    it('non-existing stripe_event_id → returns null', async () => {
+      mockTypeormRepo.findOne.mockResolvedValue(null);
+
+      const result = await repo.findByStripeEventId('evt_nonexistent');
+
+      expect(result).toBeNull();
     });
   });
 });

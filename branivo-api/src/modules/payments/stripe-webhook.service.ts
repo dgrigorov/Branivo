@@ -95,10 +95,10 @@ export class StripeWebhookService {
       ? 'active'
       : 'stripe_revoked';
 
-    // 3. Idempotency — skip if already in target status
+    // 3. Idempotency (AC4) — skip if already in target status
     if (tenant.status === newStatus) {
       this.logger.log(
-        `Tenant ${tenant.id} already in status ${newStatus} — skipping`,
+        `[IDEMPOTENCY] Duplicate Stripe event skipped: ${stripeEventId}`,
       );
       return;
     }
@@ -154,11 +154,29 @@ export class StripeWebhookService {
     );
   }
 
+  private isUniqueConstraintError(err: unknown): boolean {
+    return (
+      err instanceof Error &&
+      'code' in err &&
+      (err as { code: string }).code === '23505'
+    );
+  }
+
   private async handlePaymentSucceeded(
     stripeEventId: string,
     intent: Stripe.PaymentIntent,
   ): Promise<void> {
     this.logger.log(`Processing payment_intent.succeeded for: ${intent.id}`);
+
+    // 0. Idempotency check — дублиран Stripe event (preemptive, before any DB reads)
+    const existingEvent =
+      await this.policyEventsRepo.findByStripeEventId(stripeEventId);
+    if (existingEvent) {
+      this.logger.log(
+        `[IDEMPOTENCY] Duplicate Stripe event skipped: ${stripeEventId}`,
+      );
+      return;
+    }
 
     // 1. Намери payment record (без tenant scope)
     const payment = await this.paymentsRepo.findByStripeIntentId(intent.id);
@@ -247,17 +265,28 @@ export class StripeWebhookService {
     }
 
     // 8. Създай immutable policy_event (AC5 — ЗАДЪЛЖИТЕЛНО)
-    await this.policyEventsRepo.createEvent({
-      tenantId: payment.tenantId,
-      policyId: policy.id,
-      eventType: PolicyEventType.ACTIVATED,
-      payload: {
-        stripePaymentIntentId: intent.id,
-        amount: premiumAmount,
-        currency: payment.currency,
-      },
-      stripeEventId,
-    });
+    // Race condition guard: UniqueConstraintError (23505) → другият processor вече е записал event
+    try {
+      await this.policyEventsRepo.createEvent({
+        tenantId: payment.tenantId,
+        policyId: policy.id,
+        eventType: PolicyEventType.ACTIVATED,
+        payload: {
+          stripePaymentIntentId: intent.id,
+          amount: premiumAmount,
+          currency: payment.currency,
+        },
+        stripeEventId,
+      });
+    } catch (err: unknown) {
+      if (this.isUniqueConstraintError(err)) {
+        this.logger.warn(
+          `[IDEMPOTENCY] Race condition: stripe_event_id already exists: ${stripeEventId}`,
+        );
+        return;
+      }
+      throw err;
+    }
 
     // 9. Queue PDF generation job (AC5 — ЗАДЪЛЖИТЕЛНО)
     await this.pdfQueue.add(
@@ -276,12 +305,13 @@ export class StripeWebhookService {
     );
 
     // 10. Log policy.pdf_queued event
+    // NOTE: stripeEventId НЕ се предава — UNIQUE INDEX позволява само един ред per stripe_event_id.
+    // ACTIVATED event вече е записан с този stripeEventId; PDF_QUEUED не се ползва за idempotency.
     await this.policyEventsRepo.createEvent({
       tenantId: payment.tenantId,
       policyId: policy.id,
       eventType: PolicyEventType.PDF_QUEUED,
       payload: { queuedAt: new Date().toISOString() },
-      stripeEventId,
     });
 
     // 11. Queue sticker delivery job (AC1 — само ако feature flag е enabled)
@@ -334,6 +364,14 @@ export class StripeWebhookService {
     const payment = await this.paymentsRepo.findByStripeIntentId(intent.id);
     if (!payment) {
       this.logger.warn(`Payment not found for intent: ${intent.id}`);
+      return;
+    }
+
+    // Idempotency check (AC4) — дублиран payment_failed event
+    if (payment.status === PaymentStatus.FAILED) {
+      this.logger.log(
+        `[IDEMPOTENCY] Duplicate Stripe event skipped: ${stripeEventId}`,
+      );
       return;
     }
 

@@ -10,6 +10,15 @@ export class PolicyEventsRepository {
     private readonly eventRepo: Repository<PolicyEvent>,
   ) {}
 
+  // READ-only lookup — без tenantId scope (webhook context)
+  async findByStripeEventId(
+    stripeEventId: string,
+  ): Promise<PolicyEvent | null> {
+    return this.eventRepo.findOne({
+      where: { stripeEventId },
+    });
+  }
+
   // САМО INSERT — без update/delete методи (immutable record)
   async createEvent(data: {
     tenantId: string;

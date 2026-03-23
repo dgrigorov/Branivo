@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
@@ -29,6 +30,10 @@ export class PolicyEvent {
   @Column({ name: 'payload', type: 'jsonb', default: {} })
   payload!: Record<string, unknown>;
 
+  @Index('uq_policy_events_stripe_event_id', {
+    unique: true,
+    where: '"stripe_event_id" IS NOT NULL',
+  })
   @Column({ name: 'stripe_event_id', nullable: true })
   stripeEventId?: string;
 

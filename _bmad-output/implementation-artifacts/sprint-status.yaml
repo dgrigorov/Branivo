@@ -278,9 +278,9 @@ development_status:
   # Открити чрез party-mode code audit (2026-03-22)
   # ПРИОРИТЕТ: Имплементирай в тази последователност
   # ─────────────────────────────────────────────────────────────
-  epic-22: backlog
-  22-1-stripe-webhook-idempotency-fix: backlog        # КРИТИЧНО — data integrity (NFR35/NFR9)
-  22-2-broker-password-reset-flow: backlog            # КРИТИЧНО — operational blocker
+  epic-22: in-progress
+  22-1-stripe-webhook-idempotency-fix: done            # КРИТИЧНО — data integrity (NFR35/NFR9)
+  22-2-broker-password-reset-flow: ready-for-dev      # КРИТИЧНО — operational blocker
   22-3-gdpr-client-data-export: backlog               # Законово задължително (FR63)
   22-4-pwa-browser-push-notifications: backlog        # Phase 1 requirement (FR42)
   22-5-guarantee-fund-api-integration: backlog        # Phase 1 requirement (FR20)
