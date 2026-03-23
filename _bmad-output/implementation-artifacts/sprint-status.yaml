@@ -40,6 +40,12 @@ tracking_system: file-system
 story_location: /Users/danielgrigorov/Desktop/Branivo/_bmad-output/implementation-artifacts
 
 development_status:
+
+  # ═══════════════════════════════════════════════════════════════
+  # PHASE 1 — MVP (Q1–Q2 2026) · България · само ГО продукт
+  # Phase 1 приключва когато: epic-22: done AND epic-11: done AND UAT: approved
+  # ВАЖНО: Не се стартира НИКАКВА Phase 2 story преди Phase 1 UAT е преминат.
+  # ═══════════════════════════════════════════════════════════════
   # ─────────────────────────────────────────────────────────────
   # Epic 1: Platform Foundation & Multi-Tenant Core
   # ─────────────────────────────────────────────────────────────
@@ -185,6 +191,36 @@ development_status:
 
   epic-11-retrospective: optional
 
+  # ═══════════════════════════════════════════════════════════════
+  # PHASE 2 — GROWTH (Q3–Q4 2026)
+  # ⛔ PHASE GATE LOCK: НЕ ЗАПОЧВАЙ Phase 2 stories докато:
+  #    epic-22: done AND epic-11: done AND UAT: approved
+  # Започва след успешен Phase 1 UAT — нарушаването е стратегически risk.
+  # ═══════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 9: API Tier & External Integration (Phase 2)
+  # Defer от Phase 1 — project-context.md: "Do NOT implement
+  # API Consumer tier (features.api_access) — Phase 2"
+  # FR54–FR58
+  # ─────────────────────────────────────────────────────────────
+  epic-9: backlog
+  9-1-api-key-management-authentication: backlog
+  9-2-quote-policy-issuance-api: backlog
+  9-3-api-sandbox-environment: backlog
+  9-4-rate-limiting-usage-billing: backlog
+  epic-9-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 10: Digital Claims Protocol — DKP (Phase 2)
+  # Defer от Phase 1 — project-context.md: "Do NOT implement
+  # DKP wizard (features.dkp_wizard) — Phase 2"
+  # FR59–FR60
+  # ─────────────────────────────────────────────────────────────
+  epic-10: backlog
+  10-1-offline-dkp-single-device-wizard: backlog
+  10-2-dkp-confirmation-pdf-generation: backlog
+  epic-10-retrospective: optional
   # ─────────────────────────────────────────────────────────────
   # Epic 12: Claims Management (Phase 2)
   # ─────────────────────────────────────────────────────────────
@@ -206,6 +242,9 @@ development_status:
 
   # ─────────────────────────────────────────────────────────────
   # Epic 14: Разширени методи на плащане (Phase 2)
+  # БЕЛЕЖКА: 14-1 (Apple Pay/Google Pay) е имплементирана по
+  # време на Phase 1 период — исторически факт, не се rollback-ва.
+  # Следващата story (14-2) не се стартира преди Phase 1 UAT.
   # ─────────────────────────────────────────────────────────────
   epic-14: in-progress
   14-1-apple-pay-and-google-pay: done

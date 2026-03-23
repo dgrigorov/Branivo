@@ -2732,3 +2732,237 @@ So that I can redeem them for discounts on future purchases.
 - [ ] Integration тест: loyalty points at checkout
 
 ---
+
+## Epic 22: Production Hardening — Пропуснати Фундаментални Изисквания
+
+Открити чрез party-mode code audit (2026-03-22): шест функционалности, дефинирани в PRD/NFRs, които не са имплементирани в нито един от съществуващите stories. Всички са Phase 1 изисквания — трябва да бъдат затворени преди production launch с реални клиенти.
+
+**Приоритетен ред:** 22.1 (критично — data integrity) → 22.2 (критично — operational blocker) → 22.3 (законово задължително) → 22.4 (FR42) → 22.5 (FR20) → 22.6 (NFR38)
+
+---
+
+### Story 22.1: Stripe Webhook Idempotency Fix
+
+As a platform operator,
+I want duplicate Stripe webhook events to be safely ignored,
+So that a policy is never activated twice due to network retries.
+
+**Контекст:** `stripe_event_id` колоната съществува в `policy_events` entity, но webhook processor-ът не проверява за дублирани events преди обработка — нарушава NFR35 и NFR9.
+
+**Acceptance Criteria:**
+
+**Given** a `payment_intent.succeeded` webhook event arrives,
+**When** `stripe_event_id` вече съществува в `policy_events`,
+**Then** processor-ът връща success (200) без да активира полица отново; логва `[IDEMPOTENCY] Duplicate Stripe event skipped: {event_id}`
+
+**Given** a new unique `payment_intent.succeeded` event,
+**When** processed for the first time,
+**Then** полицата се активира нормално и `stripe_event_id` се записва в `policy_events`
+
+**Given** a duplicate event arrives concurrently (race condition),
+**When** two processors try to insert the same `stripe_event_id` simultaneously,
+**Then** DB unique constraint на `stripe_event_id` предотвратява двоен запис; само един processor успява, другият връща success без side effects
+
+**Tasks:**
+- [ ] Migration: добави `UNIQUE` constraint на `stripe_event_id` в `policy_events` таблицата
+- [ ] `PoliciesRepository`: добави `findByStripeEventId(eventId: string, tenantId: string)` метод
+- [ ] `WebhookProcessingProcessor`: преди активация — `findByStripeEventId`; ако съществува → log + return early
+- [ ] Обработи `UniqueConstraintError` в processor (race condition guard)
+- [ ] Unit тест: duplicate event → no double activation
+- [ ] Integration тест: idempotency при concurrent duplicate events
+
+---
+
+### Story 22.2: Broker Password Reset Flow
+
+As a broker user,
+I want to reset my forgotten password via email,
+So that I can regain access to the Dashboard without contacting support.
+
+**Контекст:** FR4 описва login flow, но нито PRD, нито implementation artifacts включват password reset. Без него support tickets ще блокират operational readiness.
+
+**Acceptance Criteria:**
+
+**Given** a broker on the login page clicks "Забравена парола",
+**When** въвежда имейл адрес,
+**Then** системата изпраща reset имейл само ако акаунтът съществува; при несъществуващ имейл — показва същото success съобщение (anti-enumeration, NFR19)
+
+**Given** a broker clicks the reset link in their email,
+**When** токенът е валиден (TTL: 15 минути, single-use),
+**Then** показва форма за нова парола с confirmation field
+
+**Given** a broker submits a new password,
+**When** успешно,
+**Then** паролата се сменя; всички активни refresh tokens за акаунта се инвалидират в Redis (force logout от всички сесии); брокерът е пренасочен към login
+
+**Given** a broker clicks an expired or already-used reset link,
+**When** opened,
+**Then** показва ясна грешка: "Линкът е изтекъл или вече е използван"
+
+**Tasks:**
+- [ ] `password_reset_tokens` таблица: `id`, `user_id`, `token_hash` (SHA-256), `expires_at`, `used_at` (nullable), `created_at`; без `tenant_id` — broker users са platform-level
+- [ ] `AuthService.requestPasswordReset(email)`: generate token → SHA-256 hash → store → send email via SendGrid
+- [ ] `AuthService.resetPassword(token, newPassword)`: verify token hash → check expiry + used_at → update password → invalidate all refresh tokens → mark token as used
+- [ ] `POST /auth/password-reset/request` (public, rate limited: 3 requests/hour per email)
+- [ ] `POST /auth/password-reset/confirm` (public)
+- [ ] Next.js: "Забравена парола" страница + "Нова парола" страница
+- [ ] Email template: branded reset email с tenant logo
+- [ ] Unit тест: `AuthService` — token generation, expiry, anti-enumeration, force logout
+- [ ] Integration тест: full reset flow
+
+---
+
+### Story 22.3: GDPR Client Data Export (Right of Access)
+
+As an end customer,
+I want to request and download all my personal data,
+So that I can exercise my GDPR right of access (Article 15).
+
+**FR63:** Краен клиент може да поиска пълен data export на личните си данни.
+
+**Acceptance Criteria:**
+
+**Given** a logged-in customer requests data export,
+**When** `POST /clients/me/data-export` is called,
+**Then** системата queue-ва async job; клиентът получава имейл потвърждение: "Вашият data export се подготвя. Ще получите линк в рамките на 24 часа."
+
+**Given** the export job completes,
+**When** готов,
+**Then** клиентът получава имейл с Signed S3 URL (TTL: 48 часа); архивът е ZIP с JSON файлове: `profile.json`, `vehicles.json`, `policies.json`, `payments.json`, `consents.json`
+
+**Given** the exported data,
+**When** opened,
+**Then** съдържа само данните на конкретния клиент (tenant_id scoped); PII полетата са включени; `insurer_api_key` и вътрешни системни полета са изключени
+
+**Given** a customer requests export more than once in 30 days,
+**When** attempted,
+**Then** системата позволява повторна заявка (GDPR изисква безплатен достъп); rate limit: 1 export per 24 часа (anti-abuse)
+
+**Tasks:**
+- [ ] `data_export_requests` таблица: `id`, `tenant_id`, `customer_id`, `status` (`pending`|`processing`|`completed`|`failed`), `s3_key`, `expires_at`, `created_at`
+- [ ] `DataExportProcessor` (BullMQ): aggregate customer data → generate ZIP → upload to S3 → send email с Signed URL
+- [ ] `POST /clients/me/data-export` endpoint (authenticated, rate limited: 1/24h)
+- [ ] `GET /clients/me/data-export/status` endpoint
+- [ ] S3 Signed URL генериране с TTL 48 часа
+- [ ] Email template: export ready notification
+- [ ] Unit тест: `DataExportProcessor` — data aggregation, scoping, PII inclusion
+- [ ] Integration тест: full export flow
+
+---
+
+### Story 22.4: PWA Browser Push Notifications
+
+As an end customer using the web portal,
+I want to receive push notifications in my browser,
+So that I get renewal reminders even without the mobile app.
+
+**FR42:** Системата може да изпраща push notification чрез браузъра към потребители на PWA уеб портал.
+
+**Acceptance Criteria:**
+
+**Given** a customer uses the web portal for the first time,
+**When** prompted,
+**Then** браузърът показва native permission dialog за notifications; при отказ — не се пита отново автоматично
+
+**Given** a customer grants notification permission,
+**When** granted,
+**Then** `PushSubscription` обектът се изпраща до `POST /clients/me/push-subscription`; съхранява се в `push_subscriptions` таблица
+
+**Given** a renewal reminder event triggers (D-30, D-7),
+**When** customer has active web push subscription,
+**Then** `NotificationService` изпраща web push (VAPID) в допълнение към mobile push/SMS/email; браузърът показва branded notification с tenant logo
+
+**Given** a customer revokes browser notification permission,
+**When** next push attempt fails (410 Gone),
+**Then** subscription се изтрива автоматично от `push_subscriptions`
+
+**Tasks:**
+- [ ] `push_subscriptions` таблица: `id`, `customer_id`, `tenant_id`, `endpoint`, `p256dh`, `auth`, `type` (`fcm`|`web`), `created_at`
+- [ ] Next.js: Service Worker с `pushManager.subscribe()`; VAPID public key от env
+- [ ] `POST /clients/me/push-subscription` endpoint
+- [ ] `NotificationService`: extend за web push чрез `web-push` npm library (VAPID)
+- [ ] Renewal job: включи web push в notification channels
+- [ ] Auto-cleanup на expired/revoked subscriptions (410 handler)
+- [ ] Unit тест: `NotificationService` — web push dispatch, 410 cleanup
+- [ ] Widget/component тест: permission prompt flow
+
+---
+
+### Story 22.5: Guarantee Fund API Integration
+
+As the platform,
+I want to verify each vehicle against the Guarantee Fund API,
+So that policies are not issued for unregistered or fraudulent vehicles.
+
+**FR20:** Системата проверява МПС срещу Гаранционен фонд API за нерегламентирани МПС.
+
+**Acceptance Criteria:**
+
+**Given** a customer submits vehicle data (VIN + registration number),
+**When** КАТ API validation passes (FR19/Story 3.4),
+**Then** системата извиква Guarantee Fund API паралелно (или в sequence след КАТ) за проверка за нерегламентирано МПС
+
+**Given** the Guarantee Fund API returns a positive match (vehicle in fund),
+**When** result received,
+**Then** quote flow продължава нормално; резултатът се кешира per VIN (TTL: 24 часа)
+
+**Given** the Guarantee Fund API flags the vehicle,
+**When** result received,
+**Then** quote flow се спира; показва предупреждение: "Проверката на МПС показа нередност. Моля, свържете се с брокера."; broker notification се изпраща в Dashboard
+
+**Given** the Guarantee Fund API is unavailable,
+**When** timeout (3 сек) or error,
+**Then** circuit breaker (NFR34 параметри); системата продължава с manual check warning: "Проверката на МПС не е налична — брокерът ще верифицира ръчно."; не блокира продажбата
+
+**Tasks:**
+- [ ] `GuaranteeFundAdapter` в `src/modules/vehicles/adapters/`; имплементира `check(vin: string, registrationNumber: string)` с circuit breaker (5/60s)
+- [ ] Кеш слой: Redis key `guarantee_fund:{vin}` TTL 24h
+- [ ] `VehicleValidationService`: включи Guarantee Fund check след КАТ validation
+- [ ] Broker notification при flagged vehicle
+- [ ] `POST /vehicles/validate` response: extend с `guaranteeFundStatus: 'clear' | 'flagged' | 'unavailable'`
+- [ ] Unit тест: `GuaranteeFundAdapter` — success, flagged, circuit breaker, timeout
+- [ ] Integration тест: vehicle validation flow с Guarantee Fund
+
+---
+
+### Story 22.6: Terraform IaC Infrastructure
+
+As a DevOps/platform engineer,
+I want all infrastructure defined as code with Terraform,
+So that dev/staging/prod environments are identical and deployments are reproducible.
+
+**NFR38:** Цялата инфраструктура е дефинирана като IaC с Terraform — dev, staging и prod environments са functionally identical.
+
+**Acceptance Criteria:**
+
+**Given** the Terraform configuration,
+**When** `terraform apply` runs for a new environment,
+**Then** създава: ECS Fargate cluster + task definition, RDS PostgreSQL 16, ElastiCache Redis 7, ALB + target groups, S3 bucket за documents, IAM roles с least-privilege, Security Groups, CloudWatch log groups
+
+**Given** dev/staging/prod environments,
+**When** provisioned via Terraform,
+**Then** са functionally identical: same PostgreSQL version, same Redis config, same BullMQ worker count; разликите са само в sizing (instance types) и secrets
+
+**Given** a new developer joins,
+**When** they run `terraform init && terraform apply -var-file=dev.tfvars`,
+**Then** получават пълна работеща dev среда без ръчна конфигурация
+
+**Given** environment variables and secrets,
+**When** managed,
+**Then** secrets се съхраняват в AWS Secrets Manager (не в tfvars); Terraform referencing чрез `data.aws_secretsmanager_secret`
+
+**Tasks:**
+- [ ] `/terraform` директория в root на проекта
+- [ ] `modules/`: `ecs/`, `rds/`, `redis/`, `s3/`, `networking/`, `iam/`
+- [ ] `environments/`: `dev.tfvars`, `staging.tfvars`, `prod.tfvars`
+- [ ] ECS task definition за `branivo-api` с health checks
+- [ ] RDS PostgreSQL 16 + automated backups (7 дни dev, 30 дни prod)
+- [ ] ElastiCache Redis 7 cluster mode disabled (Phase 1)
+- [ ] ALB + HTTPS listener + ACM certificate
+- [ ] S3 bucket с versioning + lifecycle policy (documents)
+- [ ] IAM roles: ECS task role, RDS access, S3 access, Secrets Manager read
+- [ ] CloudWatch log groups с retention policy
+- [ ] `Makefile` targets: `make tf-plan-dev`, `make tf-apply-dev`, `make tf-plan-prod`
+- [ ] README: infrastructure setup guide
+
+---
