@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import {
+  BadRequestException,
   HttpException,
   HttpStatus,
   NotFoundException,
@@ -12,6 +13,8 @@ import { REDIS_CLIENT } from '../../infrastructure/redis/redis.module';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { UsersRepository } from '../users/users.repository';
 import { TenantsRepository } from '../tenants/tenants.repository';
+import { EmailService } from '../../infrastructure/email/email.service';
+import { PasswordResetTokensRepository } from './password-reset-tokens.repository';
 import { AuthService } from './auth.service';
 import { User } from '../users/entities/user.entity';
 import * as bcrypt from 'bcrypt';
@@ -43,11 +46,17 @@ describe('AuthService', () => {
   let usersRepo: jest.Mocked<UsersRepository>;
   let tenantsRepo: jest.Mocked<TenantsRepository>;
   let cryptoService: jest.Mocked<CryptoService>;
+  let emailService: jest.Mocked<EmailService>;
+  let passwordResetTokensRepo: jest.Mocked<PasswordResetTokensRepository>;
   let redisMock: {
     get: jest.Mock;
     set: jest.Mock;
     del: jest.Mock;
     exists: jest.Mock;
+    incr: jest.Mock;
+    expire: jest.Mock;
+    scan: jest.Mock;
+    mget: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -56,6 +65,10 @@ describe('AuthService', () => {
       set: jest.fn(),
       del: jest.fn(),
       exists: jest.fn(),
+      incr: jest.fn(),
+      expire: jest.fn(),
+      scan: jest.fn().mockResolvedValue(['0', []]),
+      mget: jest.fn().mockResolvedValue([]),
     };
 
     const module = await Test.createTestingModule({
@@ -77,6 +90,9 @@ describe('AuthService', () => {
           useValue: {
             findByEmailAndTenant: jest.fn(),
             findByIdAndTenant: jest.fn(),
+            findById: jest.fn(),
+            findByEmailPlatformWide: jest.fn(),
+            updatePassword: jest.fn(),
             incrementAndMaybeLock: jest.fn(),
             resetFailedLoginCount: jest.fn(),
           },
@@ -89,6 +105,20 @@ describe('AuthService', () => {
           provide: CryptoService,
           useValue: { decrypt: jest.fn() },
         },
+        {
+          provide: EmailService,
+          useValue: { sendPasswordResetEmail: jest.fn() },
+        },
+        {
+          provide: PasswordResetTokensRepository,
+          useValue: {
+            create: jest.fn(),
+            findByTokenHash: jest.fn(),
+            markUsed: jest.fn(),
+            markAllUsedForUser: jest.fn(),
+            deleteExpiredForUser: jest.fn(),
+          },
+        },
         { provide: REDIS_CLIENT, useValue: redisMock },
       ],
     }).compile();
@@ -98,6 +128,8 @@ describe('AuthService', () => {
     usersRepo = module.get(UsersRepository);
     tenantsRepo = module.get(TenantsRepository);
     cryptoService = module.get(CryptoService);
+    emailService = module.get(EmailService);
+    passwordResetTokensRepo = module.get(PasswordResetTokensRepository);
   });
 
   describe('login', () => {
@@ -361,6 +393,138 @@ describe('AuthService', () => {
       await service.logout('jti-uuid', 'tenant-uuid', pastExp);
 
       expect(redisMock.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('requestPasswordReset', () => {
+    beforeEach(() => {
+      redisMock.incr.mockResolvedValue(1);
+      redisMock.expire.mockResolvedValue(1);
+      emailService.sendPasswordResetEmail.mockResolvedValue(undefined);
+      passwordResetTokensRepo.create.mockResolvedValue(undefined);
+      passwordResetTokensRepo.deleteExpiredForUser.mockResolvedValue(undefined);
+    });
+
+    it('returns silently for non-existent email (anti-enumeration)', async () => {
+      usersRepo.findByEmailPlatformWide.mockResolvedValue(null);
+
+      await expect(
+        service.requestPasswordReset('nobody@example.com'),
+      ).resolves.toBeUndefined();
+
+      expect(passwordResetTokensRepo.create).not.toHaveBeenCalled();
+      expect(emailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('creates token and sends email for valid email', async () => {
+      usersRepo.findByEmailPlatformWide.mockResolvedValue(mockUser);
+
+      await service.requestPasswordReset('broker@example.com');
+
+      expect(passwordResetTokensRepo.create).toHaveBeenCalledWith(
+        'user-uuid',
+        expect.any(String),
+        expect.any(Date),
+      );
+      expect(emailService.sendPasswordResetEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: 'broker@example.com' }),
+      );
+    });
+
+    it('throws 429 when rate limit exceeded (>3 requests/hour)', async () => {
+      redisMock.incr.mockResolvedValue(4);
+
+      const err = await service
+        .requestPasswordReset('broker@example.com')
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+      expect(passwordResetTokensRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('allows request when Redis is unavailable (fail-open rate limiting)', async () => {
+      redisMock.incr.mockRejectedValue(new Error('ECONNREFUSED'));
+      usersRepo.findByEmailPlatformWide.mockResolvedValue(mockUser);
+
+      await service.requestPasswordReset('broker@example.com');
+
+      expect(passwordResetTokensRepo.create).toHaveBeenCalled();
+      expect(emailService.sendPasswordResetEmail).toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword', () => {
+    const validToken = {
+      id: 'token-uuid',
+      userId: 'user-uuid',
+      tokenHash: expect.any(String) as string,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      usedAt: null,
+      createdAt: new Date(),
+    };
+
+    beforeEach(() => {
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
+      usersRepo.updatePassword.mockResolvedValue(undefined);
+      passwordResetTokensRepo.markAllUsedForUser.mockResolvedValue(undefined);
+      usersRepo.findById.mockResolvedValue(mockUser);
+      redisMock.scan.mockResolvedValue(['0', []]);
+      redisMock.mget.mockResolvedValue([]);
+    });
+
+    it('throws BadRequestException for invalid (non-existent) token', async () => {
+      passwordResetTokensRepo.findByTokenHash.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword('invalid-raw-token', 'NewPass123!'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException for expired token', async () => {
+      passwordResetTokensRepo.findByTokenHash.mockResolvedValue({
+        ...validToken,
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      await expect(
+        service.resetPassword('raw-token', 'NewPass123!'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException for already-used token', async () => {
+      passwordResetTokensRepo.findByTokenHash.mockResolvedValue({
+        ...validToken,
+        usedAt: new Date(),
+      });
+
+      await expect(
+        service.resetPassword('raw-token', 'NewPass123!'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('successfully resets password, marks all tokens used, and invalidates refresh tokens', async () => {
+      const refreshKey = 'tenant-uuid:auth:refresh:some-jti';
+      redisMock.scan
+        .mockResolvedValueOnce(['0', [refreshKey]])
+        .mockResolvedValue(['0', []]);
+      redisMock.mget.mockResolvedValue(['user-uuid']);
+      redisMock.del.mockResolvedValue(1);
+
+      passwordResetTokensRepo.findByTokenHash.mockResolvedValue(validToken);
+
+      await service.resetPassword('raw-token', 'NewPass123!');
+
+      expect(usersRepo.updatePassword).toHaveBeenCalledWith(
+        'user-uuid',
+        'new-hash',
+      );
+      expect(passwordResetTokensRepo.markAllUsedForUser).toHaveBeenCalledWith(
+        'user-uuid',
+      );
+      expect(redisMock.del).toHaveBeenCalledWith(refreshKey);
     });
   });
 });

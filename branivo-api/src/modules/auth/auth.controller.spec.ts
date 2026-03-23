@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const request = require('supertest') as typeof import('supertest');
 import { AuthController } from './auth.controller';
@@ -14,6 +18,8 @@ describe('AuthController (integration)', () => {
     verify2FA: jest.fn(),
     refresh: jest.fn(),
     logout: jest.fn(),
+    requestPasswordReset: jest.fn(),
+    resetPassword: jest.fn(),
   };
 
   const mockUser = {
@@ -171,6 +177,74 @@ describe('AuthController (integration)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ message: 'Logged out successfully' });
+    });
+  });
+
+  describe('POST /auth/password-reset/request', () => {
+    it('returns 200 with success message for existing email', async () => {
+      authServiceMock.requestPasswordReset.mockResolvedValue(undefined);
+
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/auth/password-reset/request')
+        .send({ email: 'broker@example.com' });
+
+      expect(res.status).toBe(200);
+      const body = res.body as { message: string };
+      expect(body.message).toContain('Ако имейлът съществува');
+    });
+
+    it('returns 200 with same message for non-existent email (anti-enumeration)', async () => {
+      authServiceMock.requestPasswordReset.mockResolvedValue(undefined);
+
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/auth/password-reset/request')
+        .send({ email: 'nobody@example.com' });
+
+      expect(res.status).toBe(200);
+      const body = res.body as { message: string };
+      expect(body.message).toContain('Ако имейлът съществува');
+    });
+
+    it('returns 400 for invalid email format', async () => {
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/auth/password-reset/request')
+        .send({ email: 'not-an-email' });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('POST /auth/password-reset/confirm', () => {
+    it('returns 200 on successful password reset', async () => {
+      authServiceMock.resetPassword.mockResolvedValue(undefined);
+
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/auth/password-reset/confirm')
+        .send({ token: 'valid-token', newPassword: 'NewPass123!' });
+
+      expect(res.status).toBe(200);
+      const body = res.body as { message: string };
+      expect(body.message).toContain('Паролата е сменена успешно');
+    });
+
+    it('returns 400 for expired or used token', async () => {
+      authServiceMock.resetPassword.mockRejectedValue(
+        new BadRequestException('Линкът е изтекъл или вече е използван'),
+      );
+
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/auth/password-reset/confirm')
+        .send({ token: 'expired-token', newPassword: 'NewPass123!' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 for password shorter than 8 characters', async () => {
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/auth/password-reset/confirm')
+        .send({ token: 'some-token', newPassword: 'short' });
+
+      expect(res.status).toBe(400);
     });
   });
 });

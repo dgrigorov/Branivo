@@ -74,6 +74,22 @@ export class UsersRepository extends BaseRepository<User> {
     });
   }
 
+  async findById(userId: string): Promise<User | null> {
+    return this.userRepo.findOne({
+      where: { id: userId, deletedAt: IsNull() },
+    });
+  }
+
+  async findByEmailPlatformWide(email: string): Promise<User | null> {
+    return this.userRepo.findOne({
+      where: { email, deletedAt: IsNull() },
+    });
+  }
+
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    await this.userRepo.update({ id: userId }, { passwordHash });
+  }
+
   /**
    * Atomically increments failed_login_count and conditionally sets locked_until
    * in a single SQL statement to prevent race conditions under concurrent requests.

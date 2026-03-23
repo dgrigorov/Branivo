@@ -1,4 +1,6 @@
+import * as crypto from 'crypto';
 import {
+  BadRequestException,
   HttpException,
   HttpStatus,
   Inject,
@@ -19,6 +21,8 @@ import { RedisKeyHelper } from '../../common/helpers/redis-key.helper';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { UsersRepository } from '../users/users.repository';
 import { TenantsRepository } from '../tenants/tenants.repository';
+import { EmailService } from '../../infrastructure/email/email.service';
+import { PasswordResetTokensRepository } from './password-reset-tokens.repository';
 import {
   AuthTokensResponseDto,
   LoginResponseDto,
@@ -50,6 +54,10 @@ interface RefreshTokenPayload {
   type: 'refresh';
 }
 
+const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000; // 15 min
+const PASSWORD_RESET_RATE_LIMIT = 3;
+const PASSWORD_RESET_RATE_TTL_SECONDS = 3600; // 1 hour
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -60,6 +68,8 @@ export class AuthService {
     private readonly usersRepository: UsersRepository,
     private readonly tenantsRepository: TenantsRepository,
     private readonly cryptoService: CryptoService,
+    private readonly emailService: EmailService,
+    private readonly passwordResetTokensRepository: PasswordResetTokensRepository,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -264,6 +274,119 @@ export class AuthService {
       refresh_token: refreshToken,
       expires_in: ACCESS_TOKEN_TTL_SECONDS,
     };
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    const rateKey = `_system:password_reset_rate:${email}`;
+    let count: number;
+    try {
+      count = await this.redis.incr(rateKey);
+      if (count === 1) {
+        await this.redis.expire(rateKey, PASSWORD_RESET_RATE_TTL_SECONDS);
+      }
+    } catch (err) {
+      this.logger.warn(
+        'Redis unavailable for password reset rate limit — fail-open',
+        err,
+      );
+      count = 1;
+    }
+    if (count > PASSWORD_RESET_RATE_LIMIT) {
+      throw new HttpException(
+        'Твърде много заявки. Моля, изчакайте преди да опитате отново.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const user = await this.usersRepository.findByEmailPlatformWide(email);
+    if (!user) {
+      // Anti-enumeration: return silently
+      return;
+    }
+
+    this.logger.log(`Password reset requested for email: ${email}`);
+
+    const { raw, hash } = this.generateResetToken();
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+
+    await this.passwordResetTokensRepository.deleteExpiredForUser(user.id);
+    await this.passwordResetTokensRepository.create(user.id, hash, expiresAt);
+
+    try {
+      await this.emailService.sendPasswordResetEmail({
+        to: user.email,
+        resetToken: raw,
+        tenantId: user.tenantId,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to send password reset email to ${email}`, err);
+      throw new ServiceUnavailableException(
+        'Неуспешно изпращане на имейл. Моля, опитайте отново.',
+      );
+    }
+  }
+
+  async resetPassword(rawToken: string, newPassword: string): Promise<void> {
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+
+    const token =
+      await this.passwordResetTokensRepository.findByTokenHash(tokenHash);
+
+    if (!token) {
+      throw new BadRequestException('Линкът е изтекъл или вече е използван');
+    }
+    if (token.expiresAt <= new Date()) {
+      throw new BadRequestException('Линкът е изтекъл или вече е използван');
+    }
+    if (token.usedAt !== null) {
+      throw new BadRequestException('Линкът е изтекъл или вече е използван');
+    }
+
+    const passwordHash: string = await bcrypt.hash(newPassword, 12);
+    await this.usersRepository.updatePassword(token.userId, passwordHash);
+
+    const user = await this.usersRepository.findById(token.userId);
+    if (user) {
+      await this.invalidateAllRefreshTokensForUser(token.userId, user.tenantId);
+    }
+
+    await this.passwordResetTokensRepository.markAllUsedForUser(token.userId);
+    this.logger.log(`Password reset completed for userId: ${token.userId}`);
+  }
+
+  private async invalidateAllRefreshTokensForUser(
+    userId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const pattern = RedisKeyHelper.build(tenantId, 'auth', 'refresh:*');
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = (await this.redis.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        '100',
+      )) as [string, string[]];
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        const values = await this.redis.mget(...keys);
+        const keysToDelete = keys.filter((_, i) => values[i] === userId);
+        if (keysToDelete.length > 0) {
+          await this.redis.del(...keysToDelete);
+        }
+      }
+    } while (cursor !== '0');
+    this.logger.log(`Invalidated all refresh tokens for userId: ${userId}`);
+  }
+
+  private generateResetToken(): { raw: string; hash: string } {
+    const raw = crypto.randomBytes(32).toString('hex');
+    const hash = crypto.createHash('sha256').update(raw).digest('hex');
+    return { raw, hash };
   }
 
   private async resolveTenantFromHost(host: string): Promise<string> {

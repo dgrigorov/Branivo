@@ -222,6 +222,30 @@ export class EmailService {
     );
   }
 
+  async sendPasswordResetEmail(params: {
+    to: string;
+    resetToken: string;
+    tenantId: string;
+  }): Promise<void> {
+    const resetUrl = `${process.env.APP_BASE_URL ?? 'https://app.branivo.bg'}/reset-password?token=${params.resetToken}`;
+
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? 'noreply@branivo.com',
+      to: params.to,
+      subject: 'Смяна на парола — Branivo',
+      html: `
+        <h2>Смяна на парола</h2>
+        <p>Получихте това писмо, защото е поискана смяна на парола за вашия акаунт.</p>
+        <p>Кликнете на линка по-долу за да смените паролата си (валиден 15 минути):</p>
+        <p><a href="${resetUrl}">Смяна на парола</a></p>
+        <p>Ако не сте поискали смяна на парола, игнорирайте това писмо — акаунтът ви е в безопасност.</p>
+        <p>— Branivo</p>
+      `,
+    });
+
+    this.logger.log(`Password reset email sent to ${params.to}`);
+  }
+
   async sendRenewalFailureAlert(params: {
     to: string;
     errorMessage: string;

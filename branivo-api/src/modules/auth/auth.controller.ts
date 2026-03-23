@@ -20,6 +20,8 @@ import {
   LoginResponseDto,
 } from './dto/auth-response.dto';
 import { AuthenticatedUser } from './strategies/jwt.strategy';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
 
 interface RequestWithUser extends Request {
   user: AuthenticatedUser;
@@ -69,5 +71,31 @@ export class AuthController {
       req.user.exp,
     );
     return { message: 'Logged out successfully' };
+  }
+
+  @Post('password-reset/request')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: { ttl: 60000, limit: 10 } })
+  @ApiOperation({ summary: 'Request password reset email' })
+  async requestPasswordReset(
+    @Body() dto: RequestPasswordResetDto,
+  ): Promise<{ message: string }> {
+    await this.authService.requestPasswordReset(dto.email);
+    return {
+      message: 'Ако имейлът съществува, ще получите линк за смяна на паролата.',
+    };
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: { ttl: 60000, limit: 10 } })
+  @ApiOperation({ summary: 'Confirm password reset with token' })
+  async confirmPasswordReset(
+    @Body() dto: ConfirmPasswordResetDto,
+  ): Promise<{ message: string }> {
+    await this.authService.resetPassword(dto.token, dto.newPassword);
+    return {
+      message: 'Паролата е сменена успешно. Моля, влезте с новата парола.',
+    };
   }
 }
