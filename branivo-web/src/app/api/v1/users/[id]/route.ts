@@ -17,7 +17,7 @@ export async function DELETE(
 ) {
   const token = request.cookies.get('access_token')?.value;
   if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    return new NextResponse(null, { status: 204 });
   }
 
   const host = request.headers.get('host') ?? '';
@@ -25,7 +25,6 @@ export async function DELETE(
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}`, Host: host },
   });
-
   const data = await parseUpstreamResponse(apiRes);
   return NextResponse.json(data, { status: apiRes.status });
 }

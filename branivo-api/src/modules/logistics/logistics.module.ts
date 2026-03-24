@@ -4,7 +4,7 @@ import { QueueModule } from '../../infrastructure/queues/queue.module';
 import { TenantContextModule } from '../../common/tenant-context/tenant-context.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { PoliciesModule } from '../policies/policies.module';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { Shipment } from './entities/shipment.entity';
 import { LogisticsService } from './logistics.service';
 import { LogisticsProcessor } from './logistics.processor';
@@ -20,6 +20,7 @@ import { ManualAdapter } from './adapters/manual.adapter';
     TenantContextModule,
     TenantsModule,
     PoliciesModule,
+    NotificationsModule,
   ],
   providers: [
     LogisticsService,
@@ -28,7 +29,6 @@ import { ManualAdapter } from './adapters/manual.adapter';
     SpeedyAdapter,
     EcontAdapter,
     ManualAdapter,
-    NotificationsService,
   ],
   exports: [LogisticsService, ShipmentsRepository],
 })

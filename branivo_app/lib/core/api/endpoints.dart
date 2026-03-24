@@ -4,7 +4,7 @@ class ApiEndpoints {
 
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:3000/api/v1',
+    defaultValue: 'http://localhost:3000',
   );
 
   static String get baseUrl => _baseUrl;

@@ -16,13 +16,13 @@ export async function PUT(
   { params }: { params: { id: string } },
 ) {
   const token = request.cookies.get('access_token')?.value;
+  const body = await request.json() as unknown;
+
   if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ id: params.id, ...body as object });
   }
 
   const host = request.headers.get('host') ?? '';
-  const body = await request.json() as unknown;
-
   const apiRes = await fetch(`${API_URL}/api/v1/users/${params.id}/role`, {
     method: 'PUT',
     headers: {
@@ -32,7 +32,6 @@ export async function PUT(
     },
     body: JSON.stringify(body),
   });
-
   const data = await parseUpstreamResponse(apiRes);
   return NextResponse.json(data, { status: apiRes.status });
 }

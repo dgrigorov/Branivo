@@ -1,6 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
+import '../api/dio_client.dart';
+import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/ocr/screens/ocr_wizard_screen.dart';
 import '../../features/ocr/bloc/ocr_wizard_bloc.dart';
@@ -9,6 +12,7 @@ import '../../features/ocr/data/repositories/ocr_models.dart';
 import '../../features/vehicles/screens/vehicle_list_screen.dart';
 import '../../features/vehicles/screens/vehicle_validation_screen.dart';
 import '../../features/vehicles/bloc/vehicles_bloc.dart';
+import '../../features/vehicles/bloc/vehicles_event.dart';
 import '../../features/vehicles/bloc/vehicle_validation_bloc.dart';
 import '../../features/vehicles/data/repositories/vehicles_repository.dart';
 import '../../features/vehicles/data/repositories/vehicle_api_repository.dart';
@@ -22,6 +26,9 @@ import '../../features/fleet/screens/fleet_dashboard_screen.dart';
 import '../../features/fleet/screens/driver_dashboard_screen.dart';
 import '../../features/fleet/bloc/fleet_bloc.dart';
 import '../../features/fleet/data/repositories/fleet_repository.dart';
+import '../../features/policies/presentation/screens/policy_wallet_screen.dart';
+import '../../features/policies/bloc/policy_wallet_bloc.dart';
+import '../../features/policies/data/repositories/policy_repository.dart';
 
 /// Navigation extras for /fleet route
 class FleetRouteArgs {
@@ -55,33 +62,55 @@ class VehicleValidateRouteArgs {
   final String licensePlate;
 }
 
+const _storage = FlutterSecureStorage();
+
+const _publicRoutes = {'/login'};
+
 class AppRouter {
   AppRouter._();
 
   static final GoRouter router = GoRouter(
-    initialLocation: '/',
+    initialLocation: '/login',
     debugLogDiagnostics: false,
+    redirect: (context, state) async {
+      final location = state.matchedLocation;
+      if (_publicRoutes.contains(location)) return null;
+
+      final token = await _storage.read(key: 'access_token');
+      if (token == null || token.isEmpty) return '/login';
+      return null;
+    },
     routes: [
+      GoRoute(
+        path: '/login',
+        builder: (context, state) {
+          return BlocProvider(
+            create: (_) => AuthBloc(
+              dio: DioClient.instance,
+              storage: _storage,
+            ),
+            child: const LoginScreen(),
+          );
+        },
+      ),
       GoRoute(
         path: '/',
         builder: (context, state) {
           final repo = context.read<VehiclesRepository>();
           return BlocProvider(
-            create: (_) => VehiclesBloc(repository: repo),
+            create: (_) =>
+                VehiclesBloc(repository: repo)..add(const LoadVehicles()),
             child: const VehicleListScreen(),
           );
         },
-      ),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
         path: '/vehicles',
         builder: (context, state) {
           final repo = context.read<VehiclesRepository>();
           return BlocProvider(
-            create: (_) => VehiclesBloc(repository: repo),
+            create: (_) =>
+                VehiclesBloc(repository: repo)..add(const LoadVehicles()),
             child: const VehicleListScreen(),
           );
         },
@@ -127,6 +156,16 @@ class AppRouter {
         },
       ),
       GoRoute(
+        path: '/policies',
+        builder: (context, state) {
+          final repo = context.read<PolicyRepository>();
+          return BlocProvider(
+            create: (_) => PolicyWalletBloc(policyRepository: repo),
+            child: const PolicyWalletScreen(),
+          );
+        },
+      ),
+      GoRoute(
         path: '/fleet',
         builder: (context, state) {
           final args = state.extra as FleetRouteArgs?;
@@ -161,12 +200,10 @@ class AppRouter {
         builder: (context, state) {
           final args = state.extra as PaymentRouteArgs;
           final repo = context.read<PaymentApiRepository>();
-          // bearerToken се взима от storage в реален сценарий
-          // За сега се предава чрез PaymentRouteArgs (или storage)
           return BlocProvider(
             create: (_) => PaymentBloc(
               paymentRepo: repo,
-              bearerToken: '', // TODO: inject from secure storage
+              bearerToken: '',
             ),
             child: PaymentScreen(
               quoteId: args.quoteId,

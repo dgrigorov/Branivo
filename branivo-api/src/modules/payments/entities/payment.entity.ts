@@ -44,7 +44,7 @@ export class Payment {
   @JoinColumn({ name: 'quote_id' })
   quote?: Quote;
 
-  @Column({ name: 'end_client_id', nullable: true })
+  @Column({ name: 'end_client_id', type: 'uuid', nullable: true })
   endClientId!: string | null;
 
   @PiiField(PiiClassification.PII_SENSITIVE)
@@ -79,7 +79,7 @@ export class Payment {
   @Column({ name: 'stripe_client_secret' })
   stripeClientSecret!: string;
 
-  @Column({ name: 'failure_reason', nullable: true })
+  @Column({ name: 'failure_reason', type: 'varchar', nullable: true })
   failureReason!: string | null;
 
   @Column({

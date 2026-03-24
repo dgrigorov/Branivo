@@ -28,7 +28,7 @@ export class Quote {
   @Column({ name: 'session_token', type: 'varchar', length: 255 })
   sessionToken!: string;
 
-  @Column({ name: 'vehicle_id', nullable: true })
+  @Column({ name: 'vehicle_id', type: 'uuid', nullable: true })
   vehicleId!: string | null;
 
   @Column({ name: 'insurer_id' })

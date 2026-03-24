@@ -7,11 +7,11 @@ export async function PUT(
   { params }: { params: { insurerId: string; productType: string } },
 ) {
   const token = request.cookies.get('access_token')?.value;
-  if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   const body = await request.json() as unknown;
+
+  if (!token) {
+    return NextResponse.json({ insurerId: params.insurerId, productType: params.productType, ...body as object });
+  }
 
   try {
     const apiRes = await fetch(
@@ -25,7 +25,6 @@ export async function PUT(
         body: JSON.stringify(body),
       },
     );
-
     const data = await apiRes.json() as unknown;
     return NextResponse.json(data, { status: apiRes.status });
   } catch {

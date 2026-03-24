@@ -23,31 +23,23 @@ class PolicyDocumentUrls {
 }
 
 class PolicyRepository {
-  final Dio _dio;
-  final String bearerToken;
-  final Box<PolicyDocument>? _cacheBox;
-
-  const PolicyRepository({
-    required Dio dio,
-    required this.bearerToken,
-    Box<PolicyDocument>? cacheBox,
-  })  : _dio = dio,
+  const PolicyRepository({required Dio dio, Box<PolicyDocument>? cacheBox})
+      : _dio = dio,
         _cacheBox = cacheBox;
+
+  final Dio _dio;
+  final Box<PolicyDocument>? _cacheBox;
 
   /// Fetch policy list. Falls back to Hive cache if API call fails.
   Future<List<PolicyDocument>> getPolicies() async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/api/v1/policies',
-        options: Options(headers: {'Authorization': 'Bearer $bearerToken'}),
-      );
+      final response = await _dio.get<Map<String, dynamic>>('/api/v1/policies');
       final data = response.data!['data'] as List<dynamic>;
       final policies = data
           .cast<Map<String, dynamic>>()
           .map(PolicyDocument.fromJson)
           .toList();
 
-      // Update Hive cache
       if (_cacheBox != null) {
         await _cacheBox.clear();
         for (final policy in policies) {
@@ -56,7 +48,6 @@ class PolicyRepository {
       }
       return policies;
     } catch (_) {
-      // Offline fallback — serve from Hive cache
       if (_cacheBox != null && _cacheBox.isNotEmpty) {
         return _cacheBox.values.toList();
       }
@@ -68,7 +59,6 @@ class PolicyRepository {
   Future<PolicyDocumentUrls> getDocumentUrls(String policyId) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/v1/policies/$policyId/documents',
-      options: Options(headers: {'Authorization': 'Bearer $bearerToken'}),
     );
     return PolicyDocumentUrls.fromJson(response.data!);
   }
@@ -78,7 +68,6 @@ class PolicyRepository {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/api/v1/policies/$policyId/shipment',
-        options: Options(headers: {'Authorization': 'Bearer $bearerToken'}),
       );
       return response.data;
     } on DioException catch (e) {

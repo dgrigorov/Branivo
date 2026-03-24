@@ -124,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (state is AuthRequires2FAState) {
       context.push('/2fa', extra: state.tempToken);
     } else if (state is AuthAuthenticatedState) {
-      context.go('/dashboard');
+      context.go('/');
     }
   }
 }

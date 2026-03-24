@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
 
+// Mock quotes — застрахователите нямат API ключове все още
+const _mockQuotes = true; // TODO: set to false when insurer keys are added
+
 class VehicleData {
   const VehicleData({
     required this.vin,
@@ -100,6 +103,10 @@ class QuoteApiRepository {
     required String sessionToken,
     VehicleData? vehicleData,
   }) async {
+    if (_mockQuotes) {
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      return _buildMockSession(sessionToken);
+    }
     final body = <String, dynamic>{'sessionToken': sessionToken};
     if (vehicleData != null) body['vehicleData'] = vehicleData.toJson();
 
@@ -114,6 +121,10 @@ class QuoteApiRepository {
   }
 
   Future<QuoteSession> getQuotesBySession(String sessionToken) async {
+    if (_mockQuotes) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      return _buildMockSession(sessionToken);
+    }
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/v1/quotes/$sessionToken',
       options: Options(headers: {'X-Session-Token': sessionToken}),
@@ -121,5 +132,49 @@ class QuoteApiRepository {
 
     final data = response.data!['data'] as Map<String, dynamic>;
     return QuoteSession.fromJson(data);
+  }
+
+  static QuoteSession _buildMockSession(String sessionToken) {
+    return QuoteSession(
+      sessionToken: sessionToken,
+      status: 'completed',
+      requestedAt: DateTime.now().toIso8601String(),
+      offers: [
+        QuoteOffer(
+          id: 'mock-offer-001',
+          insurerCode: 'ALLIANZ',
+          insurerName: 'Алианц България',
+          price: 342.50,
+          currency: 'BGN',
+          score: 0.92,
+          isRecommended: true,
+          status: 'success',
+          extras: const {'roadside_assistance': true, 'green_card': true},
+        ),
+        QuoteOffer(
+          id: 'mock-offer-002',
+          insurerCode: 'BULINS',
+          insurerName: 'Булинс АД',
+          price: 298.00,
+          currency: 'BGN',
+          score: 0.78,
+          isRecommended: false,
+          status: 'success',
+          extras: const {'green_card': true},
+        ),
+        QuoteOffer(
+          id: 'mock-offer-003',
+          insurerCode: 'GENERALI',
+          insurerName: 'Дженерали Застраховане',
+          price: 0,
+          currency: 'BGN',
+          score: null,
+          isRecommended: false,
+          status: 'error',
+          extras: const {},
+          errorReason: 'Застрахователят не е достъпен в момента',
+        ),
+      ],
+    );
   }
 }

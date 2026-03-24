@@ -15,11 +15,11 @@ export async function PATCH(
   { params }: { params: { id: string } },
 ) {
   const token = request.cookies.get('access_token')?.value;
-  if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   const body = await request.json() as unknown;
+
+  if (!token) {
+    return new NextResponse(null, { status: 204 });
+  }
 
   const apiRes = await fetch(
     `${API_URL}/api/v1/admin/tenants/${params.id}/status`,

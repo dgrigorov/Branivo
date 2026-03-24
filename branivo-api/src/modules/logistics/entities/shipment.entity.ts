@@ -24,7 +24,7 @@ export class Shipment {
   @Column({ name: 'provider', type: 'varchar', length: 20 })
   provider!: 'speedy' | 'econt' | 'manual';
 
-  @Column({ name: 'tracking_number', nullable: true })
+  @Column({ name: 'tracking_number', type: 'varchar', nullable: true })
   trackingNumber!: string | null;
 
   @Column({ name: 'estimated_delivery_date', type: 'date', nullable: true })
@@ -38,7 +38,7 @@ export class Shipment {
   })
   status!: 'pending' | 'dispatched' | 'delivered' | 'failed';
 
-  @Column({ name: 'receipt_s3_key', nullable: true })
+  @Column({ name: 'receipt_s3_key', type: 'varchar', nullable: true })
   receiptS3Key!: string | null;
 
   @PiiField(PiiClassification.PII_BASIC)

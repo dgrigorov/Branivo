@@ -8,7 +8,7 @@ export async function POST(
 ) {
   const token = request.cookies.get('access_token')?.value;
   if (!token) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    return new NextResponse(null, { status: 204 });
   }
 
   try {

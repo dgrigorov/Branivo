@@ -34,6 +34,7 @@ export class SeedService implements OnApplicationBootstrap {
     }
 
     this.logger.log('Seeding demo data…');
+    await this.seedSuperAdmin();
     await this.seedTenant();
     await this.seedTenantConfig();
     await this.seedTenantDomains();
@@ -44,16 +45,41 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedInsurers();
     await this.seedInsurerManualFallbackDefaults();
     await this.seedCommissionMatrix();
+    await this.seedQuotes();
+    await this.seedPayments(clientId);
     await this.seedPolicies();
+    await this.seedPolicyEvents();
     await this.seedDemoCommissions();
     await this.seedDemoInvoices();
     await this.seedTenantRenewalConfig();
+    await this.seedRenewalNotificationLog();
     await this.seedFleetVehicles();
     await this.seedFleetPdfExports();
+    await this.seedOcrJobs(clientId);
+    await this.seedShipments();
     await this.seedTenantHealthData();
     await this.seedSystemNotifications();
 
-    this.logger.log('Demo seed complete. Login: admin@branivo.bg / Admin1234!');
+    this.logger.log(
+      'Demo seed complete.\n' +
+        '  Broker Admin : admin@branivo.bg / Admin1234!\n' +
+        '  Broker Agent : agent@branivo.bg / Agent1234!\n' +
+        '  Driver       : driver@branivo.bg / Driver1234!\n' +
+        '  Super Admin  : superadmin@branivo.bg / SuperAdmin1234!',
+    );
+  }
+
+  private async seedSuperAdmin(): Promise<void> {
+    // Super admin lives in the demo tenant so that localhost host-resolution works in dev.
+    // In production a dedicated system tenant with its own domain would be used.
+    const hash = await bcrypt.hash('SuperAdmin1234!', 12);
+    await this.dataSource.query(
+      `INSERT INTO users (id, tenant_id, email, password_hash, role, two_fa_enabled)
+       VALUES ('00000000-0000-0000-0000-100000000001', $1, 'superadmin@branivo.bg', $2, 'super_admin', false)
+       ON CONFLICT DO NOTHING`,
+      [DEMO_TENANT_ID, hash],
+    );
+    this.logger.log('Super admin seeded.');
   }
 
   private async seedTenant(): Promise<void> {
@@ -75,18 +101,20 @@ export class SeedService implements OnApplicationBootstrap {
   }
 
   private async seedTenantDomains(): Promise<void> {
-    // localhost for local dev
-    await this.dataSource.query(
-      `INSERT INTO tenant_domains (id, tenant_id, domain, is_primary, status)
-       VALUES (gen_random_uuid(), $1, 'localhost', true, 'active')`,
-      [DEMO_TENANT_ID],
-    );
-    // 127.0.0.1 as alias
-    await this.dataSource.query(
-      `INSERT INTO tenant_domains (id, tenant_id, domain, is_primary, status)
-       VALUES (gen_random_uuid(), $1, '127.0.0.1', false, 'active')`,
-      [DEMO_TENANT_ID],
-    );
+    const devDomains = [
+      'localhost',
+      '127.0.0.1',
+      '192.168.100.185',
+      '10.0.0.1',
+    ];
+    for (const domain of devDomains) {
+      await this.dataSource.query(
+        `INSERT INTO tenant_domains (id, tenant_id, domain, is_primary, status)
+         VALUES (gen_random_uuid(), $1, $2, $3, 'active')
+         ON CONFLICT DO NOTHING`,
+        [DEMO_TENANT_ID, domain, domain === 'localhost'],
+      );
+    }
   }
 
   private async seedUsers(): Promise<void> {
@@ -538,5 +566,121 @@ export class SeedService implements OnApplicationBootstrap {
       )
       ON CONFLICT DO NOTHING
     `);
+  }
+
+  private async seedQuotes(): Promise<void> {
+    const insurer = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM insurers WHERE code = 'allianz' LIMIT 1`,
+    );
+    const insurerId = insurer[0]?.id;
+    if (!insurerId) return;
+
+    const vehicle = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM vehicles WHERE tenant_id = $1 LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    const vehicleId = vehicle[0]?.id ?? null;
+
+    await this.dataSource.query(
+      `INSERT INTO quotes
+         (id, tenant_id, session_token, vehicle_id, insurer_id, status, price,
+          currency, cover_details, extras, score, is_recommended, expires_at)
+       VALUES
+         ('00000000-0000-0000-0000-000000000002', $1, 'demo-session-token-001', $2, $3,
+          'success', 450.00, 'BGN', '{"coverType": "GO"}', '{}', 0.87, true,
+          NOW() + INTERVAL '7 days')
+       ON CONFLICT DO NOTHING`,
+      [DEMO_TENANT_ID, vehicleId, insurerId],
+    );
+    this.logger.log('Demo quote seeded.');
+  }
+
+  private async seedPayments(clientId: string): Promise<void> {
+    await this.dataSource.query(
+      `INSERT INTO payments
+         (id, tenant_id, quote_id, end_client_id, stripe_payment_intent_id, idempotency_key,
+          amount, currency, application_fee_amount, platform_fee_pct, status,
+          stripe_client_secret, metadata)
+       VALUES
+         ('00000000-0000-0000-0000-000000000001', $1,
+          '00000000-0000-0000-0000-000000000002', $2,
+          'pi_demo_seed_001', 'idempotency_demo_seed_001',
+          450.00, 'BGN', 22.50, 0.05, 'succeeded',
+          'pi_demo_seed_001_secret_demo', '{}')
+       ON CONFLICT DO NOTHING`,
+      [DEMO_TENANT_ID, clientId],
+    );
+    this.logger.log('Demo payment seeded.');
+  }
+
+  private async seedPolicyEvents(): Promise<void> {
+    const policy = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM policies WHERE tenant_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    if (policy.length === 0) return;
+
+    await this.dataSource.query(
+      `INSERT INTO policy_events (id, tenant_id, policy_id, event_type, payload)
+       VALUES
+         (gen_random_uuid(), $1, $2, 'policy.activated',
+          '{"source": "stripe_webhook", "amount": 450.00}')
+       ON CONFLICT DO NOTHING`,
+      [DEMO_TENANT_ID, policy[0].id],
+    );
+    this.logger.log('Demo policy events seeded.');
+  }
+
+  private async seedRenewalNotificationLog(): Promise<void> {
+    const policy = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM policies WHERE tenant_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    if (policy.length === 0) return;
+
+    await this.dataSource.query(
+      `INSERT INTO renewal_notification_log (id, tenant_id, policy_id, stage)
+       VALUES (gen_random_uuid(), $1, $2, 'd_minus_30')
+       ON CONFLICT (policy_id, stage) DO NOTHING`,
+      [DEMO_TENANT_ID, policy[0].id],
+    );
+    this.logger.log('Demo renewal notification log seeded.');
+  }
+
+  private async seedOcrJobs(clientId: string): Promise<void> {
+    await this.dataSource.query(
+      `INSERT INTO ocr_jobs
+         (id, tenant_id, session_token, client_id, status, provider,
+          images_count, result, confidence_scores)
+       VALUES
+         (gen_random_uuid(), $1, 'demo-ocr-session-001', $2, 'completed', 'google_vision',
+          2,
+          '{"licensePlate": "CB1234AB", "vin": "WAUZZZ8K79A123456", "make": "Volkswagen", "model": "Golf", "year": "2019"}',
+          '{"licensePlate": 0.97, "vin": 0.89, "make": 0.98, "model": 0.96, "year": 0.99}')
+       ON CONFLICT DO NOTHING`,
+      [DEMO_TENANT_ID, clientId],
+    );
+    this.logger.log('Demo OCR job seeded.');
+  }
+
+  private async seedShipments(): Promise<void> {
+    const policy = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM policies WHERE tenant_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    if (policy.length === 0) return;
+
+    await this.dataSource.query(
+      `INSERT INTO shipments
+         (id, tenant_id, policy_id, provider, tracking_number,
+          status, estimated_delivery_date, delivery_address)
+       VALUES
+         (gen_random_uuid(), $1, $2, 'speedy', 'SP123456789BG',
+          'dispatched', CURRENT_DATE + INTERVAL '3 days',
+          '{"city": "София", "street": "ул. Витоша 1", "postCode": "1000"}')
+       ON CONFLICT DO NOTHING`,
+      [DEMO_TENANT_ID, policy[0].id],
+    );
+    this.logger.log('Demo shipment seeded.');
   }
 }

@@ -38,7 +38,7 @@ void main() {
         providers: [
           RepositoryProvider<VehiclesRepository>(
             create: (_) =>
-                VehiclesRepository(dio: mockDio, storage: mockStorage),
+                VehiclesRepository(dio: mockDio),
           ),
           RepositoryProvider<VehicleApiRepository>(
             create: (_) =>

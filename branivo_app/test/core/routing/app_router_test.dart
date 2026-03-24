@@ -16,6 +16,8 @@ import 'package:branivo_app/features/ocr/screens/ocr_wizard_screen.dart';
 import 'package:branivo_app/features/fleet/data/repositories/fleet_repository.dart';
 import 'package:branivo_app/features/fleet/screens/fleet_dashboard_screen.dart';
 import 'package:branivo_app/features/fleet/screens/driver_dashboard_screen.dart';
+import 'package:branivo_app/features/anonymous_session/data/repositories/anonymous_session_repository.dart';
+import 'package:branivo_app/features/policies/data/repositories/policy_repository.dart';
 
 class MockDio extends Mock implements Dio {}
 
@@ -43,14 +45,40 @@ void main() {
   late VehicleApiRepository vehicleApiRepo;
   late OcrApiRepository ocrRepo;
   late FleetRepository fleetRepo;
+  late AnonymousSessionRepository anonSessionRepo;
+  late PolicyRepository policyRepo;
 
   setUp(() {
     mockDio = MockDio();
     mockStorage = MockFlutterSecureStorage();
-    vehiclesRepo = VehiclesRepository(dio: mockDio, storage: mockStorage);
+    vehiclesRepo = VehiclesRepository(dio: mockDio);
     vehicleApiRepo = VehicleApiRepository(dio: mockDio, storage: mockStorage);
     ocrRepo = OcrApiRepository(dio: mockDio);
     fleetRepo = FleetRepository(dio: mockDio);
+    anonSessionRepo = AnonymousSessionRepository(dio: mockDio);
+    policyRepo = PolicyRepository(dio: mockDio);
+
+    // Stub mockDio.get for vehicles — returns empty list
+    when(() => mockDio.get<List<dynamic>>(
+          any(),
+          queryParameters: any(named: 'queryParameters'),
+          options: any(named: 'options'),
+          cancelToken: any(named: 'cancelToken'),
+          onReceiveProgress: any(named: 'onReceiveProgress'),
+        )).thenAnswer((_) async => Response<List<dynamic>>(
+          data: [],
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/api/v1/vehicles'),
+        ));
+
+    // Stub mockStorage.read — no stored token (unauthenticated for drawer)
+    when(() => mockStorage.read(
+          key: any(named: 'key'),
+          iOptions: any(named: 'iOptions'),
+          aOptions: any(named: 'aOptions'),
+          lOptions: any(named: 'lOptions'),
+          wOptions: any(named: 'wOptions'),
+        )).thenAnswer((_) async => null);
   });
 
   Widget buildApp(GoRouter router) {
@@ -60,6 +88,9 @@ void main() {
         RepositoryProvider<VehicleApiRepository>.value(value: vehicleApiRepo),
         RepositoryProvider<OcrApiRepository>.value(value: ocrRepo),
         RepositoryProvider<FleetRepository>.value(value: fleetRepo),
+        RepositoryProvider<AnonymousSessionRepository>.value(
+            value: anonSessionRepo),
+        RepositoryProvider<PolicyRepository>.value(value: policyRepo),
       ],
       child: BlocProvider<AuthBloc>.value(
         value: _StubAuthBloc(),

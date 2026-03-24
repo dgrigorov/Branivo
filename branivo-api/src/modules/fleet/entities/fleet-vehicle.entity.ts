@@ -22,7 +22,7 @@ export class FleetVehicle {
   @Column({ name: 'vehicle_id' })
   vehicleId!: string;
 
-  @Column({ name: 'driver_user_id', nullable: true })
+  @Column({ name: 'driver_user_id', type: 'uuid', nullable: true })
   driverUserId!: string | null;
 
   @ManyToOne(() => Vehicle, { nullable: false })

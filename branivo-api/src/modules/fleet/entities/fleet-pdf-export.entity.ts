@@ -49,7 +49,7 @@ export class FleetPdfExport {
   @Column({ name: 'failed_policy_ids', type: 'jsonb' })
   failedPolicyIds!: FleetPdfFailedItem[];
 
-  @Column({ name: 'zip_s3_key', nullable: true })
+  @Column({ name: 'zip_s3_key', type: 'varchar', nullable: true })
   zipS3Key!: string | null;
 
   @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })

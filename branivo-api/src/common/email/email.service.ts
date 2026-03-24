@@ -19,20 +19,32 @@ export class EmailService {
   private readonly fromAddress: string;
 
   constructor(private readonly config: ConfigService) {
-    const apiKey = this.config.getOrThrow<string>('SENDGRID_API_KEY');
     this.fromAddress = this.config.get<string>(
       'EMAIL_FROM',
       'noreply@branivo.bg',
     );
 
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.sendgrid.net',
-      port: 587,
-      auth: {
-        user: 'apikey',
-        pass: apiKey,
-      },
-    });
+    const isDev = this.config.get<string>('NODE_ENV') !== 'production';
+    const sendgridKey = this.config.get<string>('SENDGRID_API_KEY');
+
+    if (!isDev && !sendgridKey) {
+      throw new Error('SENDGRID_API_KEY is required in production');
+    }
+
+    if (!isDev && sendgridKey) {
+      this.transporter = nodemailer.createTransport({
+        host: 'smtp.sendgrid.net',
+        port: 587,
+        auth: { user: 'apikey', pass: sendgridKey },
+      });
+    } else {
+      this.transporter = nodemailer.createTransport({
+        host: this.config.get<string>('SMTP_HOST', 'localhost'),
+        port: this.config.get<number>('SMTP_PORT', 1025),
+        secure: false,
+        ignoreTLS: true,
+      });
+    }
   }
 
   async sendOnboardingInvite(
