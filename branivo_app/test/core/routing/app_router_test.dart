@@ -11,13 +11,14 @@ import 'package:branivo_app/features/auth/screens/login_screen.dart';
 import 'package:branivo_app/features/vehicles/data/repositories/vehicles_repository.dart';
 import 'package:branivo_app/features/vehicles/data/repositories/vehicle_api_repository.dart';
 import 'package:branivo_app/features/ocr/data/repositories/ocr_api_repository.dart';
-import 'package:branivo_app/features/vehicles/screens/vehicle_list_screen.dart';
+import 'package:branivo_app/features/home/screens/home_screen.dart';
 import 'package:branivo_app/features/ocr/screens/ocr_wizard_screen.dart';
 import 'package:branivo_app/features/fleet/data/repositories/fleet_repository.dart';
 import 'package:branivo_app/features/fleet/screens/fleet_dashboard_screen.dart';
 import 'package:branivo_app/features/fleet/screens/driver_dashboard_screen.dart';
 import 'package:branivo_app/features/anonymous_session/data/repositories/anonymous_session_repository.dart';
 import 'package:branivo_app/features/policies/data/repositories/policy_repository.dart';
+import 'package:branivo_app/features/payments/screens/policy_confirmation_screen.dart';
 
 class MockDio extends Mock implements Dio {}
 
@@ -100,17 +101,16 @@ void main() {
   }
 
   group('AppRouter', () {
-    testWidgets('root route (/) renders VehicleListScreen', (tester) async {
+    testWidgets('root route (/) renders HomeScreen', (tester) async {
       final router = GoRouter(
         initialLocation: '/',
         routes: AppRouter.router.configuration.routes,
       );
 
       await tester.pumpWidget(buildApp(router));
-      // Use pump instead of pumpAndSettle — screens with Camera never fully settle
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byType(VehicleListScreen), findsOneWidget);
+      expect(find.byType(HomeScreen), findsOneWidget);
     });
 
     testWidgets('/vehicles/scan renders OcrWizardScreen', (tester) async {
@@ -197,6 +197,25 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(DriverDashboardScreen), findsOneWidget);
+    });
+
+    testWidgets('/policy-confirmation route renders PolicyConfirmationScreen',
+        (tester) async {
+      final router = GoRouter(
+        initialLocation: '/policy-confirmation',
+        initialExtra: const PolicyConfirmationRouteArgs(
+          insurerName: 'Allianz Bulgaria',
+          amount: 450.0,
+          currency: 'BGN',
+          paymentIntentId: 'pi_test_abc123',
+        ),
+        routes: AppRouter.router.configuration.routes,
+      );
+
+      await tester.pumpWidget(buildApp(router));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(PolicyConfirmationScreen), findsOneWidget);
     });
   });
 }

@@ -28,10 +28,18 @@ final _errorOffer = QuoteOffer(
   errorReason: 'unavailable',
 );
 
-Widget _buildWidget(QuoteOffer offer, {bool isRecommended = false}) {
+Widget _buildWidget(
+  QuoteOffer offer, {
+  bool isRecommended = false,
+  String? recommendReason,
+}) {
   return MaterialApp(
     home: Scaffold(
-      body: OfferCard(offer: offer, isRecommended: isRecommended),
+      body: OfferCard(
+        offer: offer,
+        isRecommended: isRecommended,
+        recommendReason: recommendReason,
+      ),
     ),
   );
 }
@@ -67,6 +75,37 @@ void main() {
       await tester.pumpWidget(_buildWidget(_successOffer));
 
       expect(find.textContaining('450.00'), findsOneWidget);
+    });
+
+    testWidgets('renders recommendReason subtitle when recommended and reason provided',
+        (tester) async {
+      await tester.pumpWidget(_buildWidget(
+        _successOffer,
+        isRecommended: true,
+        recommendReason: 'Най-добра комбинация',
+      ));
+
+      expect(find.text('Най-добра комбинация'), findsOneWidget);
+    });
+
+    testWidgets('does not render recommendReason when not recommended', (tester) async {
+      await tester.pumpWidget(_buildWidget(
+        _successOffer,
+        isRecommended: false,
+        recommendReason: 'Най-добра комбинация',
+      ));
+
+      expect(find.text('Най-добра комбинация'), findsNothing);
+    });
+
+    testWidgets('does not render subtitle when recommendReason is null', (tester) async {
+      await tester.pumpWidget(_buildWidget(
+        _successOffer,
+        isRecommended: true,
+      ));
+
+      // Badge is shown but no reason subtitle
+      expect(find.text('⭐ Препоръчано'), findsOneWidget);
     });
   });
 }

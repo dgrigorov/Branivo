@@ -7,11 +7,13 @@ class OfferCard extends StatelessWidget {
     required this.offer,
     required this.isRecommended,
     this.onSelect,
+    this.recommendReason,
   });
 
   final QuoteOffer offer;
   final bool isRecommended;
   final VoidCallback? onSelect;
+  final String? recommendReason;
 
   bool get _isUnavailable =>
       offer.status == 'error' || offer.status == 'timeout';
@@ -91,6 +93,16 @@ class OfferCard extends StatelessWidget {
               ),
           ],
         ),
+        if (isRecommended && recommendReason != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            recommendReason!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF6B7280),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Text(
           offer.price != null

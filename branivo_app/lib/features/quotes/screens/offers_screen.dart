@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../bloc/quote_bloc.dart';
+import '../bloc/quote_event.dart';
 import '../bloc/quote_state.dart';
 import '../data/quote_api_repository.dart';
 import '../widgets/offer_card.dart';
+import '../../payments/screens/payment_screen.dart';
 
 class QuoteOffersRouteArgs {
   const QuoteOffersRouteArgs({required this.sessionToken});
@@ -11,17 +14,60 @@ class QuoteOffersRouteArgs {
   final String sessionToken;
 }
 
-class OffersScreen extends StatelessWidget {
+enum _OfferFilter { all, cheapest, bestCoverage }
+
+const _kRecommendReason =
+    'Балансирана комбинация от цена, рейтинг и скорост на изплащане';
+
+class OffersScreen extends StatefulWidget {
   const OffersScreen({super.key, required this.sessionToken});
 
   final String sessionToken;
 
   @override
+  State<OffersScreen> createState() => _OffersScreenState();
+}
+
+class _OffersScreenState extends State<OffersScreen> {
+  _OfferFilter _filter = _OfferFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<QuoteBloc>().add(
+          QuoteLoadRequestedEvent(sessionToken: widget.sessionToken),
+        );
+  }
+
+  List<QuoteOffer> _applyFilter(List<QuoteOffer> offers) {
+    final available = offers.where((o) => o.status == 'success').toList();
+    final unavailable = offers.where((o) => o.status != 'success').toList();
+
+    switch (_filter) {
+      case _OfferFilter.cheapest:
+        available.sort(
+          (a, b) => (a.price ?? double.infinity)
+              .compareTo(b.price ?? double.infinity),
+        );
+      case _OfferFilter.bestCoverage:
+        available.sort((a, b) => (b.score ?? 0).compareTo(a.score ?? 0));
+      case _OfferFilter.all:
+        available.sort((a, b) => (b.score ?? 0).compareTo(a.score ?? 0));
+    }
+
+    return [...available, ...unavailable];
+  }
+
+  String _filterLabel(_OfferFilter filter) => switch (filter) {
+        _OfferFilter.all => 'Всички',
+        _OfferFilter.cheapest => 'Най-евтини',
+        _OfferFilter.bestCoverage => 'Най-добро покритие',
+      };
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Оферти за застраховка'),
-      ),
+      appBar: AppBar(title: const Text('Оферти за застраховка')),
       body: BlocBuilder<QuoteBloc, QuoteState>(
         builder: (context, state) {
           if (state is QuoteInitialState || state is QuoteLoadingState) {
@@ -29,7 +75,7 @@ class OffersScreen extends StatelessWidget {
           }
 
           if (state is QuotePartialState) {
-            return _buildOfferList(state.offers);
+            return _buildWithFilter(state.offers);
           }
 
           if (state is QuoteLoadedState) {
@@ -38,7 +84,7 @@ class OffersScreen extends StatelessWidget {
                 child: Text('Няма налични оферти в момента.'),
               );
             }
-            return _buildOfferList(state.offers);
+            return _buildWithFilter(state.offers);
           }
 
           if (state is QuoteErrorState) {
@@ -55,6 +101,36 @@ class OffersScreen extends StatelessWidget {
 
           return const SizedBox.shrink();
         },
+      ),
+    );
+  }
+
+  Widget _buildWithFilter(List<QuoteOffer> offers) {
+    final filtered = _applyFilter(offers);
+    return Column(
+      children: [
+        _buildFilterChips(),
+        Expanded(child: _buildOfferList(filtered)),
+      ],
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          for (final filter in _OfferFilter.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: Text(_filterLabel(filter)),
+                selected: _filter == filter,
+                onSelected: (_) => setState(() => _filter = filter),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -78,6 +154,19 @@ class OffersScreen extends StatelessWidget {
           child: OfferCard(
             offer: offer,
             isRecommended: offer.isRecommended,
+            recommendReason:
+                offer.isRecommended ? _kRecommendReason : null,
+            onSelect: offer.price == null
+                ? null
+                : () => context.push(
+                      '/payment',
+                      extra: PaymentRouteArgs(
+                        quoteId: offer.id,
+                        insurerName: offer.insurerName,
+                        amount: offer.price!,
+                        currency: offer.currency,
+                      ),
+                    ),
           ),
         );
       },

@@ -9,12 +9,9 @@ import '../../features/ocr/screens/ocr_wizard_screen.dart';
 import '../../features/ocr/bloc/ocr_wizard_bloc.dart';
 import '../../features/ocr/data/repositories/ocr_api_repository.dart';
 import '../../features/ocr/data/repositories/ocr_models.dart';
-import '../../features/vehicles/screens/vehicle_list_screen.dart';
+import '../../features/home/screens/home_screen.dart';
 import '../../features/vehicles/screens/vehicle_validation_screen.dart';
-import '../../features/vehicles/bloc/vehicles_bloc.dart';
-import '../../features/vehicles/bloc/vehicles_event.dart';
 import '../../features/vehicles/bloc/vehicle_validation_bloc.dart';
-import '../../features/vehicles/data/repositories/vehicles_repository.dart';
 import '../../features/vehicles/data/repositories/vehicle_api_repository.dart';
 import '../../features/quotes/screens/offers_screen.dart';
 import '../../features/quotes/bloc/quote_bloc.dart';
@@ -26,9 +23,13 @@ import '../../features/fleet/screens/fleet_dashboard_screen.dart';
 import '../../features/fleet/screens/driver_dashboard_screen.dart';
 import '../../features/fleet/bloc/fleet_bloc.dart';
 import '../../features/fleet/data/repositories/fleet_repository.dart';
+import '../../features/registration/screens/registration_screen.dart';
+import '../../features/registration/bloc/registration_bloc.dart';
+import '../../features/registration/data/repositories/client_auth_repository.dart';
 import '../../features/policies/presentation/screens/policy_wallet_screen.dart';
 import '../../features/policies/bloc/policy_wallet_bloc.dart';
 import '../../features/policies/data/repositories/policy_repository.dart';
+import '../../features/payments/screens/policy_confirmation_screen.dart';
 
 /// Navigation extras for /fleet route
 class FleetRouteArgs {
@@ -56,15 +57,17 @@ class VehicleValidateRouteArgs {
   const VehicleValidateRouteArgs({
     required this.vin,
     required this.licensePlate,
+    this.sessionToken,
   });
 
   final String vin;
   final String licensePlate;
+  final String? sessionToken;
 }
 
 const _storage = FlutterSecureStorage();
 
-const _publicRoutes = {'/login'};
+const _publicRoutes = {'/login', '/registration'};
 
 class AppRouter {
   AppRouter._();
@@ -96,22 +99,20 @@ class AppRouter {
       GoRoute(
         path: '/',
         builder: (context, state) {
-          final repo = context.read<VehiclesRepository>();
+          final policyRepo = context.read<PolicyRepository>();
           return BlocProvider(
-            create: (_) =>
-                VehiclesBloc(repository: repo)..add(const LoadVehicles()),
-            child: const VehicleListScreen(),
+            create: (_) => PolicyWalletBloc(policyRepository: policyRepo),
+            child: const HomeScreen(),
           );
         },
       ),
       GoRoute(
-        path: '/vehicles',
+        path: '/registration',
         builder: (context, state) {
-          final repo = context.read<VehiclesRepository>();
+          final repo = context.read<ClientAuthRepository>();
           return BlocProvider(
-            create: (_) =>
-                VehiclesBloc(repository: repo)..add(const LoadVehicles()),
-            child: const VehicleListScreen(),
+            create: (_) => RegistrationBloc(repository: repo),
+            child: const RegistrationScreen(),
           );
         },
       ),
@@ -140,6 +141,7 @@ class AppRouter {
             child: VehicleValidationScreen(
               vin: args.vin,
               licensePlate: args.licensePlate,
+              sessionToken: args.sessionToken,
             ),
           );
         },
@@ -192,6 +194,18 @@ class AppRouter {
           return BlocProvider(
             create: (_) => FleetBloc(fleetRepository: repo),
             child: const DriverDashboardScreen(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/policy-confirmation',
+        builder: (context, state) {
+          final args = state.extra as PolicyConfirmationRouteArgs;
+          return PolicyConfirmationScreen(
+            insurerName: args.insurerName,
+            amount: args.amount,
+            currency: args.currency,
+            paymentIntentId: args.paymentIntentId,
           );
         },
       ),

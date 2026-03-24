@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:go_router/go_router.dart';
 import '../bloc/payment_bloc.dart';
 import '../bloc/payment_event.dart';
 import '../bloc/payment_state.dart';
+import 'policy_confirmation_screen.dart';
 
 class PaymentRouteArgs {
   final String quoteId;
@@ -107,7 +109,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
       appBar: AppBar(
         title: Text('Плащане — ${widget.insurerName}'),
       ),
-      body: BlocBuilder<PaymentBloc, PaymentState>(
+      body: BlocConsumer<PaymentBloc, PaymentState>(
+        listener: (context, state) {
+          if (state is PaymentSuccessState) {
+            context.go(
+              '/policy-confirmation',
+              extra: PolicyConfirmationRouteArgs(
+                insurerName: widget.insurerName,
+                amount: widget.amount,
+                currency: widget.currency,
+                paymentIntentId: state.paymentIntentId,
+              ),
+            );
+          }
+        },
         builder: (context, state) {
           if (state is PaymentLoadingState) {
             return const Center(child: CircularProgressIndicator());
@@ -143,27 +158,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   SizedBox(height: 16),
                   Text('Обработва се плащането...'),
                 ],
-              ),
-            );
-          }
-
-          if (state is PaymentSuccessState) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.check_circle_outline,
-                        size: 64, color: Colors.green),
-                    SizedBox(height: 16),
-                    Text(
-                      'Плащането е прието — полицата се обработва',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 18),
-                    ),
-                  ],
-                ),
               ),
             );
           }
