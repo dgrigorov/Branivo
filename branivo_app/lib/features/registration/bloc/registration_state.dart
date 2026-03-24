@@ -5,8 +5,9 @@ abstract class RegistrationState {}
 class RegistrationInitialState extends RegistrationState {}
 
 class OtpSentState extends RegistrationState {
-  OtpSentState({required this.expiresIn});
+  OtpSentState({required this.expiresIn, required this.phoneNumber});
   final int expiresIn;
+  final String phoneNumber;
 }
 
 class OtpVerifyingState extends RegistrationState {}

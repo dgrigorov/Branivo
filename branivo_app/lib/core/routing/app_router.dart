@@ -4,10 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../api/dio_client.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
+import '../../features/auth/screens/auth_gate_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/ocr/screens/ocr_wizard_screen.dart';
 import '../../features/ocr/bloc/ocr_wizard_bloc.dart';
-import '../../features/ocr/data/repositories/ocr_api_repository.dart';
+import '../../features/ocr/data/repositories/ocr_repository.dart';
 import '../../features/ocr/data/repositories/ocr_models.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/vehicles/screens/vehicle_validation_screen.dart';
@@ -65,9 +66,28 @@ class VehicleValidateRouteArgs {
   final String? sessionToken;
 }
 
+/// Navigation extras for /auth-gate route
+class AuthGateRouteArgs {
+  const AuthGateRouteArgs({
+    required this.redirectPath,
+    this.redirectExtra,
+  });
+
+  final String redirectPath;
+  final Object? redirectExtra;
+}
+
 const _storage = FlutterSecureStorage();
 
-const _publicRoutes = {'/login', '/registration'};
+/// Routes accessible without authentication (anonymous users allowed).
+const _publicRoutes = {
+  '/login',
+  '/registration',
+  '/auth-gate',
+  '/vehicles/scan',
+  '/vehicles/validate',
+  '/quotes/offers',
+};
 
 class AppRouter {
   AppRouter._();
@@ -87,12 +107,15 @@ class AppRouter {
       GoRoute(
         path: '/login',
         builder: (context, state) {
+          final redirect = state.extra is AuthRedirect
+              ? state.extra as AuthRedirect
+              : null;
           return BlocProvider(
             create: (_) => AuthBloc(
               dio: DioClient.instance,
               storage: _storage,
             ),
-            child: const LoginScreen(),
+            child: LoginScreen(authRedirect: redirect),
           );
         },
       ),
@@ -109,10 +132,23 @@ class AppRouter {
       GoRoute(
         path: '/registration',
         builder: (context, state) {
+          final redirect = state.extra is AuthRedirect
+              ? state.extra as AuthRedirect
+              : null;
           final repo = context.read<ClientAuthRepository>();
           return BlocProvider(
             create: (_) => RegistrationBloc(repository: repo),
-            child: const RegistrationScreen(),
+            child: RegistrationScreen(authRedirect: redirect),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/auth-gate',
+        builder: (context, state) {
+          final args = state.extra as AuthGateRouteArgs;
+          return AuthGateScreen(
+            redirectPath: args.redirectPath,
+            redirectExtra: args.redirectExtra,
           );
         },
       ),
@@ -120,7 +156,7 @@ class AppRouter {
         path: '/vehicles/scan',
         builder: (context, state) {
           final args = state.extra as OcrWizardRouteArgs;
-          final repo = context.read<OcrApiRepository>();
+          final repo = context.read<OcrRepository>();
           return BlocProvider(
             create: (_) => OcrWizardBloc(repository: repo),
             child: OcrWizardScreen(

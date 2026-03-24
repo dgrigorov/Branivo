@@ -20,20 +20,20 @@ class VehicleModel {
   factory VehicleModel.fromJson(Map<String, dynamic> json) {
     return VehicleModel(
       id: json['id'] as String,
-      tenantId: json['tenant_id'] as String,
-      ownerId: json['owner_id'] as String,
+      tenantId: (json['tenantId'] ?? json['tenant_id']) as String,
+      ownerId: (json['ownerId'] ?? json['owner_id']) as String,
       vin: json['vin'] as String,
-      licensePlate: json['license_plate'] as String,
+      licensePlate: (json['licensePlate'] ?? json['license_plate']) as String,
       make: json['make'] as String,
       model: json['model'] as String,
       year: json['year'] as int,
-      color: json['color'] as String?,
-      engineVolume: json['engine_volume'] as String?,
-      fuelType: json['fuel_type'] as String?,
-      firstRegistrationDate: json['first_registration_date'] as String?,
-      createdAt: json['created_at'] as String,
-      updatedAt: json['updated_at'] as String,
-      lastPolicyStatus: json['last_policy_status'] as String?,
+      color: (json['color']) as String?,
+      engineVolume: (json['engineVolume'] ?? json['engine_volume']) as String?,
+      fuelType: (json['fuelType'] ?? json['fuel_type']) as String?,
+      firstRegistrationDate: (json['firstRegistrationDate'] ?? json['first_registration_date']) as String?,
+      createdAt: (json['createdAt'] ?? json['created_at']) as String,
+      updatedAt: (json['updatedAt'] ?? json['updated_at']) as String,
+      lastPolicyStatus: (json['lastPolicyStatus'] ?? json['last_policy_status']) as String?,
     );
   }
 

@@ -87,15 +87,17 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
               extra: VehicleValidateRouteArgs(
                 vin: vin,
                 licensePlate: plate,
+                sessionToken: sessionToken,
               ),
             );
           },
           onManualEntry: () {
             context.go(
               '/vehicles/validate',
-              extra: const VehicleValidateRouteArgs(
+              extra: VehicleValidateRouteArgs(
                 vin: '',
                 licensePlate: '',
+                sessionToken: sessionToken,
               ),
             );
           },

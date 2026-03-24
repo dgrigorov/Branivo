@@ -2,12 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../bloc/registration_bloc.dart';
+import '../../auth/screens/auth_gate_screen.dart';
 
 class RegistrationScreen extends StatelessWidget {
-  const RegistrationScreen({super.key, this.sessionId});
+  const RegistrationScreen({super.key, this.sessionId, this.authRedirect});
 
   final String? sessionId;
+
+  /// If set, navigates to [authRedirect.path] after successful registration
+  /// instead of the default '/'.
+  final AuthRedirect? authRedirect;
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +22,12 @@ class RegistrationScreen extends StatelessWidget {
       body: BlocConsumer<RegistrationBloc, RegistrationState>(
         listener: (context, state) {
           if (state is RegistrationSuccessState) {
-            Navigator.of(context).pushReplacementNamed('/home');
+            final redirect = authRedirect;
+            if (redirect != null) {
+              context.go(redirect.path, extra: redirect.extra);
+            } else {
+              context.go('/');
+            }
           }
         },
         builder: (context, state) {
@@ -29,6 +40,7 @@ class RegistrationScreen extends StatelessWidget {
           if (state is OtpSentState) {
             return _OtpEntryForm(
               expiresIn: state.expiresIn,
+              phoneNumber: state.phoneNumber,
               sessionId: sessionId,
             );
           }
@@ -123,8 +135,13 @@ class _PhoneEntryFormState extends State<_PhoneEntryForm> {
 }
 
 class _OtpEntryForm extends StatefulWidget {
-  const _OtpEntryForm({required this.expiresIn, this.sessionId});
+  const _OtpEntryForm({
+    required this.expiresIn,
+    required this.phoneNumber,
+    this.sessionId,
+  });
   final int expiresIn;
+  final String phoneNumber;
   final String? sessionId;
 
   @override
@@ -140,6 +157,7 @@ class _OtpEntryFormState extends State<_OtpEntryForm> {
   void initState() {
     super.initState();
     _secondsLeft = widget.expiresIn;
+    _otpController.addListener(() => setState(() {}));
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_secondsLeft <= 0) {
         _timer?.cancel();
@@ -165,11 +183,9 @@ class _OtpEntryFormState extends State<_OtpEntryForm> {
   void _submit(BuildContext context) {
     final otp = _otpController.text.trim();
     if (otp.length != 6) return;
-    // Phone is stored in bloc state via previous event; pass from parent if needed
-    // Here we read it via a callback pattern — for simplicity pass via state
     context.read<RegistrationBloc>().add(
           VerifyOtpEvent(
-            phoneNumber: '',
+            phoneNumber: widget.phoneNumber,
             otpCode: otp,
             sessionId: widget.sessionId,
           ),
@@ -211,7 +227,7 @@ class _OtpEntryFormState extends State<_OtpEntryForm> {
           TextButton(
             onPressed: () {
               context.read<RegistrationBloc>().add(
-                    ResendOtpEvent(phoneNumber: ''),
+                    ResendOtpEvent(phoneNumber: widget.phoneNumber),
                   );
             },
             child: const Text('Изпрати нов код'),

@@ -1,6 +1,7 @@
 import 'package:camera/camera.dart';
 import 'package:dio/dio.dart';
 import 'ocr_models.dart';
+import 'ocr_repository.dart';
 
 class OcrApiException implements Exception {
   OcrApiException(this.message);
@@ -10,11 +11,12 @@ class OcrApiException implements Exception {
   String toString() => 'OcrApiException: $message';
 }
 
-class OcrApiRepository {
+class OcrApiRepository implements OcrRepository {
   OcrApiRepository({required Dio dio}) : _dio = dio;
 
   final Dio _dio;
 
+  @override
   Future<OcrScanResponse> scanImages(
     List<XFile> images,
     String sessionToken,
@@ -48,6 +50,7 @@ class OcrApiRepository {
     }
   }
 
+  @override
   Future<OcrScanResponse> getStatus(String jobId) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(

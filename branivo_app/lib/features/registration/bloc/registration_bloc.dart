@@ -23,7 +23,7 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
   ) async {
     try {
       final expiresIn = await _repository.requestOtp(event.phoneNumber);
-      emit(OtpSentState(expiresIn: expiresIn));
+      emit(OtpSentState(expiresIn: expiresIn, phoneNumber: event.phoneNumber));
     } on RateLimitException catch (e) {
       emit(RateLimitedState(retryAfterSeconds: e.retryAfter));
     } catch (e) {
@@ -60,7 +60,7 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
   ) async {
     try {
       final expiresIn = await _repository.requestOtp(event.phoneNumber);
-      emit(OtpSentState(expiresIn: expiresIn));
+      emit(OtpSentState(expiresIn: expiresIn, phoneNumber: event.phoneNumber));
     } on RateLimitException catch (e) {
       emit(RateLimitedState(retryAfterSeconds: e.retryAfter));
     } catch (e) {

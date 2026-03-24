@@ -101,7 +101,7 @@ void main() {
 
       await pumpAndAwait(tester, buildTestWidget(bloc));
 
-      expect(find.text('Нямате активни полици.'), findsOneWidget);
+      expect(find.text('Нямате полици'), findsOneWidget);
     });
 
     testWidgets('renders error state on fetch failure', (tester) async {
@@ -112,7 +112,7 @@ void main() {
 
       await pumpAndAwait(tester, buildTestWidget(bloc));
 
-      expect(find.text('Неуспешно зареждане на полиците'), findsOneWidget);
+      expect(find.text('Временен проблем'), findsOneWidget);
     });
 
     testWidgets('offline fallback: renders cached policies', (tester) async {

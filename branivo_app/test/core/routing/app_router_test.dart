@@ -11,6 +11,7 @@ import 'package:branivo_app/features/auth/screens/login_screen.dart';
 import 'package:branivo_app/features/vehicles/data/repositories/vehicles_repository.dart';
 import 'package:branivo_app/features/vehicles/data/repositories/vehicle_api_repository.dart';
 import 'package:branivo_app/features/ocr/data/repositories/ocr_api_repository.dart';
+import 'package:branivo_app/features/ocr/data/repositories/ocr_repository.dart';
 import 'package:branivo_app/features/home/screens/home_screen.dart';
 import 'package:branivo_app/features/ocr/screens/ocr_wizard_screen.dart';
 import 'package:branivo_app/features/fleet/data/repositories/fleet_repository.dart';
@@ -44,7 +45,7 @@ void main() {
   late MockFlutterSecureStorage mockStorage;
   late VehiclesRepository vehiclesRepo;
   late VehicleApiRepository vehicleApiRepo;
-  late OcrApiRepository ocrRepo;
+  late OcrRepository ocrRepo;
   late FleetRepository fleetRepo;
   late AnonymousSessionRepository anonSessionRepo;
   late PolicyRepository policyRepo;
@@ -54,7 +55,7 @@ void main() {
     mockStorage = MockFlutterSecureStorage();
     vehiclesRepo = VehiclesRepository(dio: mockDio);
     vehicleApiRepo = VehicleApiRepository(dio: mockDio, storage: mockStorage);
-    ocrRepo = OcrApiRepository(dio: mockDio);
+    ocrRepo = OcrApiRepository(dio: mockDio) as OcrRepository;
     fleetRepo = FleetRepository(dio: mockDio);
     anonSessionRepo = AnonymousSessionRepository(dio: mockDio);
     policyRepo = PolicyRepository(dio: mockDio);
@@ -87,7 +88,7 @@ void main() {
       providers: [
         RepositoryProvider<VehiclesRepository>.value(value: vehiclesRepo),
         RepositoryProvider<VehicleApiRepository>.value(value: vehicleApiRepo),
-        RepositoryProvider<OcrApiRepository>.value(value: ocrRepo),
+        RepositoryProvider<OcrRepository>.value(value: ocrRepo),
         RepositoryProvider<FleetRepository>.value(value: fleetRepo),
         RepositoryProvider<AnonymousSessionRepository>.value(
             value: anonSessionRepo),

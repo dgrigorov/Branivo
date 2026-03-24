@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/quote_bloc.dart';
 import '../bloc/quote_event.dart';
@@ -7,6 +8,7 @@ import '../bloc/quote_state.dart';
 import '../data/quote_api_repository.dart';
 import '../widgets/offer_card.dart';
 import '../../payments/screens/payment_screen.dart';
+import '../../../core/routing/app_router.dart';
 
 class QuoteOffersRouteArgs {
   const QuoteOffersRouteArgs({required this.sessionToken});
@@ -18,6 +20,8 @@ enum _OfferFilter { all, cheapest, bestCoverage }
 
 const _kRecommendReason =
     'Балансирана комбинация от цена, рейтинг и скорост на изплащане';
+
+const _storage = FlutterSecureStorage();
 
 class OffersScreen extends StatefulWidget {
   const OffersScreen({super.key, required this.sessionToken});
@@ -63,6 +67,32 @@ class _OffersScreenState extends State<OffersScreen> {
         _OfferFilter.cheapest => 'Най-евтини',
         _OfferFilter.bestCoverage => 'Най-добро покритие',
       };
+
+  Future<void> _onSelectOffer(QuoteOffer offer) async {
+    if (offer.price == null) return;
+
+    final paymentArgs = PaymentRouteArgs(
+      quoteId: offer.id,
+      insurerName: offer.insurerName,
+      amount: offer.price!,
+      currency: offer.currency,
+    );
+
+    final token = await _storage.read(key: 'access_token');
+    if (!mounted) return;
+
+    if (token != null && token.isNotEmpty) {
+      context.push('/payment', extra: paymentArgs);
+    } else {
+      context.push(
+        '/auth-gate',
+        extra: AuthGateRouteArgs(
+          redirectPath: '/payment',
+          redirectExtra: paymentArgs,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,17 +186,7 @@ class _OffersScreenState extends State<OffersScreen> {
             isRecommended: offer.isRecommended,
             recommendReason:
                 offer.isRecommended ? _kRecommendReason : null,
-            onSelect: offer.price == null
-                ? null
-                : () => context.push(
-                      '/payment',
-                      extra: PaymentRouteArgs(
-                        quoteId: offer.id,
-                        insurerName: offer.insurerName,
-                        amount: offer.price!,
-                        currency: offer.currency,
-                      ),
-                    ),
+            onSelect: offer.price == null ? null : () => _onSelectOffer(offer),
           ),
         );
       },

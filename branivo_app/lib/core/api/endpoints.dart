@@ -10,23 +10,23 @@ class ApiEndpoints {
   static String get baseUrl => _baseUrl;
 
   // Auth
-  static String get login => '$_baseUrl/auth/login';
-  static String get refresh => '$_baseUrl/auth/refresh';
-  static String get logout => '$_baseUrl/auth/logout';
-  static String get sendOtp => '$_baseUrl/auth/otp/send';
-  static String get verifyOtp => '$_baseUrl/auth/otp/verify';
+  static String get login => '$_baseUrl/api/v1/auth/login';
+  static String get refresh => '$_baseUrl/api/v1/auth/refresh';
+  static String get logout => '$_baseUrl/api/v1/auth/logout';
+  static String get sendOtp => '$_baseUrl/api/v1/auth/otp/send';
+  static String get verifyOtp => '$_baseUrl/api/v1/auth/otp/verify';
 
   // Quotes
-  static String get quotes => '$_baseUrl/quotes';
-  static String quoteById(String id) => '$_baseUrl/quotes/$id';
+  static String get quotes => '$_baseUrl/api/v1/quotes';
+  static String quoteById(String id) => '$_baseUrl/api/v1/quotes/$id';
 
   // Policies
-  static String get policies => '$_baseUrl/policies';
-  static String policyById(String id) => '$_baseUrl/policies/$id';
+  static String get policies => '$_baseUrl/api/v1/policies';
+  static String policyById(String id) => '$_baseUrl/api/v1/policies/$id';
 
   // OCR
-  static String get ocrScan => '$_baseUrl/ocr/scan';
+  static String get ocrScan => '$_baseUrl/api/v1/ocr/scan';
 
   // Health
-  static String get health => '$_baseUrl/../health';
+  static String get health => '$_baseUrl/health';
 }

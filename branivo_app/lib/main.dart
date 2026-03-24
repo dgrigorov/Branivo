@@ -8,9 +8,12 @@ import 'core/api/dio_client.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/anonymous_session/data/repositories/anonymous_session_repository.dart';
-import 'features/ocr/data/repositories/ocr_api_repository.dart';
+import 'features/fleet/data/repositories/fleet_repository.dart';
+import 'features/ocr/data/repositories/ocr_repository.dart';
+import 'features/ocr/data/repositories/mlkit_ocr_repository.dart';
 import 'features/payments/data/payment_api_repository.dart';
 import 'features/policies/data/repositories/policy_repository.dart';
+import 'features/registration/data/repositories/client_auth_repository.dart';
 import 'features/vehicles/data/repositories/vehicle_api_repository.dart';
 import 'features/vehicles/data/repositories/vehicles_repository.dart';
 
@@ -37,10 +40,12 @@ Future<void> main() async {
 
   final vehiclesRepository = VehiclesRepository(dio: dio);
   final vehicleApiRepository = VehicleApiRepository(dio: dio, storage: storage);
-  final ocrApiRepository = OcrApiRepository(dio: dio);
+  final OcrRepository ocrApiRepository = MlKitOcrRepository();
   final paymentApiRepository = PaymentApiRepository(dio: dio);
   final anonSessionRepository = AnonymousSessionRepository(dio: dio);
   final policyRepository = PolicyRepository(dio: dio);
+  final fleetRepository = FleetRepository(dio: dio);
+  final clientAuthRepository = ClientAuthRepository(dio: dio, storage: storage);
 
   runApp(
     MultiRepositoryProvider(
@@ -48,12 +53,15 @@ Future<void> main() async {
         RepositoryProvider<VehiclesRepository>.value(value: vehiclesRepository),
         RepositoryProvider<VehicleApiRepository>.value(
             value: vehicleApiRepository),
-        RepositoryProvider<OcrApiRepository>.value(value: ocrApiRepository),
+        RepositoryProvider<OcrRepository>.value(value: ocrApiRepository),
         RepositoryProvider<PaymentApiRepository>.value(
             value: paymentApiRepository),
         RepositoryProvider<AnonymousSessionRepository>.value(
             value: anonSessionRepository),
         RepositoryProvider<PolicyRepository>.value(value: policyRepository),
+        RepositoryProvider<FleetRepository>.value(value: fleetRepository),
+        RepositoryProvider<ClientAuthRepository>.value(
+            value: clientAuthRepository),
       ],
       child: const BranivoApp(),
     ),

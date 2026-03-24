@@ -47,9 +47,9 @@ void main() {
     testWidgets('renders email and password fields', (tester) async {
       await tester.pumpWidget(buildWithState(AuthInitialState()));
 
-      expect(find.widgetWithText(TextFormField, 'Email'), findsOneWidget);
-      expect(find.widgetWithText(TextFormField, 'Password'), findsOneWidget);
-      expect(find.text('Sign in'), findsWidgets);
+      expect(find.widgetWithText(TextFormField, 'Имейл'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Парола'), findsOneWidget);
+      expect(find.text('Влез'), findsOneWidget);
     });
 
     testWidgets('shows error message on AuthErrorState', (tester) async {
@@ -73,15 +73,17 @@ void main() {
     Widget buildTwoFAScreen(AuthState state) => MaterialApp(
           home: BlocProvider<AuthBloc>.value(
             value: FakeAuthBloc(state),
-            child: TwoFAScreen(tempToken: 'test-temp-token'),
+            child: const TwoFAScreen(tempToken: 'test-temp-token'),
           ),
         );
 
-    testWidgets('renders 2FA title and code input', (tester) async {
+    testWidgets('renders verification title and 6 OTP boxes', (tester) async {
       await tester.pumpWidget(buildTwoFAScreen(AuthInitialState()));
+      await tester.pump();
 
-      expect(find.text('Two-Factor Authentication'), findsOneWidget);
-      expect(find.text('Authentication code'), findsOneWidget);
+      expect(find.text('Верификация'), findsOneWidget);
+      // 6 OTP boxes rendered as _OtpBox widgets via Row children
+      expect(find.byType(AnimatedContainer), findsNWidgets(6));
     });
 
     testWidgets('shows error on AuthErrorState', (tester) async {
@@ -91,6 +93,13 @@ void main() {
       await tester.pump();
 
       expect(find.text('Invalid 2FA code'), findsOneWidget);
+    });
+
+    testWidgets('verify button disabled when code incomplete', (tester) async {
+      await tester.pumpWidget(buildTwoFAScreen(AuthInitialState()));
+      await tester.pump();
+
+      expect(find.text('Провери'), findsOneWidget);
     });
   });
 }

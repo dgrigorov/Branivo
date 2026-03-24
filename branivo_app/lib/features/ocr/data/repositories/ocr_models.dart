@@ -1,6 +1,6 @@
 enum OcrJobStatus { pending, processing, completed, failed }
 
-enum OcrProvider { googleVision, awsTextract }
+enum OcrProvider { googleVision, awsTextract, mlKit }
 
 class OcrField {
   const OcrField({

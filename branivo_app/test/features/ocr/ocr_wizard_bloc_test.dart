@@ -4,15 +4,16 @@ import 'package:mocktail/mocktail.dart';
 import 'package:branivo_app/features/ocr/bloc/ocr_wizard_bloc.dart';
 import 'package:branivo_app/features/ocr/data/repositories/ocr_api_repository.dart';
 import 'package:branivo_app/features/ocr/data/repositories/ocr_models.dart';
+import 'package:branivo_app/features/ocr/data/repositories/ocr_repository.dart';
 
-class MockOcrApiRepository extends Mock implements OcrApiRepository {}
+class MockOcrRepository extends Mock implements OcrRepository {}
 class MockXFile extends Mock implements XFile {}
 
 void main() {
-  late MockOcrApiRepository mockRepository;
+  late MockOcrRepository mockRepository;
 
   setUp(() {
-    mockRepository = MockOcrApiRepository();
+    mockRepository = MockOcrRepository();
     registerFallbackValue(MockXFile());
   });
 

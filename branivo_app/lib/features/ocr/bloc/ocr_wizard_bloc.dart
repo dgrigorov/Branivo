@@ -1,18 +1,18 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:camera/camera.dart';
-import '../data/repositories/ocr_api_repository.dart';
 import '../data/repositories/ocr_models.dart';
+import '../data/repositories/ocr_repository.dart';
 
 part 'ocr_wizard_event.dart';
 part 'ocr_wizard_state.dart';
 
-const int _totalSteps = 2;
+const int _totalSteps = 3;
 const Duration _pollInterval = Duration(seconds: 2);
 const Duration _maxPollDuration = Duration(seconds: 35);
 
 class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
-  OcrWizardBloc({required OcrApiRepository repository})
+  OcrWizardBloc({required OcrRepository repository})
       : _repository = repository,
         super(OcrInitialState()) {
     on<OcrStartCaptureEvent>(_onStartCapture);
@@ -22,7 +22,7 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
     on<OcrManualFallbackRequestedEvent>(_onManualFallback);
   }
 
-  final OcrApiRepository _repository;
+  final OcrRepository _repository;
   final List<XFile> _capturedImages = [];
   Timer? _pollTimer;
   DateTime? _pollStartTime;
