@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../api/dio_client.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/auth/screens/auth_gate_screen.dart';
+import 'auth_redirect.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/ocr/screens/ocr_wizard_screen.dart';
 import '../../features/ocr/bloc/ocr_wizard_bloc.dart';
@@ -145,10 +146,12 @@ class AppRouter {
       GoRoute(
         path: '/auth-gate',
         builder: (context, state) {
-          final args = state.extra as AuthGateRouteArgs;
+          final args = state.extra is AuthGateRouteArgs
+              ? state.extra as AuthGateRouteArgs
+              : null;
           return AuthGateScreen(
-            redirectPath: args.redirectPath,
-            redirectExtra: args.redirectExtra,
+            redirectPath: args?.redirectPath ?? '/',
+            redirectExtra: args?.redirectExtra,
           );
         },
       ),

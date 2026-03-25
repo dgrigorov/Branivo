@@ -29,13 +29,15 @@ class MlKitOcrRepository implements OcrRepository {
       await recognizer.close();
     }
 
-    final fields = TalonParser.parse(buffer.toString());
+    final rawText = buffer.toString();
+    final fields = TalonParser.parse(rawText);
 
     return OcrScanResponse(
       jobId: 'local-${DateTime.now().millisecondsSinceEpoch}',
       status: OcrJobStatus.completed,
       provider: OcrProvider.mlKit,
       fields: fields,
+      rawText: rawText,
     );
   }
 

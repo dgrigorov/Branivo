@@ -1,23 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/routing/auth_redirect.dart';
 
 const _kBgColor = Color(0xFFE0EAF0);
 const _kDarkCard = Color(0xFF1A2D3A);
 const _kBlueMid = Color(0xFF3EA8E5);
-
-/// Пренася redirect информация от auth gate → Login/Registration,
-/// за да може потребителят да се върне към плащането след вход.
-class AuthRedirect {
-  const AuthRedirect({
-    required this.path,
-    this.extra,
-    this.guestMode = false,
-  });
-
-  final String path;
-  final Object? extra;
-  final bool guestMode;
-}
 
 /// Показва се когато анонимен потребител натисне "Купи".
 /// [redirectPath] и [redirectExtra] се подават от [OffersScreen],
@@ -74,21 +61,6 @@ class AuthGateScreen extends StatelessWidget {
                   extra: AuthRedirect(
                     path: redirectPath,
                     extra: redirectExtra,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildOption(
-                context,
-                icon: Icons.person_outline_rounded,
-                title: 'Продължи като гост',
-                subtitle: 'Без регистрация — само имейл за полицата',
-                onTap: () => context.push(
-                  '/registration',
-                  extra: AuthRedirect(
-                    path: redirectPath,
-                    extra: redirectExtra,
-                    guestMode: true,
                   ),
                 ),
               ),

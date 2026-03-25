@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_router.dart';
@@ -527,13 +528,7 @@ class _HomeBottomNav extends StatelessWidget {
       currentIndex: selectedIndex,
       onTap: (index) {
         if (index == 1) context.go('/policies');
-        if (index == 2) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Профилът ще бъде достъпен скоро'),
-            ),
-          );
-        }
+        if (index == 2) _showProfileSheet(context);
       },
       items: const [
         BottomNavigationBarItem(
@@ -552,6 +547,74 @@ class _HomeBottomNav extends StatelessWidget {
           label: 'Профил',
         ),
       ],
+    );
+  }
+
+  void _showProfileSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _ProfileSheet(onLogout: () async {
+        Navigator.of(context).pop();
+        await _logout(context);
+      }),
+    );
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    const storage = FlutterSecureStorage();
+    await storage.deleteAll();
+    if (context.mounted) context.go('/login');
+  }
+}
+
+class _ProfileSheet extends StatelessWidget {
+  const _ProfileSheet({required this.onLogout});
+
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFEEF2FF),
+                child: Icon(Icons.person_outline, color: Color(0xFF4F46E5)),
+              ),
+              title: const Text(
+                'Профил',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text('Управление на акаунта'),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.logout_rounded, color: Colors.red),
+              title: const Text(
+                'Изход',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+              ),
+              onTap: onLogout,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

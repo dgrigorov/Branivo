@@ -29,6 +29,7 @@ class OcrScanResponse {
     this.provider,
     this.fields,
     this.avgConfidence,
+    this.rawText,
   });
 
   factory OcrScanResponse.fromJson(Map<String, dynamic> json) {
@@ -60,4 +61,6 @@ class OcrScanResponse {
   final OcrProvider? provider;
   final Map<String, OcrField>? fields;
   final double? avgConfidence;
+  /// Raw text as recognized by ML Kit (debug only — not sent to server).
+  final String? rawText;
 }

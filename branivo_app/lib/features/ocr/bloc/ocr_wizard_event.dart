@@ -21,3 +21,16 @@ class OcrStatusPolledEvent extends OcrWizardEvent {
 }
 
 class OcrManualFallbackRequestedEvent extends OcrWizardEvent {}
+
+/// User tapped "Продължи" on the preview screen.
+class OcrPreviewConfirmedEvent extends OcrWizardEvent {
+  OcrPreviewConfirmedEvent({required this.step, required this.sessionToken});
+  final int step;
+  final String sessionToken;
+}
+
+/// User tapped "Повтори" on the preview screen — discard the last image.
+class OcrPreviewRetakeEvent extends OcrWizardEvent {
+  OcrPreviewRetakeEvent({required this.step});
+  final int step;
+}

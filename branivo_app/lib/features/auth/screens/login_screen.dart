@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/routing/app_router.dart';
+import '../../../features/anonymous_session/data/repositories/anonymous_session_repository.dart';
 import '../bloc/auth_bloc.dart';
-import 'auth_gate_screen.dart';
+import '../../../core/routing/auth_redirect.dart';
 
 const _kBgColor = Color(0xFFE0EAF0);
 const _kDarkCard = Color(0xFF1A2D3A);
@@ -25,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _startingAnonymous = false;
 
   @override
   void dispose() {
@@ -41,6 +44,54 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       ),
     );
+  }
+
+  Future<void> _startAnonymousScan() async {
+    if (_startingAnonymous) return;
+    setState(() => _startingAnonymous = true);
+    try {
+      final repo = context.read<AnonymousSessionRepository>();
+      final sessionToken = await repo.createSession();
+      if (!mounted) return;
+      context.push(
+        '/vehicles/scan',
+        extra: OcrWizardRouteArgs(
+          sessionToken: sessionToken,
+          onComplete: (fields) {
+            final vin = fields['vin']?.value ?? '';
+            final plate = fields['license_plate']?.value ?? '';
+            context.go(
+              '/vehicles/validate',
+              extra: VehicleValidateRouteArgs(
+                vin: vin,
+                licensePlate: plate,
+                sessionToken: sessionToken,
+              ),
+            );
+          },
+          onManualEntry: () {
+            context.go(
+              '/vehicles/validate',
+              extra: VehicleValidateRouteArgs(
+                vin: '',
+                licensePlate: '',
+                sessionToken: sessionToken,
+              ),
+            );
+          },
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Грешка при стартиране. Опитайте пак.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _startingAnonymous = false);
+    }
   }
 
   void _fillDemoCredentials() {
@@ -78,6 +129,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 if (state is AuthErrorState) _buildError(state.message),
                 _buildFormCard(state),
+                const SizedBox(height: 24),
+                _buildAnonymousCta(),
               ],
             ),
           ),
@@ -232,6 +285,64 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
     ),
+  );
+
+  Widget _buildAnonymousCta() => Column(
+    children: [
+      Row(
+        children: [
+          const Expanded(child: Divider(color: Color(0xFFCBD5E1))),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'или',
+              style: TextStyle(color: _kDarkCard.withAlpha(100), fontSize: 13),
+            ),
+          ),
+          const Expanded(child: Divider(color: Color(0xFFCBD5E1))),
+        ],
+      ),
+      const SizedBox(height: 16),
+      SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: OutlinedButton.icon(
+          onPressed: _startingAnonymous ? null : _startAnonymousScan,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _kBlueMid,
+            side: const BorderSide(color: Color(0xFF3EA8E5), width: 1.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          icon: _startingAnonymous
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _kBlueMid,
+                  ),
+                )
+              : const Icon(Icons.document_scanner_outlined, size: 20),
+          label: const Text(
+            'Провери цени без акаунт',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
+      Text(
+        'Снимай талона → виж оферти → купи само ако искаш',
+        style: TextStyle(
+          color: _kDarkCard.withAlpha(100),
+          fontSize: 12,
+          height: 1.4,
+        ),
+        textAlign: TextAlign.center,
+      ),
+      const SizedBox(height: 32),
+    ],
   );
 
   void _handleStateChange(BuildContext context, AuthState state) {

@@ -17,6 +17,8 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
         super(OcrInitialState()) {
     on<OcrStartCaptureEvent>(_onStartCapture);
     on<OcrImageCapturedEvent>(_onImageCaptured);
+    on<OcrPreviewConfirmedEvent>(_onPreviewConfirmed);
+    on<OcrPreviewRetakeEvent>(_onPreviewRetake);
     on<OcrScanSubmittedEvent>(_onScanSubmitted);
     on<OcrStatusPolledEvent>(_onStatusPolled);
     on<OcrManualFallbackRequestedEvent>(_onManualFallback);
@@ -40,15 +42,35 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
     Emitter<OcrWizardState> emit,
   ) {
     _capturedImages.add(event.image);
-    final nextStep = event.step + 1;
+    // Always show preview so the user can confirm or retake the photo.
+    emit(OcrPreviewState(step: event.step, image: event.image));
+  }
 
+  Future<void> _onPreviewConfirmed(
+    OcrPreviewConfirmedEvent event,
+    Emitter<OcrWizardState> emit,
+  ) async {
+    final nextStep = event.step + 1;
     if (nextStep < _totalSteps) {
       emit(OcrCapturingState(
         step: nextStep,
         capturedImages: List.unmodifiable(_capturedImages),
       ));
+    } else {
+      // Last photo confirmed — submit all captured images.
+      add(OcrScanSubmittedEvent(sessionToken: event.sessionToken));
     }
-    // If last step captured, wait for OcrScanSubmittedEvent
+  }
+
+  void _onPreviewRetake(
+    OcrPreviewRetakeEvent event,
+    Emitter<OcrWizardState> emit,
+  ) {
+    if (_capturedImages.isNotEmpty) _capturedImages.removeLast();
+    emit(OcrCapturingState(
+      step: event.step,
+      capturedImages: List.unmodifiable(_capturedImages),
+    ));
   }
 
   Future<void> _onScanSubmitted(
@@ -56,6 +78,10 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
     Emitter<OcrWizardState> emit,
   ) async {
     if (_capturedImages.isEmpty) return;
+
+    // Emit processing state so the UI shows a loading indicator while
+    // on-device (ML Kit) or cloud OCR is running.
+    emit(OcrProcessingState(jobId: 'local-scanning'));
 
     try {
       final response = await _repository.scanImages(
@@ -67,6 +93,7 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
         emit(OcrCompletedState(
           fields: response.fields!,
           jobId: response.jobId,
+          rawText: response.rawText,
         ));
       } else if (response.status == OcrJobStatus.processing) {
         emit(OcrProcessingState(jobId: response.jobId));
@@ -101,6 +128,7 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
         emit(OcrCompletedState(
           fields: response.fields!,
           jobId: response.jobId,
+          rawText: response.rawText,
         ));
       } else if (response.status == OcrJobStatus.failed) {
         _stopPolling();

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/registration_bloc.dart';
-import '../../auth/screens/auth_gate_screen.dart';
+import '../../../core/routing/auth_redirect.dart';
 
 class RegistrationScreen extends StatelessWidget {
   const RegistrationScreen({super.key, this.sessionId, this.authRedirect});

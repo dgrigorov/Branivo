@@ -16,9 +16,11 @@ class OcrProcessingState extends OcrWizardState {
 }
 
 class OcrCompletedState extends OcrWizardState {
-  OcrCompletedState({required this.fields, required this.jobId});
+  OcrCompletedState({required this.fields, required this.jobId, this.rawText});
   final Map<String, OcrField> fields;
   final String jobId;
+  /// Raw text recognized by ML Kit — used for debug overlay.
+  final String? rawText;
 }
 
 class OcrFailedState extends OcrWizardState {
@@ -27,3 +29,10 @@ class OcrFailedState extends OcrWizardState {
 }
 
 class OcrManualInputState extends OcrWizardState {}
+
+/// Shown after a photo is captured — user can confirm or retake.
+class OcrPreviewState extends OcrWizardState {
+  OcrPreviewState({required this.step, required this.image});
+  final int step;
+  final XFile image;
+}

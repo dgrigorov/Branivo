@@ -44,13 +44,13 @@ void main() {
     expect(find.text('Една стъпка преди плащане'), findsOneWidget);
   });
 
-  testWidgets('renders all three options', (tester) async {
+  testWidgets('renders both auth options', (tester) async {
     await tester.pumpWidget(buildTestWidget());
     await tester.pumpAndSettle();
 
     expect(find.text('Имам акаунт'), findsOneWidget);
     expect(find.text('Нов съм тук'), findsOneWidget);
-    expect(find.text('Продължи като гост'), findsOneWidget);
+    expect(find.text('Продължи като гост'), findsNothing);
   });
 
   testWidgets('tapping "Имам акаунт" navigates to /login', (tester) async {
@@ -69,17 +69,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Нов съм тук'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Registration Screen'), findsOneWidget);
-  });
-
-  testWidgets('tapping "Продължи като гост" navigates to /registration',
-      (tester) async {
-    await tester.pumpWidget(buildTestWidget());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Продължи като гост'));
     await tester.pumpAndSettle();
 
     expect(find.text('Registration Screen'), findsOneWidget);

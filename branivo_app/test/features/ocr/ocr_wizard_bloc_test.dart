@@ -42,20 +42,47 @@ void main() {
       );
     });
 
-    test('OcrImageCapturedEvent at step 0 → OcrCapturingState(step: 1)', () async {
+    test('OcrImageCapturedEvent → OcrPreviewState for that step', () async {
       final bloc = buildBloc();
       bloc.add(OcrStartCaptureEvent());
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      final image = MockXFile();
+      bloc.add(OcrImageCapturedEvent(step: 0, image: image));
 
       await expectLater(
         bloc.stream,
-        emits(isA<OcrCapturingState>()),
+        emits(isA<OcrPreviewState>().having((s) => s.step, 'step', 0)),
       );
+    });
+
+    test('OcrPreviewConfirmedEvent → OcrCapturingState(step: 1)', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent());
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
 
       bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrPreviewState>()));
 
+      bloc.add(OcrPreviewConfirmedEvent(step: 0, sessionToken: sessionToken));
       await expectLater(
         bloc.stream,
         emits(isA<OcrCapturingState>().having((s) => s.step, 'step', 1)),
+      );
+    });
+
+    test('OcrPreviewRetakeEvent → OcrCapturingState(same step)', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent());
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrPreviewState>()));
+
+      bloc.add(OcrPreviewRetakeEvent(step: 0));
+      await expectLater(
+        bloc.stream,
+        emits(isA<OcrCapturingState>().having((s) => s.step, 'step', 0)),
       );
     });
 
@@ -76,7 +103,9 @@ void main() {
         bloc.stream,
         emitsInOrder([
           isA<OcrCapturingState>(),
-          isA<OcrCapturingState>(),
+          isA<OcrPreviewState>(),
+          // Emitted immediately before await to give UI a loading indicator.
+          isA<OcrProcessingState>(),
           isA<OcrCompletedState>().having(
             (s) => s.fields['license_plate']?.value,
             'license_plate.value',
@@ -102,7 +131,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           isA<OcrCapturingState>(),
-          isA<OcrCapturingState>(),
+          isA<OcrPreviewState>(),
+          // Immediate local-scanning indicator before the cloud response.
+          isA<OcrProcessingState>().having(
+            (s) => s.jobId, 'jobId', 'local-scanning',
+          ),
+          // Cloud response confirms async processing with the real job id.
           isA<OcrProcessingState>().having((s) => s.jobId, 'jobId', jobId),
         ]),
       );
@@ -133,7 +167,8 @@ void main() {
         bloc.stream,
         emitsInOrder([
           isA<OcrCapturingState>(),
-          isA<OcrCapturingState>(),
+          isA<OcrPreviewState>(),
+          isA<OcrProcessingState>(),
           isA<OcrFailedState>(),
         ]),
       );

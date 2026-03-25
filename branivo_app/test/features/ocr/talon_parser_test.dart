@@ -66,11 +66,17 @@ IVAN
       expect(fields['owner_egn']?.value, '9001011234');
     });
 
-    test('low confidence fields have autoFilled=false', () {
-      // Missing fields should have confidence 0 and autoFilled false
-      final missing = fields['owner_name'];
-      // owner_name may or may not parse in this sample — just verify structure
-      expect(missing?.autoFilled, isA<bool>());
+    test('extracts owner name from C.2.1/C.2.2 next-line values', () {
+      // Parser prefers Latin transliteration lines (nextLine) over Cyrillic values.
+      // Sample has IVANOV on the line after (C.2.1) and IVAN after (C.2.2).
+      expect(fields['owner_name']?.value, 'IVANOV IVAN');
+      expect(fields['owner_name']?.confidence, greaterThanOrEqualTo(0.85));
+    });
+
+    test('normalizes color from inline (R) field', () {
+      // (R) ЧЕРЕН — inline value, normalized via _normalizeColor.
+      expect(fields['color']?.value, 'Черен');
+      expect(fields['color']?.confidence, greaterThanOrEqualTo(0.85));
     });
   });
 

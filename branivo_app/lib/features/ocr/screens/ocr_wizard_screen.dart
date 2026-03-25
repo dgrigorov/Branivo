@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -61,9 +62,14 @@ const _fieldLabels = <String, String>{
   'model': 'Модел МПС',
   'year': 'Година',
   'color': 'Цвят',
-  'engine_volume': 'Обем',
+  'engine_volume': 'Обем (cc)',
+  'power_kw': 'Мощност (kW)',
   'fuel_type': 'Гориво',
+  'seats': 'Брой места',
+  'vehicle_category': 'Категория МПС',
+  'euro_standard': 'Евро стандарт',
   'first_registration_date': 'Първа регистрация',
+  'registration_validity': 'Валидност на регистрацията',
   'owner_name': 'Собственик',
   'owner_egn': 'ЕГН / ЛНЧ',
   'owner_address': 'Адрес',
@@ -140,9 +146,10 @@ class _OcrWizardScreenState extends State<OcrWizardScreen> {
         enableAudio: false,
       );
       await _cameraController!.initialize();
-      // Enable continuous autofocus for document scanning
+      // Do NOT call setFocusMode here — iOS defaults to
+      // AVCaptureFocusModeContinuousAutoFocus which allows close-up refocus.
+      // Calling FocusMode.auto locks focus after one shot (blurry at close range).
       try {
-        await _cameraController!.setFocusMode(FocusMode.auto);
         await _cameraController!.setExposureMode(ExposureMode.auto);
       } catch (_) {}
       if (mounted) setState(() => _cameraReady = true);
@@ -179,11 +186,10 @@ class _OcrWizardScreenState extends State<OcrWizardScreen> {
     try {
       final file = await _cameraController!.takePicture();
       if (!mounted) return;
-      final bloc = context.read<OcrWizardBloc>();
-      bloc.add(OcrImageCapturedEvent(step: step, image: file));
-      if (step == _totalSteps - 1) {
-        bloc.add(OcrScanSubmittedEvent(sessionToken: widget.sessionToken));
-      }
+      // Only emit ImageCaptured — preview confirmation will trigger submission.
+      context.read<OcrWizardBloc>().add(
+        OcrImageCapturedEvent(step: step, image: file),
+      );
     } catch (_) {
       if (mounted) {
         context.read<OcrWizardBloc>().add(OcrManualFallbackRequestedEvent());
@@ -206,7 +212,6 @@ class _OcrWizardScreenState extends State<OcrWizardScreen> {
   }
 
   void _onStateChange(BuildContext context, OcrWizardState state) {
-    if (state is OcrCompletedState) widget.onComplete(state.fields);
     if (state is OcrManualInputState) widget.onManualEntry();
   }
 
@@ -230,8 +235,24 @@ class _OcrWizardScreenState extends State<OcrWizardScreen> {
     if (state is OcrCompletedState) {
       return _ResultsView(
         fields: state.fields,
+        rawText: state.rawText,
         onProceed: () => widget.onComplete(state.fields),
         onManualEntry: widget.onManualEntry,
+      );
+    }
+    if (state is OcrPreviewState) {
+      return _PreviewView(
+        step: state.step,
+        image: state.image,
+        onConfirm: () => context.read<OcrWizardBloc>().add(
+          OcrPreviewConfirmedEvent(
+            step: state.step,
+            sessionToken: widget.sessionToken,
+          ),
+        ),
+        onRetake: () => context.read<OcrWizardBloc>().add(
+          OcrPreviewRetakeEvent(step: state.step),
+        ),
       );
     }
     final step = state is OcrCapturingState ? state.step : 0;
@@ -274,6 +295,33 @@ class _CaptureViewState extends State<_CaptureView> {
   final GlobalKey _cameraKey = GlobalKey();
   Offset? _focusPoint;
   Timer? _focusTimer;
+  double _currentZoom = 1.0;
+  double _baseZoom = 1.0;
+  double _minZoom = 1.0;
+  double _maxZoom = 8.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initZoomLimits();
+  }
+
+  Future<void> _initZoomLimits() async {
+    final controller = widget.cameraController;
+    if (controller == null || !widget.cameraReady) return;
+    try {
+      _minZoom = await controller.getMinZoomLevel();
+      _maxZoom = await controller.getMaxZoomLevel();
+    } catch (_) {}
+  }
+
+  @override
+  void didUpdateWidget(_CaptureView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.cameraReady && widget.cameraReady) {
+      _initZoomLimits();
+    }
+  }
 
   @override
   void dispose() {
@@ -281,9 +329,27 @@ class _CaptureViewState extends State<_CaptureView> {
     super.dispose();
   }
 
+  void _onScaleStart(ScaleStartDetails details) {
+    _baseZoom = _currentZoom;
+  }
+
+  Future<void> _onScaleUpdate(ScaleUpdateDetails details) async {
+    final controller = widget.cameraController;
+    if (controller == null || !widget.cameraReady) return;
+    final newZoom = (_baseZoom * details.scale).clamp(_minZoom, _maxZoom);
+    if ((newZoom - _currentZoom).abs() < 0.05) return;
+    setState(() => _currentZoom = newZoom);
+    try {
+      await controller.setZoomLevel(newZoom);
+    } catch (_) {}
+  }
+
   Future<void> _onCameraTap(TapUpDetails details) async {
     final controller = widget.cameraController;
     if (controller == null || !widget.cameraReady) return;
+
+    // Use the GestureDetector's render box for coordinates —
+    // avoids misalignment caused by FittedBox.cover cropping.
     final box = _cameraKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
 
@@ -293,15 +359,17 @@ class _CaptureViewState extends State<_CaptureView> {
 
     setState(() => _focusPoint = local);
     _focusTimer?.cancel();
-    _focusTimer = Timer(const Duration(milliseconds: 2000), () {
+    _focusTimer = Timer(const Duration(milliseconds: 2500), () {
       if (mounted) setState(() => _focusPoint = null);
-      // Reset to continuous autofocus after tap
+      // Reset focus point to null → iOS returns to continuous AF at center.
+      // Do NOT call setFocusMode — keeps continuous AF active.
       controller.setFocusPoint(null).catchError((_) {});
       controller.setExposurePoint(null).catchError((_) {});
     });
 
     try {
-      // Must set FocusMode.auto BEFORE setFocusPoint — iOS requirement
+      // FocusMode.auto + setFocusPoint triggers a one-shot AF at the tapped
+      // point. After the timer, point resets to null → back to continuous AF.
       await controller.setFocusMode(FocusMode.auto);
       await controller.setExposureMode(ExposureMode.auto);
       await controller.setFocusPoint(Offset(x, y));
@@ -479,11 +547,13 @@ class _CaptureViewState extends State<_CaptureView> {
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
+        key: _cameraKey,
         onTapUp: _onCameraTap,
+        onScaleStart: _onScaleStart,
+        onScaleUpdate: _onScaleUpdate,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: SizedBox.expand(
-            key: _cameraKey,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -581,6 +651,130 @@ class _CaptureViewState extends State<_CaptureView> {
       ),
     ),
   );
+}
+
+// ─── Preview view ─────────────────────────────────────────────────────────────
+
+class _PreviewView extends StatelessWidget {
+  const _PreviewView({
+    required this.step,
+    required this.image,
+    required this.onConfirm,
+    required this.onRetake,
+  });
+
+  final int step;
+  final XFile image;
+  final VoidCallback onConfirm;
+  final VoidCallback onRetake;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: onRetake,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: _kSurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'СНИМКА ${step + 1} ОТ $_totalSteps',
+                      style: const TextStyle(
+                        color: _kIndigo,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    Text(
+                      _stepTitles[step],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.file(
+                File(image.path),
+                fit: BoxFit.cover,
+                width: double.infinity,
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+          child: SizedBox(
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: onConfirm,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kGreen,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(50),
+                ),
+              ),
+              icon: const Icon(Icons.check_rounded, size: 20),
+              label: Text(
+                step == _totalSteps - 1
+                    ? 'Анализирай данните'
+                    : 'Продължи към снимка ${step + 2}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+        Center(
+          child: TextButton.icon(
+            onPressed: onRetake,
+            icon: const Icon(Icons.replay_rounded, size: 16, color: _kMuted),
+            label: const Text(
+              'Снимай отново',
+              style: TextStyle(color: _kMuted, fontSize: 13),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
 }
 
 // ─── Frame guide painter ──────────────────────────────────────────────────────
@@ -790,16 +984,52 @@ class _FailedView extends StatelessWidget {
 
 // ─── Results view ─────────────────────────────────────────────────────────────
 
-class _ResultsView extends StatelessWidget {
+class _ResultsView extends StatefulWidget {
   const _ResultsView({
     required this.fields,
     required this.onProceed,
     required this.onManualEntry,
+    this.rawText,
   });
 
   final Map<String, OcrField> fields;
   final VoidCallback onProceed;
   final VoidCallback onManualEntry;
+  final String? rawText;
+
+  @override
+  State<_ResultsView> createState() => _ResultsViewState();
+}
+
+class _ResultsViewState extends State<_ResultsView> {
+  bool _showDebug = false;
+
+  // Таблон кодове → описание (EU Directive 1999/37/EC)
+  static const _legendCodes = <String, String>{
+    'A': '(A) Регистрационен номер',
+    'B': '(B) Първа дата на регистрация',
+    'C.2.1': '(C.2.1) Фамилия на собственика',
+    'C.2.2': '(C.2.2) Собствено име',
+    'C.2.3': '(C.2.3) Адрес',
+    'D': '(D) Категория МПС',
+    'D.1': '(D.1) Марка',
+    'D.2': '(D.2) Тип/вариант/версия',
+    'D.3': '(D.3) Търговско наименование',
+    'E': '(E) Идентификационен номер (VIN)',
+    'F.1': '(F.1) Технически допустима макс. маса',
+    'F.2': '(F.2) Регистрирана маса',
+    'G': '(G) Маса в готовност за движение',
+    'H': '(H) Срок на валидност',
+    'I': '(I) Дата на регистрация',
+    'J': '(J) Категория на МПС',
+    'K': '(K) Номер на одобряване',
+    'P.1': '(P.1) Работен обем (cc)',
+    'P.2': '(P.2) Максимална мощност (kW)',
+    'P.3': '(P.3) Вид гориво',
+    'R': '(R) Цвят',
+    'S.1': '(S.1) Брой места',
+    'V.9': '(V.9) Ниво на емисии (EURO)',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -817,8 +1047,17 @@ class _ResultsView extends StatelessWidget {
                   style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
+              IconButton(
+                icon: Icon(
+                  _showDebug ? Icons.bug_report : Icons.bug_report_outlined,
+                  color: _showDebug ? Colors.amber : _kMuted,
+                  size: 20,
+                ),
+                tooltip: 'Debug ML Kit',
+                onPressed: () => setState(() => _showDebug = !_showDebug),
+              ),
               TextButton(
-                onPressed: onManualEntry,
+                onPressed: widget.onManualEntry,
                 child: const Text('Редактирай', style: TextStyle(color: _kIndigo, fontSize: 13)),
               ),
             ],
@@ -827,11 +1066,19 @@ class _ResultsView extends StatelessWidget {
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            children: _fieldLabels.entries.map((entry) {
-              final field = fields[entry.key];
-              if (field == null) return const SizedBox.shrink();
-              return _buildFieldCard(entry.value, field);
-            }).toList(),
+            children: [
+              if (_showDebug) ...[
+                _buildDebugSection(),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white12),
+                const SizedBox(height: 8),
+              ],
+              ..._fieldLabels.entries.map((entry) {
+                final field = widget.fields[entry.key];
+                if (field == null) return const SizedBox.shrink();
+                return _buildFieldCard(entry.value, field);
+              }),
+            ],
           ),
         ),
         Padding(
@@ -840,7 +1087,7 @@ class _ResultsView extends StatelessWidget {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: onProceed,
+              onPressed: widget.onProceed,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _kIndigo,
                 foregroundColor: Colors.white,
@@ -857,6 +1104,130 @@ class _ResultsView extends StatelessWidget {
       ],
     );
   }
+
+  Widget _buildDebugSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Parsed fields with legend codes ──────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.amber.withAlpha(20),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.amber.withAlpha(80)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '🔍 Разпознати полета (TalonParser)',
+                style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              ..._legendCodes.entries.map((legend) {
+                // Find the parsed field value for this legend code
+                final fieldKey = _legendCodeToFieldKey(legend.key);
+                final field = fieldKey != null ? widget.fields[fieldKey] : null;
+                final hasValue = field?.value != null;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        legend.value,
+                        style: TextStyle(
+                          color: hasValue ? Colors.greenAccent : _kMuted,
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          fontWeight: hasValue ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                      if (hasValue) ...[
+                        const Text(' → ', style: TextStyle(color: _kMuted, fontSize: 11)),
+                        Expanded(
+                          child: Text(
+                            field!.value!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          ' ${(field.confidence * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(color: Colors.greenAccent, fontSize: 10),
+                        ),
+                      ] else
+                        const Expanded(
+                          child: Text(
+                            ' — не е разпознато',
+                            style: TextStyle(color: _kMuted, fontSize: 11),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // ── Raw ML Kit text ───────────────────────────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1117),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '📄 Raw ML Kit текст',
+                style: TextStyle(color: _kMuted, fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.rawText?.isNotEmpty == true
+                    ? widget.rawText!
+                    : '(нищо не е разпознато)',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Maps a talon legend code to the corresponding parsed field key.
+  String? _legendCodeToFieldKey(String code) => switch (code) {
+        'A' => 'license_plate',
+        'E' => 'vin',
+        'D.1' => 'make',
+        'B' => 'first_registration_date',
+        'I' => 'registration_validity',
+        'J' => 'vehicle_category',
+        'R' => 'color',
+        'P.1' => 'engine_volume',
+        'P.2' => 'power_kw',
+        'P.3' => 'fuel_type',
+        'S.1' => 'seats',
+        'V.9' => 'euro_standard',
+        'C.2.1' || 'C.2.2' => 'owner_name',
+        'C.2.3' => 'owner_address',
+        _ => null,
+      };
 
   Widget _buildFieldCard(String label, OcrField field) {
     final isLow = field.isLowConfidence;
