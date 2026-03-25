@@ -66,6 +66,22 @@ export class S3Service {
   }
 
   /**
+   * Upload a GDPR data export ZIP archive to S3 (private — no public ACL).
+   * Key format: exports/{tenantId}/{customerId}/{requestId}.zip
+   */
+  async uploadExportArchive(key: string, buffer: Buffer): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: 'application/zip',
+      }),
+    );
+    this.logger.log(`Export archive uploaded: ${key}`);
+  }
+
+  /**
    * Generate a presigned URL for private S3 object download.
    * @param key S3 object key
    * @param expiresInSeconds TTL in seconds (e.g. 900 = 15 min)

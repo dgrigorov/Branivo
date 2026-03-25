@@ -45,6 +45,15 @@ export class PaymentsRepository extends BaseRepository<Payment> {
     });
   }
 
+  async findByEndClientId(
+    endClientId: string,
+    tenantId: string,
+  ): Promise<Payment[]> {
+    return this.paymentRepo.find({
+      where: { endClientId, tenantId },
+    });
+  }
+
   async updatePaymentMethod(
     id: string,
     paymentMethod: PaymentMethod,

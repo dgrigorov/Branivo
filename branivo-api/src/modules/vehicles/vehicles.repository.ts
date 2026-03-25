@@ -19,6 +19,12 @@ export class VehiclesRepository extends BaseRepository<Vehicle> {
     return this.findAll({ ownerId } as Parameters<typeof this.findAll>[0]);
   }
 
+  async findByOwnerId(ownerId: string, tenantId: string): Promise<Vehicle[]> {
+    return this.vehicleRepo.find({
+      where: { ownerId, tenantId },
+    });
+  }
+
   async findByOwnerAndId(
     ownerId: string,
     vehicleId: string,

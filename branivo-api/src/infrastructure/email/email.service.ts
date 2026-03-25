@@ -246,6 +246,55 @@ export class EmailService {
     this.logger.log(`Password reset email sent to ${params.to}`);
   }
 
+  async sendDataExportRequestedEmail(params: {
+    to: string;
+    tenantId: string;
+  }): Promise<void> {
+    const { to } = params;
+
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? 'noreply@branivo.com',
+      to,
+      subject: 'Заявката ви за лични данни е получена — Branivo',
+      html: `
+        <h2>Заявка за лични данни</h2>
+        <p>Здравейте,</p>
+        <p>Вашият data export се подготвя. Ще получите линк за изтегляне в рамките на 24 часа.</p>
+        <p>— Branivo</p>
+      `,
+    });
+
+    this.logger.log(`Data export requested email sent to ${to}`);
+  }
+
+  async sendDataExportReadyEmail(params: {
+    to: string;
+    downloadUrl: string;
+    expiresAt: Date;
+    tenantId: string;
+  }): Promise<void> {
+    const { to, downloadUrl, expiresAt } = params;
+    const safeUrl = this.escapeHtml(downloadUrl);
+    const expiresAtStr = expiresAt.toLocaleString('bg-BG', {
+      timeZone: 'Europe/Sofia',
+    });
+
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? 'noreply@branivo.com',
+      to,
+      subject: 'Данните ви са готови за изтегляне — Branivo',
+      html: `
+        <h2>Вашите лични данни са готови</h2>
+        <p>Здравейте,</p>
+        <p>Вашият data export е готов. Изтеглете го от следния линк (валиден до ${expiresAtStr}):</p>
+        <p><a href="${safeUrl}">Изтегли личните ми данни</a></p>
+        <p>— Branivo</p>
+      `,
+    });
+
+    this.logger.log(`Data export ready email sent to ${to}`);
+  }
+
   async sendRenewalFailureAlert(params: {
     to: string;
     errorMessage: string;

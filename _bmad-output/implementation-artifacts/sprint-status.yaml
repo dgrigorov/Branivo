@@ -1,4 +1,5 @@
 # generated: 2026-03-18
+# updated: 2026-03-23 — Phase 1 reprioritization (sprint-change-proposal-2026-03-23.md)
 # project: Branivo
 # project_key: NOKEY
 # tracking_system: file-system
@@ -82,7 +83,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 4: Insurance Quote & Policy Purchase
   # ─────────────────────────────────────────────────────────────
-  epic-4: in-progress
+  epic-4: done
   4-1-parallel-quote-aggregation: done
   4-2-policy-purchase-with-stripe-3ds: done
   4-3-policy-activation-via-stripe-webhook: done
@@ -93,7 +94,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 5: Billing & Commission Management
   # ─────────────────────────────────────────────────────────────
-  epic-5: in-progress
+  epic-5: done
   5-1-commission-matrix-configuration: done
   5-2-broker-commission-dashboard: done
   5-3-monthly-invoicing-job: done
@@ -103,7 +104,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 6: Renewal & Notification Engine
   # ─────────────────────────────────────────────────────────────
-  epic-6: in-progress
+  epic-6: done
   6-1-renewal-check-scheduled-job: done
   6-2-multi-channel-notification-delivery: done
   6-3-renewal-escalation-configuration: done
@@ -112,7 +113,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 7: Fleet Management
   # ─────────────────────────────────────────────────────────────
-  epic-7: in-progress
+  epic-7: done
   7-1-fleet-vehicle-status-dashboard: done
   7-2-bulk-quote-policy-purchase: done
   7-3-batch-pdf-export: done
@@ -122,7 +123,7 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 8: Super Admin Platform Operations
   # ─────────────────────────────────────────────────────────────
-  epic-8: in-progress
+  epic-8: done
   8-1-tenant-health-monitoring: done
   8-2-insurer-api-monitoring-manual-fallback: done
   8-3-subscription-tier-management: done
@@ -130,22 +131,18 @@ development_status:
   epic-8-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────
-  # Epic 9: API Tier & External Integration
+  # Epic 22: Production Hardening — Пропуснати Фундаментални Изисквания
+  # Открити чрез party-mode code audit (2026-03-22)
+  # ПРИОРИТЕТ: Имплементирай в тази последователност
   # ─────────────────────────────────────────────────────────────
-  epic-9: backlog
-  9-1-api-key-management-authentication: backlog
-  9-2-quote-policy-issuance-api: backlog
-  9-3-api-sandbox-environment: backlog
-  9-4-rate-limiting-usage-billing: backlog
-  epic-9-retrospective: optional
-
-  # ─────────────────────────────────────────────────────────────
-  # Epic 10: Digital Claims Protocol (DKP)
-  # ─────────────────────────────────────────────────────────────
-  epic-10: backlog
-  10-1-offline-dkp-single-device-wizard: backlog
-  10-2-dkp-confirmation-pdf-generation: backlog
-  epic-10-retrospective: optional
+  epic-22: in-progress
+  22-1-stripe-webhook-idempotency-fix: done            # КРИТИЧНО — data integrity (NFR35/NFR9)
+  22-2-broker-password-reset-flow: done               # КРИТИЧНО — operational blocker
+  22-3-gdpr-client-data-export: done                    # Законово задължително (FR63)
+  22-4-pwa-browser-push-notifications: backlog        # Phase 1 requirement (FR42)
+  22-5-guarantee-fund-api-integration: backlog        # Phase 1 requirement (FR20)
+  22-6-terraform-iac-infrastructure: backlog          # Infrastructure (NFR38)
+  epic-22-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────
   # Epic 11: Compliance, GDPR & Legal Pages
@@ -311,17 +308,3 @@ development_status:
   21-2-client-referral-system: backlog
   21-3-loyalty-points: backlog
   epic-21-retrospective: optional
-
-  # ─────────────────────────────────────────────────────────────
-  # Epic 22: Production Hardening — Пропуснати Фундаментални Изисквания
-  # Открити чрез party-mode code audit (2026-03-22)
-  # ПРИОРИТЕТ: Имплементирай в тази последователност
-  # ─────────────────────────────────────────────────────────────
-  epic-22: in-progress
-  22-1-stripe-webhook-idempotency-fix: done            # КРИТИЧНО — data integrity (NFR35/NFR9)
-  22-2-broker-password-reset-flow: done               # КРИТИЧНО — operational blocker
-  22-3-gdpr-client-data-export: ready-for-dev         # Законово задължително (FR63)
-  22-4-pwa-browser-push-notifications: backlog        # Phase 1 requirement (FR42)
-  22-5-guarantee-fund-api-integration: backlog        # Phase 1 requirement (FR20)
-  22-6-terraform-iac-infrastructure: backlog          # Infrastructure (NFR38)
-  epic-22-retrospective: optional

@@ -44,6 +44,13 @@ export class EndClientRepository extends BaseRepository<EndClient> {
     return { client: saved, isNew: true };
   }
 
+  async findById(id: string): Promise<EndClient | null> {
+    await this.setTenantSession();
+    return this.endClientRepo.findOne({
+      where: { id, deletedAt: IsNull() },
+    });
+  }
+
   async markPhoneVerified(clientId: string): Promise<void> {
     await this.setTenantSession();
     await this.endClientRepo.update(clientId, {

@@ -26,6 +26,6 @@ import { SmsService } from './sms.service';
   ],
   controllers: [ClientAuthController],
   providers: [ClientAuthService, EndClientRepository, SmsService],
-  exports: [ClientAuthService],
+  exports: [ClientAuthService, EndClientRepository],
 })
 export class ClientsModule {}

@@ -25,6 +25,6 @@ import { Vehicle } from './entities/vehicle.entity';
     KatApiAdapter,
     GarantsionenFondAdapter,
   ],
-  exports: [VehiclesService],
+  exports: [VehiclesService, VehiclesRepository],
 })
 export class VehiclesModule {}

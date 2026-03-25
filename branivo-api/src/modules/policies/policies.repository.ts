@@ -76,6 +76,15 @@ export class PoliciesRepository extends BaseRepository<Policy> {
     });
   }
 
+  async findByEndClientId(
+    endClientId: string,
+    tenantId: string,
+  ): Promise<Policy[]> {
+    return this.policyRepo.find({
+      where: { endClientId, tenantId, deletedAt: IsNull() },
+    });
+  }
+
   async findManyByIds(
     tenantId: string,
     policyIds: string[],
