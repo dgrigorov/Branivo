@@ -5,13 +5,14 @@
 
 .PHONY: help \
         up down restart logs \
-        api web \
+        api web dev dev-backend flutter dev-stop \
         test test-api test-web test-cov \
         lint lint-api lint-web \
         migrate build \
         kill-stockcrm \
         status \
-        flutter-pub-get flutter-test flutter-analyze
+        flutter-pub-get flutter-test flutter-analyze \
+        flutter-run flutter-install flutter-run-clean flutter-clean
 
 # ── Default ──────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,59 @@ api: ## Start branivo-api in watch mode (localhost:3000)
 
 web: ## Start branivo-web dev server (localhost:3001)
 	cd branivo-web && npm run dev
+
+dev: ## Fresh start — Clean ports + Docker infra + API + web (background) + Flutter app (foreground)
+	@echo "🧹 Cleaning up old processes..."
+	@pkill -f "npm run start:dev" 2>/dev/null || true
+	@pkill -f "next dev" 2>/dev/null || true
+	@pkill -f "flutter run" 2>/dev/null || true
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:3001 | xargs kill -9 2>/dev/null || true
+	@echo "🐳 Starting Docker infrastructure..."
+	docker compose up -d
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 3
+	@echo "🚀 Starting API server..."
+	(cd branivo-api && npm run start:dev) &
+	@echo "⏳ Waiting for API to start..."
+	@sleep 5
+	@echo "🌐 Starting web server..."
+	(cd branivo-web && npm run dev) &
+	@echo "⏳ Waiting for web to start..."
+	@sleep 3
+	@echo "📱 Starting Flutter app..."
+	cd branivo_app && flutter run --dart-define=API_BASE_URL=http://192.168.100.185:3000
+
+dev-backend: ## Quick start — Clean ports + Docker infra + API + web (background only)
+	@echo "🧹 Cleaning up old processes..."
+	@pkill -f "npm run start:dev" 2>/dev/null || true
+	@pkill -f "next dev" 2>/dev/null || true
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:3001 | xargs kill -9 2>/dev/null || true
+	@echo "🐳 Starting Docker infrastructure..."
+	docker compose up -d
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 3
+	@echo "🚀 Starting API server..."
+	(cd branivo-api && npm run start:dev) &
+	@echo "⏳ Waiting for API to start..."
+	@sleep 5
+	@echo "🌐 Starting web server..."
+	(cd branivo-web && npm run dev) &
+	@echo "✅ Backend ready! API: http://localhost:3000, Web: http://localhost:3001"
+	@echo "💡 Run 'make flutter' to start the mobile app separately"
+
+flutter: ## Start Flutter app with correct API config
+	cd branivo_app && flutter run --dart-define=API_BASE_URL=http://192.168.100.185:3000
+
+dev-stop: ## Stop all dev processes (API, web, Flutter) and Docker infra
+	@pkill -f "npm run start:dev" 2>/dev/null || true
+	@pkill -f "next dev" 2>/dev/null || true
+	@pkill -f "flutter run" 2>/dev/null || true
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+	@lsof -ti:3001 | xargs kill -9 2>/dev/null || true
+	docker compose down
+	@echo "All dev processes stopped."
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -110,6 +164,17 @@ flutter-test: ## Run Flutter tests
 flutter-analyze: ## Analyze Flutter code (no fatal infos)
 	cd branivo_app && flutter analyze --no-fatal-infos
 
+flutter-run: ## Run Flutter app on physical device (hot reload enabled, no reinstall → no trust prompt)
+	cd branivo_app && flutter run -d 00008110-000C75A92139801E --dart-define=API_BASE_URL=http://192.168.100.185:3000
+
+flutter-install: ## Build & install on device without debug session (stable when Xcode debug fails)
+	cd branivo_app && flutter build ios --debug --dart-define=API_BASE_URL=http://192.168.100.185:3000 && flutter install -d 00008110-000C75A92139801E
+
+flutter-run-clean: ## Full clean → reinstall (use only after native/pubspec changes — triggers iOS trust prompt once)
+	cd branivo_app && flutter clean && flutter pub get && flutter run -d 00008110-000C75A92139801E --dart-define=API_BASE_URL=http://192.168.100.185:3000 --uninstall-first
+
+flutter-clean: ## Clean Flutter build cache only (no run)
+	cd branivo_app && flutter clean
 # ── Utilities ─────────────────────────────────────────────────────────────────
 
 kill-stockcrm: ## Stop all StockCRM/DanioDashboard processes

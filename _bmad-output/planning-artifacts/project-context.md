@@ -89,7 +89,7 @@ All external integrations are **non-blocking** — they must never hold up the m
 | Integration | Timeout | Fallback |
 |-------------|---------|---------|
 | Insurer APIs | 5s | Mark offer as `unavailable` — does NOT block other offers |
-| Google Vision OCR | 10s | AWS Textract (transparent to user) |
+| ML Kit OCR (on-device) | ~3s | AWS Textract fallback (transparent to user) |
 | KAT API | 5s | Manual entry with warning |
 | Гаранционен фонд | 5s | Manual check + warning |
 | VIN Decoder (NHTSA) | 3s | Local WMI table |

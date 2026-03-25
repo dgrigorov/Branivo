@@ -3,6 +3,10 @@ stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 lastStep: 14
 status: complete
 inputDocuments: ['prd.md', 'product-brief.md', 'project-context.md']
+revisions:
+  - date: 2026-03-25
+    section: "Onboarding Experience"
+    description: "Added full mobile onboarding spec: Splash, Value Proposition Slides, Quick Interest Selector, Entry Gate, Login, Reset Password (3-step), Register, Anonymous Entry"
 ---
 
 # UX Design Specification Branivo
@@ -1334,4 +1338,608 @@ App launch:
 - [ ] ПТП Wizard: `aria-live="polite"` за progress indicator при стъпка смяна
 - [ ] Emergency contacts: `role="link"` за tel: href елементи
 - [ ] Charts (BI Dashboard): `aria-label` с text summary на данните (напр. "18.4% конверсия за 30 дни")
+
+---
+
+## Onboarding Experience — Мобилно приложение
+
+> **Ревизия:** 2026-03-25 — Нова секция, описва всички entry screens за Flutter app.
+> **Принцип:** "Оферта преди акаунт." Потребителят достига до OCR scan преди регистрация.
+> **Референс дизайн:** Dribbble Phone OTP Auth UI (light sage theme) + ux-login-flow-spec.md
+
+---
+
+### Design Language (Onboarding)
+
+Onboarding screens използват **същата design система** като auth flow-а (вж. `ux-login-flow-spec.md`):
+
+| Token | Hex | Употреба |
+|-------|-----|---------|
+| `kBgColor` | `#E0EAF0` | Фон на ВСИЧКИ onboarding екрани |
+| `kDarkCard` | `#1A2D3A` | Heading текст, Dark info card |
+| `kBlueMid` | `#3EA8E5` | Primary CTA, focus ring, accent |
+| `kBlueLight` | `#6CC4F5` | Gradient start за бутони |
+| `kFieldBg` | `#F5F8FC` | Input fill |
+| White | `#FFFFFF` | Card surfaces, OTP boxes |
+
+**Типография:**
+
+| Роля | Size | Weight |
+|------|------|--------|
+| Hero heading | 36px | w800 |
+| Screen heading | 32px | w800 |
+| Subtitle | 15px | w400, opacity 55% |
+| Caption / hint | 13px | w400, opacity 45% |
+| Button | 16px | w700, letter-spacing 0.3 |
+
+**Shared компоненти (от auth):**
+- `_CircleButton` — 40×40px бял кръг, back navigation
+- `_DarkInfoCard` — тъмна контекстна карта
+- `_BranivoTextField` — fill input без outline
+- `_GradientButton` — 56px height, gradient + glow shadow
+
+---
+
+### Екран 1: Splash Screen
+
+**Файл:** `lib/features/onboarding/screens/splash_screen.dart`
+**Trigger:** Студено стартиране на приложението
+**Duration:** 1.8 сек → автоматичен redirect
+
+#### Layout
+```
+Scaffold(backgroundColor: kBgColor)
+└── Center
+    └── Column(mainAxisAlignment: center)
+        ├── AnimatedOpacity (duration: 600ms → opacity 0→1)
+        │   └── TenantLogoWidget (max 160×80px, object-fit: contain)
+        ├── SizedBox(16)
+        └── AnimatedOpacity (delay: 400ms, duration: 500ms)
+            └── Text(tenantName, style: heading32, color: kDarkCard)
+```
+
+#### Animation Sequence
+```
+0ms      → Черен/kBgColor фон
+0–600ms  → Logo fade-in + subtle scale (0.85 → 1.0)
+400–900ms → Tenant name fade-in
+900–1600ms → Пауза (logo видим)
+1600–1800ms → Fade-out целия екран (opacity 1→0)
+1800ms   → Navigate → EntryGateScreen (или HomeScreen ако логнат)
+```
+
+#### Logic (Router Decision)
+```dart
+// Изпълнява се след анимацията
+if (hasValidSession) {
+  // Логнат потребител → директно към home
+  router.replace('/home');
+} else if (isFirstLaunch) {
+  // Първо стартиране → value proposition slides
+  router.replace('/onboarding/slides');
+} else {
+  // Познат потребител, но не логнат → entry gate
+  router.replace('/onboarding/entry');
+}
+```
+
+**White-label:** `TenantLogoWidget` зарежда лого от `tenantConfig.logoUrl`. Fallback = Branivo лого (никога не се показва на краен клиент в production бранд).
+
+---
+
+### Екран 2: Value Proposition Slides (само при първо стартиране)
+
+**Файл:** `lib/features/onboarding/screens/onboarding_slides_screen.dart`
+**Trigger:** `isFirstLaunch == true` (SharedPreferences flag)
+**Брой слайдове:** 2 (не повече — "super елементарен")
+
+#### Layout — обща структура
+```
+Scaffold(backgroundColor: kBgColor)
+└── SafeArea
+    └── Column
+        ├── TopBar
+        │   ├── [Spacer]
+        │   └── TextButton "Пропусни" (tertiary, opacity 60%)
+        ├── Expanded
+        │   └── PageView (horizontal swipe)
+        │       ├── _OnboardingSlide(index: 0)
+        │       └── _OnboardingSlide(index: 1)
+        └── BottomBar
+            ├── DotsIndicator (2 dots, kBlueMid active, kBlueMid@30% inactive)
+            ├── SizedBox(24)
+            └── _GradientButton
+                ├── [Slide 0] label: "Напред →"
+                └── [Slide 1] label: "Започни →"
+```
+
+#### Slide 0: "30 секунди до оферта"
+```
+┌─────────────────────────────────────┐
+│                       [Пропусни]    │
+│                                     │
+│   ┌───────────────────────────┐     │
+│   │  🚗                       │     │  ← Illustrated card (kDarkCard bg)
+│   │  [Scan frame animation]   │     │     120×120px illustration
+│   │  Намерихме Toyota Corolla │     │
+│   └───────────────────────────┘     │
+│                                     │
+│   Оферта за 30 секунди              │  ← Heading 32px w800 kDarkCard
+│                                     │
+│   Снимай талона на колата си и      │  ← Subtitle 15px opacity 55%
+│   получи оферти от водещите         │
+│   застрахователи веднага.           │
+│                                     │
+│           ● ○                       │  ← Dots
+│   ┌─────────────────────────────┐   │
+│   │         Напред →            │   │  ← GradientButton
+│   └─────────────────────────────┘   │
+└─────────────────────────────────────┘
+```
+
+#### Slide 1: "Плати с Face ID"
+```
+┌─────────────────────────────────────┐
+│                       [Пропусни]    │
+│                                     │
+│   ┌───────────────────────────┐     │
+│   │  🔒                       │     │
+│   │  [Face ID icon + shield]  │     │
+│   │  Сигурно и бързо          │     │
+│   └───────────────────────────┘     │
+│                                     │
+│   Плати за секунди                  │
+│                                     │
+│   Apple Pay, Google Pay или карта.  │
+│   Твоите данни са защитени.         │
+│                                     │
+│           ○ ●                       │
+│   ┌─────────────────────────────┐   │
+│   │          Започни →          │   │
+│   └─────────────────────────────┘   │
+└─────────────────────────────────────┘
+```
+
+**UX правила:**
+- "Пропусни" е **винаги видим** — никога не трапваме потребителя
+- Swipe gesture работи; бутонът е само помощен
+- При натискане на "Започни" → Navigate → EntryGateScreen
+- `SharedPreferences.setBool('onboarding_completed', true)` при излизане
+
+---
+
+### Екран 2.5: Quick Interest Selector (след слайдовете, само при първо стартиране)
+
+**Файл:** `lib/features/onboarding/screens/interest_selector_screen.dart`
+**Trigger:** Само при `isFirstLaunch == true`, след OnboardingSlides
+**Goal:** 1 въпрос, 1 tap, auto-advance — разбираме фокуса на клиента без да го бавим
+
+#### Принцип на дизайна
+
+```
+1 въпрос → visual cards → auto-advance след избор
+```
+Потребителят **не натиска "Напред"** — изборът е достатъчен. Максимална скорост.
+Данните отиват в `UserInterest` state → персонализираме home screen CTA.
+
+#### Layout
+```
+Scaffold(backgroundColor: kBgColor)
+└── SafeArea
+    └── Column
+        ├── TopBar
+        │   ├── _CircleButton (back → slides или skip)
+        │   └── TextButton "Пропусни" → EntryGateScreen
+        ├── SizedBox(32)
+        ├── Padding(px: 24)
+        │   ├── Text "Какво те интересува?" (heading 32px, kDarkCard)
+        │   └── Text "Избери и ще намерим най-добрите оферти за теб."
+        │            (subtitle 15px, opacity 55%)
+        ├── SizedBox(32)
+        └── Expanded
+            └── Padding(px: 16)
+                └── GridView.count(crossAxisCount: 2, spacing: 12)
+                    ├── _InterestCard(type: InsuranceType.go)
+                    ├── _InterestCard(type: InsuranceType.casco)
+                    ├── _InterestCard(type: InsuranceType.travel)
+                    └── _InterestCard(type: InsuranceType.property)
+```
+
+#### `_InterestCard` компонент
+```
+Container(
+  decoration: BoxDecoration(
+    color: isSelected ? kBlueMid.withAlpha(20) : Colors.white,
+    borderRadius: 20px,
+    border: isSelected
+      ? Border.all(kBlueMid, 2.0)
+      : Border.all(Colors.transparent, 2.0),
+    boxShadow: soft shadow (y:4, blur:12, kDarkCard@8%),
+  ),
+  child: Padding(16)
+    └── Column(crossAxisAlignment: start)
+        ├── Container(48×48, decoration: CircleAvatar kBlueMid@15%)
+        │   └── Icon(insuranceIcon, color: kBlueMid, size: 24)
+        ├── SizedBox(12)
+        ├── Text(label, 15px, w700, kDarkCard)
+        └── Text(sublabel, 12px, opacity 45%)
+```
+
+#### Карти (4 опции)
+| Тип | Икона | Label | Sublabel |
+|-----|-------|-------|---------|
+| ГО (задължителна) | `directions_car` | "Гражданска отг." | "За всяко МПС" |
+| Каско | `car_crash` | "Каско" | "Пълно покритие" |
+| Пътуване | `flight_takeoff` | "Пътуване" | "За чужбина" |
+| Имущество | `home_outlined` | "Имущество" | "Дом и офис" |
+
+**Поведение:**
+- Tap → `isSelected = true` + `HapticFeedback.lightImpact()`
+- **Auto-advance след 300ms** → animate out → EntryGateScreen
+- Изборът се записва в `SharedPreferences('user_interest')` → персонализира Home screen CTA
+- "Пропусни" записва `user_interest = 'go'` (default — най-честото) и навигира
+
+#### Персонализация след избор
+
+| Избор | Home Screen Primary CTA | _DarkInfoCard на Entry Gate |
+|-------|-------------------------|-----------------------------|
+| ГО | "Сканирай талона" | "ГО застраховка за минути" |
+| Каско | "Вземи Каско оферта" | "Намери Каско покритие" |
+| Пътуване | "Оферти за пътуване" | "Застраховай пътуването си" |
+| Имущество | "Защити дома си" | "Имуществена застраховка" |
+
+**Note:** Персонализацията е **tenant-feature-gated** — ако tenant не поддържа Каско/Travel/Property, тези карти не се показват. При само 1 тип → Interest Selector се пропуска изцяло.
+
+---
+
+### Екран 3: Entry Gate (Главен избор)
+
+**Файл:** `lib/features/onboarding/screens/entry_gate_screen.dart`
+**Принцип:** Максимум 3 действия. Anonymous scan е **доминиращото** — то е MVP.
+
+#### Layout
+```
+Scaffold(backgroundColor: kBgColor)
+└── SafeArea
+    └── SingleChildScrollView (px: 24)
+        ├── SizedBox(48)
+        ├── TenantLogoWidget (centered, 120×60px)
+        ├── SizedBox(32)
+        ├── _DarkInfoCard
+        │   icon: shield_outlined
+        │   title: "Застрахователни оферти"
+        │   subtitle: "Сравни и купи за минути"
+        ├── SizedBox(40)
+        │
+        │   ─── PRIMARY ACTION ───────────────
+        ├── _GradientButton (full width)
+        │   label: "Сканирай без акаунт"
+        │   icon: camera_alt_outlined (leading)
+        │   onTap: → /scanner (anonymous mode)
+        │
+        ├── SizedBox(16)
+        │
+        │   ─── SECONDARY ──────────────────
+        ├── OutlinedButton (full width, 56px, radius 16)
+        │   style: border kBlueMid 1.5px, text kBlueMid
+        │   label: "Влез в профила си"
+        │   onTap: → /auth/login
+        │
+        ├── SizedBox(12)
+        │
+        │   ─── TERTIARY ────────────────────
+        ├── TextButton (centered)
+        │   label: "Нямаш акаунт? Регистрирай се"
+        │   color: kDarkCard, opacity 55%
+        │   onTap: → /auth/register
+        │
+        ├── SizedBox(32)
+        └── Text("Продължавайки, приемаш условията ни.",
+                 style: caption 13px, opacity 40%, centered)
+```
+
+#### Visual Hierarchy
+
+```
+Hero CTA   → "Сканирай без акаунт"  [gradient, glow, dominant]
+Secondary  → "Влез в профила си"    [outlined, same width, subdued]
+Tertiary   → "Регистрирай се"       [text only, smallest]
+```
+
+**Ключово решение:** Primary CTA е anonymous scan, НЕ login. Целта е клиентът да влезе в OCR flow преди всичко. Регистрацията се случва inline при "Купи" (Journey 5).
+
+---
+
+### Екран 4: Login
+
+> Вж. пълна спецификация в `ux-login-flow-spec.md` — Раздел 2 (Екран: Login).
+> Вж. имплементация в `lib/features/auth/screens/login_screen.dart` ✅
+
+**Навигация от Entry Gate:** `OutlinedButton "Влез в профила си"` → `/auth/login`
+
+**Допълнение към съществуващия spec:**
+
+На Login screen, след формата, добави:
+```
+└── FormCard
+    ├── _BranivoTextField "Имейл"
+    ├── _BranivoTextField "Парола"
+    ├── SizedBox(8)
+    ├── Align(right) TextButton "Забравена парола?" → /auth/reset-password
+    ├── SizedBox(16)
+    └── _GradientButton "Влез"
+```
+
+---
+
+### Екран 5: Reset Password (3-стъпков flow)
+
+**Файл:** `lib/features/auth/screens/reset_password_screen.dart`
+**Trigger:** TextButton "Забравена парола?" от Login screen
+
+#### Стъпка 1 — Email Input
+```
+Scaffold(backgroundColor: kBgColor)
+└── SafeArea
+    └── SingleChildScrollView (px: 24, py: 32)
+        ├── TopBar: _CircleButton (back → login)
+        ├── SizedBox(40)
+        ├── StepIndicator "Стъпка 1 от 3" (caption, opacity 55%)
+        ├── SizedBox(8)
+        ├── Text "Нулиране на парола" (heading 32px)
+        ├── SizedBox(24)
+        ├── _DarkInfoCard
+        │   icon: email_outlined
+        │   title: "Въведи имейл адрес"
+        │   subtitle: "Ще изпратим 6-цифрен код за потвърждение"
+        ├── SizedBox(24)
+        └── FormCard (white, radius 20)
+            ├── _BranivoTextField "Имейл адрес" (emailAddress keyboard)
+            ├── SizedBox(24)
+            └── _GradientButton "Изпрати код"
+```
+
+#### Стъпка 2 — OTP Verification
+> Reuse на `_OtpBox` компонентите от `two_fa_screen.dart`
+
+```
+        ├── StepIndicator "Стъпка 2 от 3"
+        ├── Text "Въведи кода"
+        ├── _DarkInfoCard
+        │   icon: mark_email_read_outlined
+        │   title: "Кодът е изпратен"
+        │   subtitle: "Провери имейл: {email} (TTL: 10 мин)"
+        ├── SizedBox(32)
+        ├── OtpBoxesRow (6× _OtpBox) — same as 2FA screen
+        ├── HiddenTextField
+        ├── SizedBox(16)
+        ├── Center → TextButton "Изпрати нов код" (disabled ако < 60 сек)
+        │   └── CountdownTimer ("Изпрати нов код след {N}с")
+        ├── SizedBox(24)
+        └── _GradientButton "Потвърди" (disabled ако < 6 цифри)
+```
+
+**State mapping:**
+| State | UI |
+|-------|----|
+| `initial` | OTP boxes empty, button disabled |
+| `loading` | Button spinner |
+| `error` | Red banner "Невалиден или изтекъл код" |
+| `success` | Navigate → Стъпка 3 |
+
+#### Стъпка 3 — New Password
+```
+        ├── StepIndicator "Стъпка 3 от 3"
+        ├── Text "Нова парола"
+        ├── _DarkInfoCard
+        │   icon: lock_reset_outlined
+        │   title: "Въведи нова парола"
+        │   subtitle: "Минимум 8 символа"
+        └── FormCard
+            ├── _BranivoTextField "Нова парола" (obscure + toggle)
+            ├── SizedBox(12)
+            ├── _BranivoTextField "Потвърди парола" (obscure + toggle)
+            ├── SizedBox(8)
+            ├── PasswordStrengthIndicator (4 dots: слаба/средна/добра/силна)
+            ├── SizedBox(24)
+            └── _GradientButton "Смени паролата"
+```
+
+**Password Strength Indicator:**
+```dart
+// Визуален индикатор — 4 сегмента
+// 1 активен (red): < 8 chars
+// 2 активни (amber): 8+ chars, само букви
+// 3 активни (yellow-green): 8+ chars + цифра
+// 4 активни (kBlueMid): 8+ chars + цифра + специален символ
+```
+
+**Success → Navigate:** `pushReplacementNamed('/auth/login')` + SnackBar "Паролата е сменена успешно. Влез с новата парола."
+
+---
+
+### Екран 6: Register
+
+**Файл:** `lib/features/auth/screens/register_screen.dart`
+**Trigger:** TextButton "Регистрирай се" от Entry Gate
+
+#### Layout
+```
+Scaffold(backgroundColor: kBgColor)
+└── SafeArea
+    └── SingleChildScrollView (px: 24, py: 32)
+        ├── TopBar
+        │   ├── _CircleButton (back → entry gate)
+        │   └── TextButton "Вход" → /auth/login
+        ├── SizedBox(40)
+        ├── Text "Създай акаунт" (heading 32px)
+        ├── Text "Бърза регистрация в 2 стъпки" (subtitle 15px)
+        ├── SizedBox(24)
+        ├── _DarkInfoCard
+        │   icon: person_add_outlined
+        │   title: "Само основни данни"
+        │   subtitle: "Пълният профил се допълва след покупка"
+        ├── SizedBox(24)
+        └── FormCard (white, radius 20)
+            ├── _BranivoTextField "Имейл адрес"
+            ├── SizedBox(12)
+            ├── _BranivoTextField "Телефон" (+359 prefix fixed, numeric keyboard)
+            ├── SizedBox(12)
+            ├── _BranivoTextField "Парола" (obscure + toggle)
+            ├── SizedBox(8)
+            ├── PasswordStrengthIndicator
+            ├── SizedBox(16)
+            ├── Row
+            │   ├── Checkbox (kBlueMid checked color)
+            │   └── RichText
+            │       ├── "Приемам " (opacity 55%)
+            │       └── TextSpan "Условията за ползване" (kBlueMid, underline)
+            │           └── onTap → legal modal
+            ├── SizedBox(24)
+            └── _GradientButton "Регистрирай се"
+```
+
+**State mapping:**
+| State | UI |
+|-------|----|
+| `initial` | Form clean, button disabled (terms unchecked) |
+| `loading` | Button spinner |
+| `error_email_taken` | Inline: "Имейлът вече е регистриран. [Влез →]" |
+| `error_weak_password` | PasswordStrengthIndicator pulse + inline text |
+| `success` | → OTP Phone Verification → `/home` |
+
+**Note:** След успешна регистрация платформата изпраща OTP на телефона за верификация (reuse на `_OtpBox` widget). Само след верификация → `/home`.
+
+---
+
+### Екран 7: Anonymous Scan Entry Point
+
+**Поведение:** Потребителят натиска "Сканирай без акаунт" → отива директно в OCR wizard в `anonymous mode`.
+
+**Промяна в Router/State:**
+```dart
+// Подава anonymousMode: true към OCR wizard
+router.push('/scanner', extra: {'anonymousMode': true});
+```
+
+**Post-Purchase Prompt (след успешна покупка с anonymous акаунт):**
+
+```
+┌─────────────────────────────────────┐
+│  Запази полицата си                 │  ← BottomSheet (не modal!)
+│                                     │
+│  ✅ Купи ГО · Toyota Corolla        │
+│                                     │
+│  Регистрирай се за да:              │
+│  • Получиш PDF на имейл             │
+│  • Виждаш полиците си               │
+│  • Подновиш с едно докосване        │
+│                                     │
+│  [Телефонен номер поле]             │
+│  [_GradientButton "Запази акаунта"] │
+│                                     │
+│  [TextButton "Не сега, изпрати PDF] │
+└─────────────────────────────────────┘
+```
+
+**UX правила:**
+- BottomSheet (НЕ modal) — може да се свали с swipe down
+- "Не сега" е винаги видим — без натиск, изпращаме PDF на имейл (ако е въведен при плащане)
+- Данните от anonymous сесията мигрират към новия акаунт без повторно въвеждане
+
+---
+
+### Onboarding Navigation Map
+
+```
+App Launch
+    │
+    ▼
+SplashScreen (1.8с)
+    │
+    ├── [hasValidSession] ──────────────→ HomeScreen
+    │
+    ├── [isFirstLaunch] ─────────────→ OnboardingSlides (2 slides)
+    │                                        │
+    │                                        ▼
+    │                               InterestSelector (1 tap, auto-advance)
+    │                                        │
+    │                                        ▼
+    │                                   EntryGateScreen
+    │
+    └── [returning, not logged in] ──→ EntryGateScreen
+                                            │
+                    ┌───────────────────────┼───────────────────────┐
+                    │                       │                       │
+                    ▼                       ▼                       ▼
+          "Сканирай без акаунт"      "Влез в профила"        "Регистрирай се"
+                    │                       │                       │
+                    ▼                       ▼                       ▼
+             OCR Scanner              LoginScreen            RegisterScreen
+          (anonymous mode)                 │                       │
+                    │                ────────────                   │
+                    │               │            │                  │
+                    │           success    "Забравена парола"      OTP Verify
+                    │               │            │                  │
+                    ▼               ▼            ▼                  ▼
+           PurchaseFlow        HomeScreen  ResetPassword        HomeScreen
+                    │                      (3 стъпки)
+                    ▼
+         PostPurchasePrompt
+         (BottomSheet: запази акаунт)
+```
+
+---
+
+### Consistency Rules (Onboarding)
+
+| Правило | Описание |
+|---------|---------|
+| **Фон** | Всички онбординг екрани = `kBgColor` (`#E0EAF0`) |
+| **Back navigation** | `_CircleButton` на всеки екран без SplashScreen |
+| **Primary CTA** | Максимум 1 `_GradientButton` на екран, винаги в долната thumb zone |
+| **Info card** | `_DarkInfoCard` на всеки auth/onboarding екран — дава контекст |
+| **No redirects** | Registration prompt е BottomSheet inline, не нов route |
+| **Skip always visible** | Onboarding slides имат "Пропусни" бутон винаги |
+| **Progress indicator** | Multi-step flows (Reset PW, Register) имат "Стъпка X от Y" |
+
+---
+
+### Файлова структура (Onboarding)
+
+```
+lib/features/onboarding/
+├── screens/
+│   ├── splash_screen.dart
+│   ├── onboarding_slides_screen.dart
+│   ├── interest_selector_screen.dart
+│   └── entry_gate_screen.dart
+├── widgets/
+│   └── interest_card.dart
+
+lib/features/auth/
+├── screens/
+│   ├── login_screen.dart          ✅ Implemented
+│   ├── two_fa_screen.dart         ✅ Implemented
+│   ├── register_screen.dart       TODO
+│   └── reset_password_screen.dart TODO
+├── widgets/
+│   └── password_strength_indicator.dart TODO
+
+lib/core/widgets/
+└── auth_widgets.dart              TODO (extract shared: _CircleButton,
+                                         _DarkInfoCard, _BranivoTextField,
+                                         _GradientButton, _OtpBox)
+```
+
+---
+
+### Accessibility (Onboarding)
+
+- [ ] Splash Screen: `Semantics(label: '{tenantName} се зарежда')` + `excludeSemantics: true` за лого
+- [ ] Onboarding Slides: `PageView` с `Semantics(label: 'Слайд {i} от 2')` + swipe gesture hint
+- [ ] Entry Gate: Трите бутона имат ясни `Semantics` labels; йерархия е семантична (heading, не само визуална)
+- [ ] Reset Password: `aria-live="polite"` за countdown timer; `aria-live="assertive"` за OTP error
+- [ ] PasswordStrengthIndicator: `Semantics(label: 'Силата на паролата: {слаба|средна|добра|силна}')` + `liveRegion: true`
+- [ ] Anonymous Prompt BottomSheet: `aria-modal: false` — фонът остава достъпен
 - [ ] Loyalty toggle: `aria-checked` + `aria-label="Използвай 120 loyalty точки за 12 лв. отстъпка"`

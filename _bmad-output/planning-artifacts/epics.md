@@ -109,7 +109,7 @@ FR90: Системата начислява loyalty points при всяка п�
 
 ### NonFunctional Requirements
 
-NFR1: OCR pipeline (3 снимки → попълнени полета) завършва в < 30 секунди при нормални мрежови условия (sync path: Google Vision < 15 сек; async path: AWS Textract < 30 сек)
+NFR1: OCR pipeline (3 снимки → попълнени полета) завършва в < 15 секунди при нормални условия (sync path: ML Kit on-device < 3 сек; async path: AWS Textract fallback < 30 сек)
 NFR2: Quote API резултати (паралелни заявки към всички застрахователи) се показват в < 5 секунди (Promise.allSettled с timeout per insurer)
 NFR3: Страниците на уеб портала се зареждат в < 2 секунди (First Contentful Paint) на 4G мрежа
 NFR4: PDF полица + Зелена карта се генерират и изпращат на имейл в < 5 минути след потвърдено плащане
@@ -144,13 +144,13 @@ NFR32: Quote flow е функционален на ≥ 1024px (desktop/iPad), 76
 NFR33: Всеки insurer adapter е изолиран зад `InsurerAdapter` интерфейс — нов застраховател се добавя без промяна на core логика
 NFR34: Circuit breaker параметри за всички external APIs: 5 грешки / 60 сек → отваря; 30 сек half-open; 1 probe заявка
 NFR35: Stripe webhook обработва се idempotently — дублирани webhook events не създават дублирани записи
-NFR36: Дефинирани timeouts: insurer APIs 5 сек; OCR sync (Google Vision) 15 сек; OCR async (AWS Textract) 30 сек; КАТ API 3 сек
+NFR36: Дефинирани timeouts: insurer APIs 5 сек; OCR sync (ML Kit on-device) 3 сек; OCR async (AWS Textract fallback) 30 сек; КАТ API 3 сек
 NFR37: SendGrid failure → автоматично fallback към SMTP; Twilio SMS failure → email OTP fallback
 NFR38: Цялата инфраструктура е дефинирана като IaC с Terraform — dev, staging и prod environments са functionally identical: same Postgres version, same Redis config, same BullMQ workers
 NFR39: Системата поддържа per-tenant feature configuration — активиране/деактивиране на функционалност без code deploy
 NFR40: Commission matrix се конфигурира от Super Admin без code deploy — промените влизат в сила веднага и се логват в audit_log
 NFR41: Системата поддържа soft delete на всички entities; лични данни се изтриват физически 24 месеца след soft delete, освен ако активна полица изисква запазване за одитни цели
-NFR42: GDPR: DPA с всеки брокер-тенант задължителен преди активация; покрива sub-processors (AWS, Stripe, Google Vision, SendGrid, Twilio)
+NFR42: GDPR: DPA с всеки брокер-тенант задължителен преди активация; покрива sub-processors (AWS, Stripe, SendGrid, Twilio)
 NFR43: КФН: Всяка продажба минава през лицензиран брокер-тенант; платформата деактивира тенант при отнет лиценз
 NFR44: КЗ: Scoring алгоритъм (`is_recommended`) — входни данни, weights и резултат се логват за одитируемост
 NFR45: PSD2: Stripe 3DS 2.0 задължителен за всяко картово плащане в ЕС
@@ -578,10 +578,10 @@ So that my vehicle data is filled automatically without manual typing.
 **Then** показва се high-contrast frame guide с voice feedback ("Насочете камерата към документа")
 
 **Given** client captures 3 photos (Part I + Part II на свидетелство),
-**When** images are submitted to Google Vision (sync path),
-**Then** OCR pipeline завършва в < 15 сек и полетата се попълват автоматично
+**When** Flutter ML Kit processes images on-device (sync path),
+**Then** OCR pipeline завършва в < 3 сек и полетата се попълват автоматично
 
-**Given** Google Vision fails or confidence < 0.85,
+**Given** ML Kit confidence < 0.85 (средно по всички полета) или ML Kit failure,
 **When** fallback to AWS Textract (async path) is triggered,
 **Then** BullMQ job се queue-ва и клиентът вижда loading state с progress indicator; frontend polls `/ocr/status/{jobId}` на всеки 2 сек до завършване (< 30 сек)
 

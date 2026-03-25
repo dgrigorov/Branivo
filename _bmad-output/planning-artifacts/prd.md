@@ -279,7 +279,7 @@ AutoMax иска ГО при покупка на кола в шоурума. API
 - **Penetration test задължителен преди всеки major phase launch** (Phase 1, Phase 2, Балкани) от акредитирана фирма
 
 **GDPR (Регламент ЕС 2016/679):**
-- DPA с всеки брокер-тенант задължителен преди активация; покрива sub-processors: AWS, Stripe, Google Vision, SendGrid, Twilio
+- DPA с всеки брокер-тенант задължителен преди активация; покрива sub-processors: AWS, Stripe, SendGrid, Twilio
 - Лични данни криптирани at-rest (AES-256-GCM) и in-transit (TLS 1.3)
 - Право на изтриване: soft delete (`deleted_at`) + пълно изтриване след retention период
 - Explicit consent при регистрация (`gdpr_consent` + `gdpr_consent_at`)
@@ -306,7 +306,7 @@ AutoMax иска ГО при покупка на кола в шоурума. API
 | Гаранционен фонд API | Проверка за нерегламентирано МПС | Критична |
 | Insurer APIs | Real-time оферти | Критична |
 | Speedy / Econt | Доставка на стикер (feature flag) | Средна |
-| Google Vision / AWS Textract | OCR на свидетелство за регистрация | Висока |
+| Firebase ML Kit / AWS Textract | OCR на свидетелство за регистрация | Висока |
 
 > Пълен Integration List с fallback стратегии → виж **SaaS B2B изисквания → Integration List**.
 
@@ -342,7 +342,7 @@ AutoMax иска ГО при покупка на кола в шоурума. API
 **1. Full-cycle OCR от 3 снимки (уникално за Балканския пазар)**
 Part I (технически данни за ГО) + Part II (лични данни за Каско) → 100% auto-fill за ГО, ~80% за Каско. Никой конкурент в BG/Balkans не е автоматизирал и двете страни.
 
-Техническа реализация: Google Vision API (primary) + AWS Textract (fallback), confidence threshold 0.85, graceful degradation при нисък score.
+Техническа реализация: Firebase ML Kit (on-device, primary) + AWS Textract (server-side fallback), confidence threshold 0.85, graceful degradation при нисък score. OCR се изпълнява on-device в Flutter приложението — снимките не се изпращат към external cloud OCR services при primary path.
 
 **OCR Analytics Dashboard** (Super Admin, от Phase 1 launch): per-field confidence score, fallback rate per field и per-device type. При field fallback rate > 20% — автоматичен алерт за model retraining.
 
@@ -458,7 +458,7 @@ Branivo е мулти-тенант SaaS B2B платформа с broker-as-tena
 | Insurer APIs | REST/SOAP adapter | Критична | Circuit breaker (5/60s) → skip insurer |
 | Stripe Connect Express | Payments | Критична | Няма fallback |
 | КАТ / Traffic Police API | VIN валидация | Висока | Manual VIN entry с предупреждение |
-| Google Vision API | OCR primary | Висока | AWS Textract fallback |
+| Firebase ML Kit   | OCR primary (on-device) | Висока | AWS Textract fallback |
 | AWS Textract | OCR fallback | Средна | Manual entry |
 | Гаранционен фонд API | МПС проверка | Висока | Manual check + warning |
 | SendGrid | Transactional email | Средна | Queue + retry; SMTP fallback |
@@ -746,7 +746,7 @@ Branivo е мулти-тенант SaaS B2B платформа с broker-as-tena
 
 ### Performance
 
-- **NFR1:** OCR pipeline (3 снимки → попълнени полета) завършва в **< 30 секунди** при нормални мрежови условия (sync path: Google Vision < 15 сек; async path: AWS Textract < 30 сек)
+- **NFR1:** OCR pipeline (3 снимки → попълнени полета) завършва в **< 15 секунди** при нормални условия (sync path: ML Kit on-device < 3 сек; async path: AWS Textract fallback < 30 сек)
 - **NFR2:** Quote API резултати (паралелни заявки към всички застрахователи) се показват в **< 5 секунди** (Promise.allSettled с timeout per insurer)
 - **NFR3:** Страниците на уеб портала се зареждат в **< 2 секунди** (First Contentful Paint) на 4G мрежа
 - **NFR4:** PDF полица + Зелена карта се генерират и изпращат на имейл в **< 5 минути** след потвърдено плащане
@@ -797,7 +797,7 @@ Branivo е мулти-тенант SaaS B2B платформа с broker-as-tena
 - **NFR33:** Всеки insurer adapter е изолиран зад `InsurerAdapter` интерфейс — нов застраховател се добавя без промяна на core логика
 - **NFR34:** Circuit breaker параметри за всички external APIs: **5 грешки / 60 сек → отваря; 30 сек half-open; 1 probe заявка**
 - **NFR35:** Stripe webhook обработва се **idempotently** — дублирани webhook events не създават дублирани записи
-- **NFR36:** Дефинирани timeouts: insurer APIs **5 сек**; OCR sync (Google Vision) **15 сек**; OCR async (AWS Textract) **30 сек**; КАТ API **3 сек**
+- **NFR36:** Дефинирани timeouts: insurer APIs **5 сек**; OCR sync (ML Kit on-device) **3 сек**; OCR async (AWS Textract fallback) **30 сек**; КАТ API **3 сек**
 - **NFR37:** SendGrid failure → автоматично fallback към SMTP; Twilio SMS failure → email OTP fallback
 
 ### Maintainability
@@ -816,7 +816,7 @@ Branivo е мулти-тенант SaaS B2B платформа с broker-as-tena
 
 ### Compliance
 
-- **NFR42:** **GDPR:** DPA с всеки брокер-тенант задължителен преди активация; покрива sub-processors (AWS, Stripe, Google Vision, SendGrid, Twilio)
+- **NFR42:** **GDPR:** DPA с всеки брокер-тенант задължителен преди активация; покрива sub-processors (AWS, Stripe, SendGrid, Twilio). Забележка: Firebase ML Kit обработва OCR данните on-device — Google не е sub-processor за OCR.
 - **NFR43:** **КФН:** Всяка продажба минава през лицензиран брокер-тенант; платформата деактивира тенант при отнет лиценз
 - **NFR44:** **КЗ:** Scoring алгоритъм (`is_recommended`) — входни данни, weights и резултат се логват за одитируемост
 - **NFR45:** **PSD2:** Stripe 3DS 2.0 задължителен за всяко картово плащане в ЕС

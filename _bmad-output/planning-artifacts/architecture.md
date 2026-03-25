@@ -38,7 +38,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 | NFR | Изискване | Архитектурна импликация |
 |-----|-----------|------------------------|
-| NFR1 | OCR < 30 сек end-to-end | Async pipeline; Vision 15s / Textract 30s |
+| NFR1 | OCR < 15 сек end-to-end | ML Kit on-device ~3s; Textract fallback 30s |
 | NFR2 | Quotes < 5 сек (all insurers) | Promise.allSettled + per-insurer timeout 5s |
 | NFR3 | FCP < 2 сек (4G) | Next.js ISR за branding; dynamic rendering за quotes |
 | NFR4 | PDF < 5 мин след плащане | BullMQ async; retry 3x; DLQ → Super Admin alert |
@@ -94,7 +94,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 | Integration | Timeout | Circuit Breaker | Fallback |
 |-------------|---------|----------------|---------|
 | Insurer APIs | 5s | 5/60s → open; 30s half-open | Skip insurer; mark `unavailable` |
-| Google Vision API | 15s | — | AWS Textract |
+| Firebase ML Kit   | ~3s (on-device) | — | AWS Textract |
 | AWS Textract | 30s | — | Manual entry |
 | КАТ Traffic Police API | 3s | — | Manual VIN + предупреждение |
 | Гаранционен фонд | 5s | — | Manual check + Redis cache 24h/VIN |
@@ -127,7 +127,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 2. **Payment Reliability** — idempotent Stripe webhooks (check `payment.id` before acting); 0 загубени транзакции; policy activation САМО след `payment_intent.succeeded` webhook; `stripe-idempotency-key` header
 
-3. **OCR Pipeline** — 3 images → Google Vision (primary, 15s) → AWS Textract (fallback, 30s) → confidence 0.85 threshold → partial fill с visual indicator → graceful manual fallback; rate limit 10 req/min/IP
+3. **OCR Pipeline** — Flutter ML Kit processes 3 images on-device (~3s) → extracts fields → sends fields+confidence to POST /api/v1/ocr/scan → if avg confidence < 0.85, backend enqueues AWS Textract fallback (BullMQ async, 30s) → confidence 0.85 threshold → partial fill с visual indicator → graceful manual fallback; rate limit 10 req/min/IP. Снимките НЕ се изпращат към external cloud OCR service при primary path.
 
 4. **Async Job Processing** — BullMQ 3 queues (pdf/notifications/logistics); retry 3x exponential backoff; DLQ → Super Admin alert + broker notification при policy-impacting failure; workers хоризонтално scaleable independent per queue
 
@@ -391,7 +391,7 @@ mkdir -p branivo-infra/modules/{ecs,rds,redis,s3,networking}
 1. Terraform dev environment (RDS + ElastiCache + ECS)
 2. NestJS: TenantContext middleware + TypeORM + RLS migrations
 3. NestJS: Auth module (JWT + Passport + bcrypt + 2FA)
-4. NestJS: OCR module (Google Vision + Textract + circuit breaker)
+4. NestJS: OCR module (ML Kit result processor + Textract fallback + circuit breaker)
 5. NestJS: Quotes module (InsurerAdapter + Promise.allSettled + opossum)
 6. NestJS: Payments module (Stripe Connect + webhook raw body)
 7. NestJS: BullMQ 3 queues (pdf-generation, notifications, logistics)
@@ -831,7 +831,7 @@ branivo-api/
 │   │   │   ├── ocr.controller.ts         # FR15-18: scan endpoint (rate limit 10/min/IP)
 │   │   │   ├── ocr.service.ts
 │   │   │   ├── providers/
-│   │   │   │   ├── google-vision.provider.ts   # primary; timeout 15s
+│   │   │   │   ├── ml-kit-result.processor.ts  # primary; validates on-device ML Kit results
 │   │   │   │   └── aws-textract.provider.ts    # fallback; timeout 30s
 │   │   │   ├── dto/
 │   │   │   │   └── ocr-result.dto.ts
@@ -1207,7 +1207,7 @@ Client → Next.js/Flutter → NestJS API → PostgreSQL (RLS + app WHERE tenant
 | Service | Module | Pattern |
 |---------|--------|---------|
 | Stripe webhooks | `payments/` | Raw body → sig verify → idempotent handler → `policy.created` event |
-| Google Vision | `ocr/` | Primary 15s → Textract fallback 30s → manual entry |
+| Firebase ML Kit | Flutter (on-device) | Primary ~3s → Textract fallback 30s → manual entry |
 | Insurer APIs | `quotes/adapters/` | InsurerAdapter interface; Promise.allSettled; circuit breaker |
 | FCM | `notifications/channels/` | Push → email fallback |
 | Speedy/Econt | `logistics/adapters/` | feature flag; ManualAdapter + broker alert fallback |
@@ -1252,7 +1252,7 @@ CI pipeline:   Unit → Integration (docker-compose.test.yml) → Staging deploy
 |--------|-----|-----------|
 | Tenant Management | 8 | `tenants/` module + TenantContext |
 | User & Auth | 9 | `auth/`, `users/` modules; JWT + 2FA + bcrypt |
-| OCR & Vehicle Data | 7 | `ocr/` module; Google Vision → Textract fallback; VIN decoder |
+| OCR & Vehicle Data | 7 | `ocr/` module; Flutter ML Kit (on-device) → Textract fallback; VIN decoder |
 | Quote & Scoring | 8 | `quotes/` module; InsurerAdapter; Promise.allSettled; scoring formula |
 | Policy & Payment | 11 | `policies/`, `payments/` modules; Stripe webhook; BullMQ PDF queue |
 | Notifications | 5 | `notifications/` module; BullMQ notifications queue; D-30/7/3/1/+1 escalation |
@@ -1277,7 +1277,7 @@ CI pipeline:   Unit → Integration (docker-compose.test.yml) → Staging deploy
 | Compliance | GDPR erasure + anonymization | `email → deleted_{id}@deleted.invalid`; blocked while active policies exist |
 | Compliance | Audit log immutability | No UPDATE/DELETE endpoints on `audit_log` or `policy_events` |
 | Reliability | Insurer API circuit breaker | opossum: 50% failure rate → open; 30s reset |
-| Reliability | OCR fallback | Google Vision (10s) → AWS Textract (30s) → partial fill + `low_confidence_fields[]` |
+| Reliability | OCR fallback | ML Kit on-device (~3s) → AWS Textract fallback (30s) → partial fill + `low_confidence_fields[]` |
 | Scalability | Multi-tenant isolation | Shared ECS; isolated PG row + RLS; Redis key namespacing |
 | Observability | Structured logging | Winston JSON; CloudWatch log groups per service |
 | Accessibility | WCAG AA | 48×48px targets; 14px min font; VoiceOver+TalkBack P1; axe-core CI gate |

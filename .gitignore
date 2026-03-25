@@ -64,3 +64,8 @@ public/fallback-*.js
 
 # BMAD framework internals (not project-specific)
 _bmad/
+
+# Credentials / service account keys
+*service-account*.json
+*firebase-adminsdk*.json
+*credentials*.json

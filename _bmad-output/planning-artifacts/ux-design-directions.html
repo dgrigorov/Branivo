@@ -172,6 +172,188 @@
   .d5-sale .info .sub { font-size: 11px; color: #9CA3AF; margin-top: 1px; }
   .d5-sale .amount { margin-left: auto; font-size: 14px; font-weight: 700; color: #10B981; }
 
+  /* ===== DIRECTION 7: Onboarding ===== */
+  /* Uses the same Branivo brand colors as D1–D6:
+     Primary: #6366F1  |  Gradient end: #0D9488
+     BG: #FAFAFA  |  Card: #fff  |  Border: #F1F5F9
+     Text: #111827  |  Muted: #6B7280  |  Icon tint: #EEF2FF
+     Dark card: #1E293B
+  */
+
+  /* Shared atoms */
+  .ob-screen { background: #FAFAFA; }
+  .ob-circle-btn {
+    width: 36px; height: 36px; border-radius: 50%; background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: #374151; cursor: pointer; flex-shrink: 0;
+    border: 1px solid #F1F5F9;
+  }
+  .ob-primary-btn {
+    background: #6366F1; color: #fff; border-radius: 12px; height: 52px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+    gap: 8px;
+  }
+  .ob-outlined-btn {
+    border: 1.5px solid #6366F1; border-radius: 12px; height: 52px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 600; color: #6366F1;
+    background: transparent; cursor: pointer;
+  }
+  .ob-text-btn {
+    text-align: center; font-size: 13px; color: #6B7280;
+    cursor: pointer; padding: 8px;
+  }
+  .ob-dark-card {
+    background: #1E293B; border-radius: 14px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .ob-dark-card .dc-icon-wrap {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: rgba(255,255,255,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; flex-shrink: 0;
+  }
+  .ob-dark-card .dc-title { font-size: 13px; font-weight: 700; color: #fff; }
+  .ob-dark-card .dc-sub { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+  .ob-field {
+    background: #F9FAFB; border-radius: 10px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    border: 1px solid #F1F5F9;
+  }
+  .ob-field.focused { border-color: #6366F1; background: #EEF2FF; }
+  .ob-field .f-icon { font-size: 15px; color: #6366F1; flex-shrink: 0; }
+  .ob-field .f-label { font-size: 13px; color: #9CA3AF; }
+
+  /* Splash */
+  .splash-screen {
+    background: #fff; min-height: 580px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .splash-logo-wrap {
+    width: 72px; height: 72px; border-radius: 20px;
+    background: #6366F1;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.4); margin-bottom: 18px;
+  }
+  .splash-logo-wrap .logo-letter { font-size: 34px; font-weight: 800; color: #fff; }
+  .splash-tenant { font-size: 18px; font-weight: 800; color: #111827; }
+  .splash-tagline { font-size: 13px; color: #9CA3AF; margin-top: 5px; }
+  .splash-dot-wrap { display: flex; gap: 5px; margin-top: 52px; }
+  .splash-dot { width: 6px; height: 6px; border-radius: 50%; background: #6366F1; opacity: 0.25; }
+  .splash-dot.active { opacity: 1; width: 18px; border-radius: 3px; }
+
+  /* Value Prop slide */
+  .slide-screen {
+    background: #FAFAFA; min-height: 580px; padding: 20px;
+    display: flex; flex-direction: column;
+  }
+  .slide-topbar { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+  .slide-skip { font-size: 13px; color: #9CA3AF; cursor: pointer; }
+  .slide-illustration {
+    background: #1E293B; border-radius: 20px; padding: 24px;
+    text-align: center; margin-bottom: 22px;
+  }
+  .slide-illustration .il-icon { font-size: 44px; margin-bottom: 10px; display: block; }
+  .slide-illustration .il-tag {
+    background: rgba(99,102,241,0.25); border-radius: 8px; padding: 5px 12px;
+    font-size: 12px; font-weight: 700; color: #A5B4FC; display: inline-block;
+  }
+  .slide-heading { font-size: 26px; font-weight: 800; color: #111827; line-height: 1.25; margin-bottom: 8px; }
+  .slide-sub { font-size: 14px; color: #6B7280; line-height: 1.55; margin-bottom: 18px; flex: 1; }
+  .slide-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; }
+  .slide-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366F1; opacity: 0.2; }
+  .slide-dot.active { opacity: 1; width: 22px; border-radius: 4px; }
+
+  /* Interest Selector */
+  .interest-screen {
+    background: #FAFAFA; min-height: 580px; padding: 20px;
+    display: flex; flex-direction: column;
+  }
+  .interest-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .interest-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .interest-card {
+    background: #fff; border-radius: 16px; padding: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 2px solid #F1F5F9; cursor: pointer;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .interest-card.selected { border-color: #6366F1; background: #EEF2FF; }
+  .interest-card .ic-icon-wrap {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: #EEF2FF;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .interest-card.selected .ic-icon-wrap { background: rgba(99,102,241,0.2); }
+  .interest-card .ic-label { font-size: 13px; font-weight: 700; color: #111827; }
+  .interest-card .ic-sub { font-size: 11px; color: #9CA3AF; }
+  .interest-card .ic-check {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #6366F1; margin-left: auto; margin-top: -2px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #fff; font-weight: 700;
+    opacity: 0;
+  }
+  .interest-card.selected .ic-check { opacity: 1; }
+
+  /* Entry Gate */
+  .entry-screen {
+    background: #FAFAFA; min-height: 580px; padding: 24px;
+    display: flex; flex-direction: column;
+  }
+  .entry-logo-wrap { display: flex; justify-content: center; margin-bottom: 24px; margin-top: 8px; }
+  .entry-logo {
+    background: #6366F1; border-radius: 12px; padding: 10px 20px;
+    font-size: 15px; font-weight: 800; color: #fff;
+  }
+  .entry-actions { display: flex; flex-direction: column; gap: 10px; flex: 1; justify-content: flex-end; padding-bottom: 12px; }
+  .entry-legal { text-align: center; font-size: 11px; color: #9CA3AF; margin-top: 8px; }
+
+  /* Login */
+  .login-screen { background: #FAFAFA; min-height: 580px; padding: 20px; display: flex; flex-direction: column; }
+  .login-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .login-form-card {
+    background: #fff; border-radius: 16px; padding: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #F1F5F9;
+  }
+  .login-forgot { text-align: right; font-size: 12px; color: #6366F1; margin-bottom: 14px; cursor: pointer; }
+
+  /* Reset PW */
+  .reset-screen { background: #FAFAFA; min-height: 580px; padding: 20px; display: flex; flex-direction: column; }
+  .reset-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .reset-step-label { font-size: 11px; font-weight: 700; color: #6366F1; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+  .otp-row { display: flex; gap: 7px; justify-content: center; margin: 16px 0; }
+  .otp-box {
+    width: 38px; height: 46px; border-radius: 10px; background: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08); border: 1.5px solid #F1F5F9;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px; font-weight: 700; color: #111827;
+  }
+  .otp-box.active { border-color: #6366F1; background: #EEF2FF; }
+  .otp-box.filled { border-color: #6366F1; }
+  .resend-hint { text-align: center; font-size: 12px; color: #9CA3AF; margin-bottom: 14px; }
+  .pw-strength-row { display: flex; gap: 4px; margin: 8px 0 4px; }
+  .pw-seg { flex: 1; height: 3px; border-radius: 2px; background: #E5E7EB; }
+  .pw-seg.s1 { background: #EF4444; }
+  .pw-seg.s2 { background: #F59E0B; }
+  .pw-seg.s3 { background: #84CC16; }
+  .pw-seg.s4 { background: #6366F1; }
+  .pw-strength-label { font-size: 11px; color: #6366F1; margin-bottom: 12px; }
+
+  /* Register */
+  .reg-screen { background: #FAFAFA; min-height: 580px; padding: 20px; display: flex; flex-direction: column; }
+  .reg-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .reg-terms-row { display: flex; align-items: flex-start; gap: 10px; margin: 8px 0 14px; }
+  .reg-checkbox {
+    width: 18px; height: 18px; border-radius: 5px;
+    background: #6366F1; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; color: #fff; flex-shrink: 0; margin-top: 1px;
+  }
+  .reg-terms-text { font-size: 12px; color: #6B7280; line-height: 1.5; }
+  .reg-terms-text a { color: #6366F1; text-decoration: underline; }
+
   /* ===== DIRECTION 6: Renewal Flow ===== */
   .d6-screen { background: #0F172A; }
   .d6-notif { margin: 20px 16px 0; background: #1E293B; border-radius: 14px; padding: 16px; border-left: 4px solid #6366F1; }
@@ -206,6 +388,7 @@
   <button onclick="show(4)">4. Confirmation</button>
   <button onclick="show(5)">5. Broker Dashboard</button>
   <button onclick="show(6)">6. Renewal Flow</button>
+  <button onclick="show(7)">7. Onboarding Flow</button>
 </nav>
 
 <!-- DIRECTION 1: Client Home -->
@@ -479,6 +662,504 @@
   </div>
 </section>
 
+<!-- DIRECTION 7: Onboarding Flow -->
+<style>
+/* ── Simulator layout ── */
+.sim-wrap { display:flex; gap:40px; justify-content:center; align-items:flex-start; flex-wrap:wrap; }
+.sim-left { display:flex; flex-direction:column; gap:8px; width:200px; padding-top:12px; }
+.sim-step {
+  padding:9px 14px; border-radius:8px; font-size:12px; font-weight:500; color:#64748B;
+  cursor:pointer; border:1px solid transparent; transition:all .2s; background:transparent;
+}
+.sim-step:hover { background:#1E293B; color:#94A3B8; border-color:#334155; }
+.sim-step.current { background:#6366F1; color:#fff; border-color:#6366F1; font-weight:700; }
+.sim-step.visited { color:#94A3B8; }
+.sim-right { width:220px; padding-top:12px; }
+.sim-anno-title { font-size:13px; font-weight:700; color:#fff; margin-bottom:6px; }
+.sim-anno-body { font-size:12px; color:#64748B; line-height:1.6; }
+.sim-anno-tag { display:inline-block; margin-top:8px; font-size:10px; font-weight:700;
+  background:#1E293B; color:#6366F1; border:1px solid #334155; border-radius:4px; padding:3px 8px; }
+
+/* ── Phone viewport ── */
+.sim-phone-wrap { position:relative; }
+.sim-viewport { position:relative; width:308px; height:580px; overflow:hidden; }
+.sim-screen {
+  position:absolute; inset:0; overflow-y:auto; overflow-x:hidden;
+  background:#FAFAFA;
+  transform:translateX(100%); transition:transform .32s cubic-bezier(.4,0,.2,1);
+  will-change:transform;
+}
+.sim-screen.active { transform:translateX(0); }
+.sim-screen.exit-left { transform:translateX(-100%); }
+.sim-screen.exit-right { transform:translateX(100%); }
+
+/* ── Toast ── */
+.sim-toast {
+  position:absolute; bottom:16px; left:12px; right:12px; z-index:99;
+  background:#111827; color:#fff; border-radius:12px; padding:12px 16px;
+  font-size:13px; font-weight:600; text-align:center;
+  opacity:0; transform:translateY(16px); transition:all .3s;
+  pointer-events:none;
+}
+.sim-toast.show { opacity:1; transform:translateY(0); }
+
+/* ── Loading spinner overlay ── */
+.sim-loading {
+  position:absolute; inset:0; background:rgba(255,255,255,.85); z-index:50;
+  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px;
+  opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.sim-loading.show { opacity:1; pointer-events:all; }
+.spin { width:28px; height:28px; border:3px solid #EEF2FF; border-top-color:#6366F1;
+  border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── OTP interaction ── */
+.otp-row { display:flex; gap:7px; justify-content:center; margin:16px 0; cursor:pointer; }
+.otp-box { width:38px; height:46px; border-radius:10px; background:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,.08); border:1.5px solid #F1F5F9;
+  display:flex; align-items:center; justify-content:center;
+  font-size:19px; font-weight:700; color:#111827; transition:all .15s; }
+.otp-box.active { border-color:#6366F1; background:#EEF2FF; }
+.otp-box.filled { border-color:#6366F1; }
+.otp-hint { text-align:center; font-size:11px; color:#6366F1; cursor:pointer;
+  margin-top:-8px; margin-bottom:6px; text-decoration:underline; }
+
+/* ── Field interaction ── */
+.ob-field { background:#F9FAFB; border-radius:10px; padding:12px 14px;
+  display:flex; align-items:center; gap:10px; margin-bottom:10px;
+  border:1px solid #F1F5F9; cursor:text; transition:all .15s; }
+.ob-field:hover, .ob-field.focused { border-color:#6366F1; background:#EEF2FF; }
+.ob-field .f-icon { font-size:15px; color:#6366F1; flex-shrink:0; }
+.ob-field .f-label { font-size:13px; color:#9CA3AF; }
+.ob-field .f-val { font-size:13px; color:#111827; font-weight:500; display:none; }
+.ob-field.filled .f-label { display:none; }
+.ob-field.filled .f-val { display:block; }
+.ob-field.filled { border-color:#6366F1; background:#fff; }
+
+/* ── Buttons ── */
+.ob-primary-btn { background:#6366F1; color:#fff; border-radius:12px; height:52px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:700; cursor:pointer;
+  box-shadow:0 4px 16px rgba(99,102,241,.35); gap:8px;
+  transition:opacity .15s, transform .1s; user-select:none; }
+.ob-primary-btn:hover { opacity:.9; }
+.ob-primary-btn:active { transform:scale(.97); }
+.ob-primary-btn.disabled { opacity:.35; pointer-events:none; }
+.ob-outlined-btn { border:1.5px solid #6366F1; border-radius:12px; height:52px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:600; color:#6366F1; background:transparent;
+  cursor:pointer; transition:all .15s; }
+.ob-outlined-btn:hover { background:#EEF2FF; }
+.ob-text-btn { text-align:center; font-size:13px; color:#6B7280; cursor:pointer;
+  padding:8px; transition:color .15s; }
+.ob-text-btn:hover { color:#6366F1; }
+.ob-circle-btn { width:36px; height:36px; border-radius:50%; background:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.10); display:flex; align-items:center;
+  justify-content:center; font-size:14px; color:#374151; cursor:pointer;
+  border:1px solid #F1F5F9; transition:all .15s; flex-shrink:0; }
+.ob-circle-btn:hover { background:#EEF2FF; border-color:#6366F1; }
+.ob-dark-card { background:#1E293B; border-radius:14px; padding:14px 16px;
+  display:flex; align-items:center; gap:12px; }
+.ob-dark-card .dc-icon-wrap { width:38px; height:38px; border-radius:10px;
+  background:rgba(255,255,255,.12); display:flex; align-items:center;
+  justify-content:center; font-size:17px; flex-shrink:0; }
+.ob-dark-card .dc-title { font-size:13px; font-weight:700; color:#fff; }
+.ob-dark-card .dc-sub { font-size:11px; color:rgba(255,255,255,.55); margin-top:2px; }
+
+/* ── Interest cards ── */
+.interest-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.ic2 { background:#fff; border-radius:14px; padding:14px; border:2px solid #F1F5F9;
+  cursor:pointer; transition:all .18s; }
+.ic2:hover { border-color:#A5B4FC; background:#EEF2FF; }
+.ic2.selected { border-color:#6366F1; background:#EEF2FF; }
+.ic2-icon { width:40px; height:40px; border-radius:10px; background:#EEF2FF;
+  display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:8px; }
+.ic2.selected .ic2-icon { background:rgba(99,102,241,.2); }
+.ic2-label { font-size:13px; font-weight:700; color:#111827; }
+.ic2-sub { font-size:11px; color:#9CA3AF; margin-top:2px; }
+.ic2-check { width:18px; height:18px; border-radius:50%; background:#6366F1;
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; color:#fff; font-weight:700;
+  opacity:0; float:right; margin-top:-30px; transition:opacity .15s; }
+.ic2.selected .ic2-check { opacity:1; }
+
+/* ── Success overlay ── */
+.success-overlay {
+  position:absolute; inset:0; background:#fff; z-index:60;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+  opacity:0; pointer-events:none; transition:opacity .3s;
+}
+.success-overlay.show { opacity:1; pointer-events:all; }
+.success-circle { width:72px; height:72px; border-radius:50%;
+  background:linear-gradient(135deg,#6366F1,#0D9488);
+  display:flex; align-items:center; justify-content:center;
+  font-size:32px; color:#fff; }
+</style>
+<section id="d7">
+  <div class="direction-label">
+    <h2>Direction 7 — Onboarding Flow · Interactive</h2>
+    <p>Клик върху бутоните за навигация · Пълен flow от Splash до Home</p>
+  </div>
+
+  <div class="sim-wrap">
+
+    <!-- LEFT: step map -->
+    <div class="sim-left">
+      <div class="sim-step current" id="step-splash" onclick="simGoto('splash')">1. Splash Screen</div>
+      <div class="sim-step" id="step-slide1" onclick="simGoto('slide1')">2. Slide 1 — 30 сек</div>
+      <div class="sim-step" id="step-slide2" onclick="simGoto('slide2')">3. Slide 2 — Face ID</div>
+      <div class="sim-step" id="step-interests" onclick="simGoto('interests')">4. Interest Selector</div>
+      <div class="sim-step" id="step-entry" onclick="simGoto('entry')">5. Entry Gate</div>
+      <div class="sim-step" id="step-login" onclick="simGoto('login')">6. Login</div>
+      <div class="sim-step" id="step-reset1" onclick="simGoto('reset1')">7. Reset PW — Step 1</div>
+      <div class="sim-step" id="step-reset2" onclick="simGoto('reset2')">8. Reset PW — Step 2</div>
+      <div class="sim-step" id="step-reset3" onclick="simGoto('reset3')">9. Reset PW — Step 3</div>
+      <div class="sim-step" id="step-register" onclick="simGoto('register')">10. Register</div>
+      <div class="sim-step" id="step-postpurchase" onclick="simGoto('postpurchase')">11. Post-Purchase</div>
+    </div>
+
+    <!-- CENTER: phone simulator -->
+    <div class="sim-phone-wrap">
+      <div class="phone" style="width:320px;">
+        <div class="phone-header" id="sim-header" style="background:#6366F1; color:#fff;">BRANIVO</div>
+        <div class="sim-viewport">
+
+          <!-- Loading overlay -->
+          <div class="sim-loading" id="sim-loading"><div class="spin"></div><div style="font-size:12px;color:#6B7280;">Зареждане...</div></div>
+
+          <!-- Success overlay -->
+          <div class="success-overlay" id="sim-success">
+            <div class="success-circle">✓</div>
+            <div style="font-size:18px;font-weight:800;color:#111827;" id="success-msg">Готово!</div>
+            <div style="font-size:13px;color:#6B7280;text-align:center;padding:0 24px;" id="success-sub">Операцията беше успешна.</div>
+            <div class="ob-primary-btn" style="width:200px;margin-top:8px;" onclick="simGoto('entry')">← Начало</div>
+          </div>
+
+          <!-- Toast -->
+          <div class="sim-toast" id="sim-toast"></div>
+
+          <!-- ── SCREEN: Splash ── -->
+          <div id="scr-splash" class="sim-screen active" style="background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center;" onclick="simGoto('slide1')">
+            <div style="width:72px;height:72px;border-radius:20px;background:#6366F1;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(99,102,241,.4);margin-bottom:18px;">
+              <span style="font-size:32px;font-weight:800;color:#fff;">Б</span>
+            </div>
+            <div style="font-size:18px;font-weight:800;color:#111827;">Застраховки Димитров</div>
+            <div style="font-size:13px;color:#9CA3AF;margin-top:5px;">Застраховай се за минути</div>
+            <div style="display:flex;gap:5px;margin-top:52px;">
+              <div style="width:18px;height:6px;border-radius:3px;background:#6366F1;"></div>
+              <div style="width:6px;height:6px;border-radius:50%;background:#6366F1;opacity:.25;"></div>
+              <div style="width:6px;height:6px;border-radius:50%;background:#6366F1;opacity:.25;"></div>
+            </div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:24px;">Кликни за да продължиш</div>
+          </div>
+
+          <!-- ── SCREEN: Slide 1 ── -->
+          <div id="scr-slide1" class="sim-screen" style="padding:20px;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+              <div class="ob-text-btn" onclick="simGoto('entry')">Пропусни</div>
+            </div>
+            <div style="background:#1E293B;border-radius:20px;padding:24px;text-align:center;margin-bottom:20px;">
+              <div style="font-size:44px;margin-bottom:10px;">🚗</div>
+              <div style="font-size:13px;color:rgba(255,255,255,.65);margin-bottom:10px;">Намерихме Toyota Corolla 2019</div>
+              <span style="background:rgba(99,102,241,.25);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;color:#A5B4FC;">⚡ 30 секунди</span>
+            </div>
+            <div style="font-size:26px;font-weight:800;color:#111827;line-height:1.25;margin-bottom:8px;">Оферта за 30 секунди</div>
+            <div style="font-size:14px;color:#6B7280;line-height:1.55;flex:1;">Снимай талона на колата си и получи оферти от водещите застрахователи веднага.</div>
+            <div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px;">
+              <div style="width:22px;height:8px;border-radius:4px;background:#6366F1;"></div>
+              <div style="width:8px;height:8px;border-radius:50%;background:#6366F1;opacity:.2;"></div>
+            </div>
+            <div class="ob-primary-btn" onclick="simGoto('slide2')">Напред →</div>
+          </div>
+
+          <!-- ── SCREEN: Slide 2 ── -->
+          <div id="scr-slide2" class="sim-screen" style="padding:20px;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+              <div class="ob-text-btn" onclick="simGoto('entry')">Пропусни</div>
+            </div>
+            <div style="background:#1E293B;border-radius:20px;padding:24px;text-align:center;margin-bottom:20px;">
+              <div style="font-size:44px;margin-bottom:10px;">🔒</div>
+              <div style="font-size:13px;color:rgba(255,255,255,.65);margin-bottom:10px;">Сигурно и бързо плащане</div>
+              <span style="background:rgba(13,148,136,.25);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;color:#5EEAD4;">Face ID · Apple Pay</span>
+            </div>
+            <div style="font-size:26px;font-weight:800;color:#111827;line-height:1.25;margin-bottom:8px;">Плати за секунди</div>
+            <div style="font-size:14px;color:#6B7280;line-height:1.55;flex:1;">Apple Pay, Google Pay или карта. Твоите данни са защитени с банкова сигурност.</div>
+            <div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px;">
+              <div style="width:8px;height:8px;border-radius:50%;background:#6366F1;opacity:.2;"></div>
+              <div style="width:22px;height:8px;border-radius:4px;background:#6366F1;"></div>
+            </div>
+            <div class="ob-primary-btn" onclick="simGoto('interests')">Започни →</div>
+          </div>
+
+          <!-- ── SCREEN: Interests ── -->
+          <div id="scr-interests" class="sim-screen" style="padding:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+              <div class="ob-circle-btn" onclick="simGoto('slide2')">←</div>
+              <div class="ob-text-btn" onclick="simGoto('entry')">Пропусни</div>
+            </div>
+            <div style="font-size:22px;font-weight:800;color:#111827;margin-bottom:5px;">Какво те интересува?</div>
+            <div style="font-size:13px;color:#6B7280;margin-bottom:18px;">Избери — ще намерим най-добрите оферти.</div>
+            <div class="interest-grid2">
+              <div class="ic2" id="ic-go" onclick="selectInterest('go')">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <div class="ic2-icon">🚗</div>
+                  <div class="ic2-check" id="chk-go">✓</div>
+                </div>
+                <div class="ic2-label">Гражданска отг.</div>
+                <div class="ic2-sub">За всяко МПС</div>
+              </div>
+              <div class="ic2" id="ic-casco" onclick="selectInterest('casco')">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <div class="ic2-icon">🛡️</div>
+                  <div class="ic2-check" id="chk-casco">✓</div>
+                </div>
+                <div class="ic2-label">Каско</div>
+                <div class="ic2-sub">Пълно покритие</div>
+              </div>
+              <div class="ic2" id="ic-travel" onclick="selectInterest('travel')">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <div class="ic2-icon">✈️</div>
+                  <div class="ic2-check" id="chk-travel">✓</div>
+                </div>
+                <div class="ic2-label">Пътуване</div>
+                <div class="ic2-sub">За чужбина</div>
+              </div>
+              <div class="ic2" id="ic-property" onclick="selectInterest('property')">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <div class="ic2-icon">🏠</div>
+                  <div class="ic2-check" id="chk-property">✓</div>
+                </div>
+                <div class="ic2-label">Имущество</div>
+                <div class="ic2-sub">Дом и офис</div>
+              </div>
+            </div>
+            <div style="margin-top:12px;font-size:11px;color:#9CA3AF;text-align:center;">Продуктите се конфигурират от Admin Panel</div>
+          </div>
+
+          <!-- ── SCREEN: Entry Gate ── -->
+          <div id="scr-entry" class="sim-screen" style="padding:24px;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:center;margin-bottom:24px;margin-top:8px;">
+              <div style="background:#6366F1;border-radius:12px;padding:10px 20px;font-size:15px;font-weight:800;color:#fff;">Застраховки Димитров</div>
+            </div>
+            <div class="ob-dark-card" style="margin-bottom:0;">
+              <div class="dc-icon-wrap">🛡️</div>
+              <div>
+                <div class="dc-title" id="entry-title">Застрахователни оферти</div>
+                <div class="dc-sub">Сравни и купи за минути</div>
+              </div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;padding-bottom:12px;margin-top:24px;">
+              <div class="ob-primary-btn" onclick="simGoto('ocr-note')"><span>📷</span> Сканирай без акаунт</div>
+              <div class="ob-outlined-btn" onclick="simGoto('login')">Влез в профила си</div>
+              <div class="ob-text-btn" onclick="simGoto('register')">Нямаш акаунт? Регистрирай се</div>
+            </div>
+            <div style="text-align:center;font-size:11px;color:#9CA3AF;">Продължавайки, приемаш условията ни.</div>
+          </div>
+
+          <!-- ── SCREEN: OCR Note ── -->
+          <div id="scr-ocr-note" class="sim-screen" style="padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+            <div style="font-size:52px;margin-bottom:16px;">📷</div>
+            <div style="font-size:20px;font-weight:800;color:#111827;margin-bottom:8px;">OCR Scanner</div>
+            <div style="font-size:13px;color:#6B7280;line-height:1.6;margin-bottom:24px;">Анонимният scan отваря OCR Wizard в Direction 2. Покупката минава през Post-Purchase prompt.</div>
+            <div class="ob-primary-btn" style="width:100%;margin-bottom:10px;" onclick="show(2)">→ Виж OCR Wizard (Direction 2)</div>
+            <div class="ob-outlined-btn" style="width:100%;" onclick="simGoto('entry')">← Обратно</div>
+          </div>
+
+          <!-- ── SCREEN: Login ── -->
+          <div id="scr-login" class="sim-screen" style="padding:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+              <div class="ob-circle-btn" onclick="simGoto('entry')">←</div>
+              <div style="font-size:13px;color:#6366F1;font-weight:600;cursor:pointer;" onclick="simGoto('register')">Регистрация</div>
+            </div>
+            <div style="font-size:26px;font-weight:800;color:#111827;margin-bottom:4px;">Добре дошли!</div>
+            <div style="font-size:13px;color:#6B7280;margin-bottom:16px;">Влезте в своя профил</div>
+            <div class="ob-dark-card" style="margin-bottom:16px;">
+              <div class="dc-icon-wrap">🔒</div>
+              <div><div class="dc-title">Сигурно влизане</div><div class="dc-sub">Данните ви са защитени</div></div>
+            </div>
+            <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F1F5F9;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+              <div class="ob-field" id="lf-email" onclick="fillField('lf-email','demo@branivo.bg')">
+                <span class="f-icon">✉️</span>
+                <div class="f-label">Имейл адрес</div>
+                <div class="f-val">demo@branivo.bg</div>
+              </div>
+              <div class="ob-field" id="lf-pass" onclick="fillField('lf-pass','••••••••')">
+                <span class="f-icon">🔑</span>
+                <div class="f-label">Парола</div>
+                <div class="f-val">••••••••</div>
+              </div>
+              <div style="text-align:right;font-size:12px;color:#6366F1;margin-bottom:14px;cursor:pointer;" onclick="simGoto('reset1')">Забравена парола?</div>
+              <div class="ob-primary-btn" onclick="doLogin()">Влез</div>
+            </div>
+          </div>
+
+          <!-- ── SCREEN: Reset Step 1 ── -->
+          <div id="scr-reset1" class="sim-screen" style="padding:20px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+              <div class="ob-circle-btn" onclick="simGoto('login')">←</div>
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#6366F1;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">СТЪПКА 1 ОТ 3</div>
+            <div style="font-size:24px;font-weight:800;color:#111827;margin-bottom:16px;">Нулиране на парола</div>
+            <div class="ob-dark-card" style="margin-bottom:18px;">
+              <div class="dc-icon-wrap">✉️</div>
+              <div><div class="dc-title">Въведи имейл адрес</div><div class="dc-sub">Ще изпратим 6-цифрен код</div></div>
+            </div>
+            <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F1F5F9;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+              <div class="ob-field" id="rf-email" onclick="fillField('rf-email','demo@branivo.bg')">
+                <span class="f-icon">✉️</span>
+                <div class="f-label">Имейл адрес</div>
+                <div class="f-val">demo@branivo.bg</div>
+              </div>
+              <div style="margin-top:6px;"></div>
+              <div class="ob-primary-btn" onclick="doLoadThen('reset2')">Изпрати код</div>
+            </div>
+          </div>
+
+          <!-- ── SCREEN: Reset Step 2 ── -->
+          <div id="scr-reset2" class="sim-screen" style="padding:20px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+              <div class="ob-circle-btn" onclick="simGoto('reset1')">←</div>
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#6366F1;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">СТЪПКА 2 ОТ 3</div>
+            <div style="font-size:24px;font-weight:800;color:#111827;margin-bottom:16px;">Въведи кода</div>
+            <div class="ob-dark-card" style="margin-bottom:18px;">
+              <div class="dc-icon-wrap">📧</div>
+              <div><div class="dc-title">Кодът е изпратен</div><div class="dc-sub">Провери имейл: demo@branivo.bg</div></div>
+            </div>
+            <div class="otp-row" id="otp-row" onclick="fillOtp()">
+              <div class="otp-box" id="otp0"></div>
+              <div class="otp-box" id="otp1"></div>
+              <div class="otp-box" id="otp2"></div>
+              <div class="otp-box" id="otp3"></div>
+              <div class="otp-box" id="otp4"></div>
+              <div class="otp-box" id="otp5"></div>
+            </div>
+            <div class="otp-hint" onclick="fillOtp()">Кликни за demo код →</div>
+            <div style="text-align:center;font-size:12px;color:#9CA3AF;margin-bottom:14px;" id="resend-timer">Изпрати нов код след 42с</div>
+            <div class="ob-primary-btn disabled" id="otp-confirm-btn" onclick="simGoto('reset3')">Потвърди</div>
+          </div>
+
+          <!-- ── SCREEN: Reset Step 3 ── -->
+          <div id="scr-reset3" class="sim-screen" style="padding:20px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+              <div class="ob-circle-btn" onclick="simGoto('reset2')">←</div>
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#6366F1;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">СТЪПКА 3 ОТ 3</div>
+            <div style="font-size:24px;font-weight:800;color:#111827;margin-bottom:16px;">Нова парола</div>
+            <div class="ob-dark-card" style="margin-bottom:18px;">
+              <div class="dc-icon-wrap">🔒</div>
+              <div><div class="dc-title">Въведи нова парола</div><div class="dc-sub">Минимум 8 символа</div></div>
+            </div>
+            <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F1F5F9;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+              <div class="ob-field" id="np-pass" onclick="fillField('np-pass','••••••••••')">
+                <span class="f-icon">🔑</span>
+                <div class="f-label">Нова парола</div>
+                <div class="f-val">••••••••••</div>
+              </div>
+              <div class="ob-field" id="np-pass2" onclick="fillField('np-pass2','••••••••••')">
+                <span class="f-icon">🔑</span>
+                <div class="f-label">Потвърди паролата</div>
+                <div class="f-val">••••••••••</div>
+              </div>
+              <div style="display:flex;gap:4px;margin:8px 0 4px;">
+                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
+                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
+                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
+                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
+              </div>
+              <div style="font-size:11px;color:#6366F1;margin-bottom:14px;">Силна парола ✓</div>
+              <div class="ob-primary-btn" onclick="doResetSuccess()">Смени паролата</div>
+            </div>
+          </div>
+
+          <!-- ── SCREEN: Register ── -->
+          <div id="scr-register" class="sim-screen" style="padding:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+              <div class="ob-circle-btn" onclick="simGoto('entry')">←</div>
+              <div style="font-size:13px;color:#6366F1;font-weight:600;cursor:pointer;" onclick="simGoto('login')">Вход</div>
+            </div>
+            <div style="font-size:24px;font-weight:800;color:#111827;margin-bottom:4px;">Създай акаунт</div>
+            <div style="font-size:13px;color:#6B7280;margin-bottom:14px;">Бърза регистрация в 2 стъпки</div>
+            <div class="ob-dark-card" style="margin-bottom:14px;">
+              <div class="dc-icon-wrap">👤</div>
+              <div><div class="dc-title">Само основни данни</div><div class="dc-sub">Профилът се допълва след покупка</div></div>
+            </div>
+            <div style="background:#fff;border-radius:14px;padding:14px;border:1px solid #F1F5F9;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+              <div class="ob-field" id="reg-email" onclick="fillField('reg-email','nikolay@gmail.com')">
+                <span class="f-icon">✉️</span>
+                <div class="f-label">Имейл адрес</div>
+                <div class="f-val">nikolay@gmail.com</div>
+              </div>
+              <div class="ob-field" id="reg-phone" onclick="fillField('reg-phone','+359 88 123 4567')">
+                <span class="f-icon">📱</span>
+                <div class="f-label">Телефонен номер</div>
+                <div class="f-val">+359 88 123 4567</div>
+              </div>
+              <div class="ob-field" id="reg-pass" onclick="fillField('reg-pass','••••••••••')">
+                <span class="f-icon">🔑</span>
+                <div class="f-label">Парола</div>
+                <div class="f-val">••••••••••</div>
+              </div>
+              <div style="display:flex;gap:4px;margin:6px 0 3px;">
+                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
+                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
+                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
+                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
+              </div>
+              <div style="font-size:11px;color:#6366F1;margin-bottom:10px;">Силна парола ✓</div>
+              <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;" onclick="toggleTerms()">
+                <div id="reg-cb" style="width:18px;height:18px;border-radius:5px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;flex-shrink:0;margin-top:1px;cursor:pointer;">✓</div>
+                <div style="font-size:12px;color:#6B7280;line-height:1.5;">Приемам <span style="color:#6366F1;text-decoration:underline;cursor:pointer;">Условията за ползване</span></div>
+              </div>
+              <div class="ob-primary-btn" onclick="doRegister()">Регистрирай се</div>
+            </div>
+          </div>
+
+          <!-- ── SCREEN: Post-Purchase ── -->
+          <div id="scr-postpurchase" class="sim-screen" style="position:relative;overflow:hidden;">
+            <!-- dimmed bg -->
+            <div style="padding:20px;opacity:0.25;pointer-events:none;">
+              <div style="text-align:center;padding:20px 0 10px;">
+                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#6366F1,#0D9488);display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;margin:0 auto 12px;">✓</div>
+                <div style="font-size:16px;font-weight:800;color:#111827;">Готово, полицата е ваша!</div>
+                <div style="font-size:12px;color:#6B7280;margin-top:4px;">PDF ще получите на имейл</div>
+              </div>
+            </div>
+            <!-- bottom sheet -->
+            <div style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:24px 24px 0 0;padding:20px;box-shadow:0 -6px 32px rgba(0,0,0,.14);">
+              <div style="width:36px;height:4px;border-radius:2px;background:#E5E7EB;margin:0 auto 16px;"></div>
+              <div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:3px;">Запази полицата си</div>
+              <div style="font-size:12px;color:#6B7280;margin-bottom:12px;">Регистрирай се за да виждаш и подновяваш</div>
+              <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#374151;margin-bottom:14px;">
+                <div>✓ Получи PDF на имейл</div>
+                <div>✓ Виждай полиците си</div>
+                <div>✓ Поднови с едно докосване</div>
+              </div>
+              <div class="ob-field" id="pp-phone" onclick="fillField('pp-phone','+359 88 123 4567')" style="margin-bottom:10px;">
+                <span class="f-icon">📱</span>
+                <div class="f-label">Телефонен номер</div>
+                <div class="f-val">+359 88 123 4567</div>
+              </div>
+              <div class="ob-primary-btn" style="margin-bottom:8px;" onclick="doSaveAccount()">Запази акаунта</div>
+              <div class="ob-text-btn" onclick="showToast('PDF ще бъде изпратен на имейла ти 📧')">Не сега, изпрати PDF</div>
+            </div>
+          </div>
+
+        </div><!-- /sim-viewport -->
+      </div><!-- /phone -->
+    </div><!-- /sim-phone-wrap -->
+
+    <!-- RIGHT: annotation -->
+    <div class="sim-right">
+      <div class="sim-anno-title" id="anno-title">Splash Screen</div>
+      <div class="sim-anno-body" id="anno-body">Анимирано зареждане с tenant лого. Кликни за да продължиш към онбординг слайдовете.</div>
+      <div class="sim-anno-tag" id="anno-tag">Само при първо стартиране</div>
+    </div>
+
+  </div>
+</section>
+
 <!-- DIRECTION 6: Renewal -->
 <section id="d6">
   <div class="direction-label">
@@ -524,12 +1205,231 @@
 </section>
 
 <script>
+/* ── Section switcher ── */
 function show(n) {
   document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('d' + n).classList.add('active');
-  document.querySelectorAll('nav button')[n - 1].classList.add('active');
+  const btns = document.querySelectorAll('nav button');
+  const idx = Array.from(btns).findIndex(b => b.getAttribute('onclick') === 'show(' + n + ')');
+  if (idx >= 0) btns[idx].classList.add('active');
 }
+
+/* ── Onboarding Simulator ── */
+const SCREENS = {
+  splash:      { title:'Splash Screen',       body:'Tenant лого с анимация. Кликни за продължаване.', tag:'Auto → Slide 1', header:'BRANIVO' },
+  slide1:      { title:'Value Prop — Slide 1', body:'"Оферта за 30 секунди" — главното обещание. Swipe или натисни Напред.', tag:'Само при isFirstLaunch', header:'ONBOARDING' },
+  slide2:      { title:'Value Prop — Slide 2', body:'"Плати за секунди" — Face ID + Apple Pay. Последен слайд.', tag:'Само при isFirstLaunch', header:'ONBOARDING' },
+  interests:   { title:'Interest Selector',    body:'1 tap → select + pulse → auto-advance след 600ms. Продуктите идват от Admin Panel (tenant features).', tag:'tenant-feature-gated', header:'ИНТЕРЕСИ' },
+  entry:       { title:'Entry Gate',           body:'Primary: Сканирай без акаунт. Secondary: Влез. Tertiary: Регистрирай се. Строга visual hierarchy.', tag:'Anonymous-first', header:'ВХОД' },
+  'ocr-note':  { title:'OCR Scanner',          body:'Anonymous scan отваря OCR Wizard. Виж Direction 2 за пълния flow.', tag:'→ Direction 2', header:'SCANNER' },
+  login:       { title:'Login Screen',         body:'Кликни полетата за да ги попълниш. "Забравена парола" → Reset flow. "Регистрация" → Register.', tag:'Implemented ✓', header:'ВХОД' },
+  reset1:      { title:'Reset PW — Step 1',    body:'Въвежда имейл. Натисни "Изпрати код" за loading → Step 2.', tag:'Стъпка 1 от 3', header:'НУЛИРАНЕ' },
+  reset2:      { title:'Reset PW — Step 2',    body:'OTP boxes. Кликни "demo код →" за попълване. При 6 цифри бутонът се активира.', tag:'Стъпка 2 от 3', header:'НУЛИРАНЕ' },
+  reset3:      { title:'Reset PW — Step 3',    body:'Нова парола с strength indicator. "Смени паролата" → success toast → Login.', tag:'Стъпка 3 от 3', header:'НУЛИРАНЕ' },
+  register:    { title:'Register Screen',      body:'Кликни полетата за попълване. Password strength = 4 сегмента. Terms checkbox toggleable.', tag:'2 стъпки', header:'РЕГИСТРАЦИЯ' },
+  postpurchase:{ title:'Post-Purchase Prompt', body:'BottomSheet над dimmed confirmation. Данните мигрират от anonymous сесията. Swipe-able.', tag:'Anonymous → акаунт', header:'ГОТОВО' },
+};
+
+let currentScreen = 'splash';
+let otpCount = 0;
+const OTP_DEMO = ['4','7','2','8','1','9'];
+
+function simGoto(id) {
+  const prev = document.getElementById('scr-' + currentScreen);
+  const next = document.getElementById('scr-' + id);
+  if (!next || id === currentScreen) return;
+
+  /* slide transition */
+  prev.classList.remove('active');
+  prev.classList.add('exit-left');
+  next.classList.remove('exit-left','exit-right');
+  next.classList.add('active');
+
+  setTimeout(() => { prev.classList.remove('exit-left','exit-right'); }, 350);
+
+  currentScreen = id;
+  updateMeta(id);
+
+  /* reset OTP when entering reset2 */
+  if (id === 'reset2') resetOtp();
+}
+
+function updateMeta(id) {
+  const s = SCREENS[id];
+  if (!s) return;
+  document.getElementById('anno-title').textContent = s.title;
+  document.getElementById('anno-body').textContent = s.body;
+  document.getElementById('anno-tag').textContent = s.tag;
+  document.getElementById('sim-header').textContent = s.header;
+
+  document.querySelectorAll('.sim-step').forEach(el => {
+    el.classList.remove('current');
+    if (el.id === 'step-' + id) el.classList.add('current','visited');
+  });
+  /* special mappings */
+  const map = { 'ocr-note':'entry' };
+  const stepId = map[id] || id;
+  const el = document.getElementById('step-' + stepId);
+  if (el) el.classList.add('current');
+}
+
+/* ── Field click-to-fill ── */
+function fillField(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('filled','focused');
+  setTimeout(() => el.classList.remove('focused'), 800);
+}
+
+/* ── OTP ── */
+function resetOtp() {
+  otpCount = 0;
+  for (let i = 0; i < 6; i++) {
+    const b = document.getElementById('otp' + i);
+    if (b) { b.textContent = ''; b.classList.remove('filled','active'); }
+  }
+  document.getElementById('otp0').classList.add('active');
+  const btn = document.getElementById('otp-confirm-btn');
+  if (btn) btn.classList.add('disabled');
+}
+
+function fillOtp() {
+  if (otpCount >= 6) { resetOtp(); return; }
+  const box = document.getElementById('otp' + otpCount);
+  if (!box) return;
+  box.textContent = OTP_DEMO[otpCount];
+  box.classList.add('filled');
+  box.classList.remove('active');
+  otpCount++;
+  if (otpCount < 6) document.getElementById('otp' + otpCount).classList.add('active');
+  if (otpCount === 6) {
+    const btn = document.getElementById('otp-confirm-btn');
+    if (btn) btn.classList.remove('disabled');
+    showToast('Кодът е въведен ✓');
+  }
+}
+
+/* ── Loading transition ── */
+function doLoadThen(target) {
+  const loader = document.getElementById('sim-loading');
+  loader.classList.add('show');
+  setTimeout(() => {
+    loader.classList.remove('show');
+    simGoto(target);
+  }, 1200);
+}
+
+/* ── Login ── */
+function doLogin() {
+  const emailFilled = document.getElementById('lf-email').classList.contains('filled');
+  const passFilled  = document.getElementById('lf-pass').classList.contains('filled');
+  if (!emailFilled || !passFilled) {
+    showToast('Попълни имейл и парола 👆');
+    return;
+  }
+  doLoadThen('home-success');
+}
+
+function doRegister() {
+  const emailFilled = document.getElementById('reg-email').classList.contains('filled');
+  if (!emailFilled) { showToast('Попълни данните 👆'); return; }
+  doLoadThen('post-success');
+}
+
+function doResetSuccess() {
+  const p1 = document.getElementById('np-pass').classList.contains('filled');
+  const p2 = document.getElementById('np-pass2').classList.contains('filled');
+  if (!p1 || !p2) { showToast('Въведи новата парола 👆'); return; }
+  showSuccessOverlay('Паролата е сменена! 🎉', 'Влез с новата си парола.');
+  setTimeout(() => {
+    hideSuccessOverlay();
+    simGoto('login');
+    /* reset login fields */
+    ['lf-email','lf-pass'].forEach(id => document.getElementById(id).classList.remove('filled'));
+  }, 2200);
+}
+
+function doSaveAccount() {
+  const filled = document.getElementById('pp-phone').classList.contains('filled');
+  if (!filled) { showToast('Въведи телефонен номер 👆'); return; }
+  doLoadThen('account-success');
+}
+
+/* ── Virtual screens (success outcomes) ── */
+const _origGoto = simGoto;
+function simGoto(id) {
+  if (id === 'home-success') {
+    showSuccessOverlay('Добре дошли! 👋', 'Успешно влязохте в профила си.');
+    setTimeout(() => { hideSuccessOverlay(); show(1); }, 2000);
+    return;
+  }
+  if (id === 'post-success') {
+    showSuccessOverlay('Акаунтът е създаден! 🎉', 'Успешна регистрация. Продължаваш към профила си.');
+    setTimeout(() => { hideSuccessOverlay(); show(1); }, 2000);
+    return;
+  }
+  if (id === 'account-success') {
+    showSuccessOverlay('Акаунтът е запазен! ✓', 'PDF ще получиш на имейл до 5 минути.');
+    setTimeout(() => { hideSuccessOverlay(); show(1); }, 2200);
+    return;
+  }
+  const prev = document.getElementById('scr-' + currentScreen);
+  const next = document.getElementById('scr-' + id);
+  if (!next || id === currentScreen) return;
+  prev.classList.remove('active');
+  prev.classList.add('exit-left');
+  next.classList.remove('exit-left','exit-right');
+  next.classList.add('active');
+  setTimeout(() => { prev.classList.remove('exit-left','exit-right'); }, 350);
+  currentScreen = id;
+  updateMeta(id);
+  if (id === 'reset2') resetOtp();
+}
+
+/* ── Interest select ── */
+function selectInterest(type) {
+  /* deselect all */
+  ['go','casco','travel','property'].forEach(t => {
+    document.getElementById('ic-' + t).classList.remove('selected');
+  });
+  document.getElementById('ic-' + type).classList.add('selected');
+  /* update Entry Gate title based on selection */
+  const titles = { go:'ГО застраховка за минути', casco:'Намери Каско покритие', travel:'Застрахователни оферти', property:'Защити дома си' };
+  const et = document.getElementById('entry-title');
+  if (et) et.textContent = titles[type] || 'Застрахователни оферти';
+  setTimeout(() => simGoto('entry'), 600);
+}
+
+/* ── Toast ── */
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('sim-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+/* ── Success overlay ── */
+function showSuccessOverlay(msg, sub) {
+  document.getElementById('success-msg').textContent = msg;
+  document.getElementById('success-sub').textContent = sub;
+  document.getElementById('sim-success').classList.add('show');
+}
+function hideSuccessOverlay() {
+  document.getElementById('sim-success').classList.remove('show');
+}
+
+/* ── Terms toggle ── */
+function toggleTerms() {
+  const cb = document.getElementById('reg-cb');
+  cb.textContent = cb.textContent === '✓' ? '' : '✓';
+  cb.style.background = cb.textContent === '✓' ? '#6366F1' : '#E5E7EB';
+}
+
+/* init */
+updateMeta('splash');
 </script>
 </body>
 </html>
