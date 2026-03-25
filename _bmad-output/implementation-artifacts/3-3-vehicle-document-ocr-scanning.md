@@ -15,13 +15,13 @@ So that my vehicle data is filled automatically without manual typing.
    **When** камерата се активира,
    **Then** показва се high-contrast frame guide с voice feedback ("Насочете камерата към документа") — Flutter: `Semantics` + `MediaQuery.accessibleNavigation`
 
-2. **AC2 — Google Vision sync path (< 15 сек):**
+2. **AC2 — ML Kit on-device OCR (< 3 сек):**
    **Given** клиент е заснел 3 снимки (Part I + Part II на свидетелство),
-   **When** изображенията се изпращат към `POST /api/v1/ocr/scan`,
-   **Then** Google Vision API се извиква синхронно; OCR pipeline завършва в < 15 сек; полетата се попълват автоматично; response: `{ jobId, status: "completed", fields: {...}, provider: "google_vision" }`
+   **When** Flutter ML Kit обработва изображенията on-device,
+   **Then** OCR pipeline завършва в < 3 сек; Flutter изпраща извлечените полета към `POST /api/v1/ocr/scan`; полетата се попълват автоматично; response: `{ jobId, status: "completed", fields: {...}, provider: "ml_kit" }`. Снимките НЕ се изпращат към external cloud service.
 
 3. **AC3 — AWS Textract fallback (async):**
-   **Given** Google Vision не отговаря в 10 сек или confidence < 0.85 (средно по всички полета),
+   **Given** ML Kit confidence < 0.85 (средно по всички полета) или ML Kit пълен failure,
    **When** fallback към AWS Textract се тригва,
    **Then** BullMQ job (`ocr-processing` queue) се queue-ва; response незабавно: `{ jobId, status: "processing" }`; frontend polls `GET /api/v1/ocr/status/:jobId` на всеки 2 сек; резултат в < 30 сек
 
@@ -62,7 +62,7 @@ So that my vehicle data is filled automatically without manual typing.
 - [x] **Task 1: Миграция — CreateOcrJobsTable** (AC: #2, #3, #4, #5, #6)
   - [x] Файл: `branivo-api/src/infrastructure/database/migrations/1710000010000-CreateOcrJobsTable.ts`
   - [x]Таблица `ocr_jobs` с UUID PK, `tenant_id` FK, `session_token` VARCHAR, `client_id` UUID nullable FK → `end_clients.id`
-  - [x]Колони: `status` ENUM(`pending`, `processing`, `completed`, `failed`), `provider` ENUM(`google_vision`, `aws_textract`), `images_count` SMALLINT, `result` JSONB nullable, `confidence_scores` JSONB nullable, `error_message` TEXT nullable
+  - [x]Колони: `status` ENUM(`pending`, `processing`, `completed`, `failed`), `provider` ENUM(`ml_kit`, `aws_textract`), `images_count` SMALLINT, `result` JSONB nullable, `confidence_scores` JSONB nullable, `error_message` TEXT nullable
   - [x]`created_at`, `updated_at`, `deleted_at TIMESTAMPTZ NULL`
   - [x]INDEX: `idx_ocr_jobs_tenant_id`, `idx_ocr_jobs_session_token`, `idx_ocr_jobs_status`
   - [x]RLS policy `ocr_jobs_tenant_isolation` с `current_setting('app.current_tenant_id')`
@@ -70,7 +70,7 @@ So that my vehicle data is filled automatically without manual typing.
 - [x] **Task 2: OcrJobEntity** (AC: #2, #3)
   - [x] Файл: `branivo-api/src/modules/ocr/entities/ocr-job.entity.ts`
   - [x]TypeORM entity с всички колони; `@Column({ name: 'tenant_id' })` задължително; `@Column('jsonb')` за `result` и `confidence_scores`
-  - [x]Enum: `OcrJobStatus` (`pending`, `processing`, `completed`, `failed`), `OcrProvider` (`google_vision`, `aws_textract`)
+  - [x]Enum: `OcrJobStatus` (`pending`, `processing`, `completed`, `failed`), `OcrProvider` (`ml_kit`, `aws_textract`)
 
 ### Backend — OCR Infrastructure
 
@@ -80,13 +80,12 @@ So that my vehicle data is filled automatically without manual typing.
   - [x]Methods: `createJob(dto)`, `findById(id, tenantId)`, `updateStatus(id, status, result?, errorMessage?)`, `findBySessionToken(sessionToken, tenantId)`
   - [x]Всички методи ползват `TenantContext.getTenantId()` за tenant scope — НЕ параметър
 
-- [x] **Task 4: GoogleVisionService** (AC: #2, #4, #5)
-  - [x] Файл: `branivo-api/src/modules/ocr/providers/google-vision.service.ts`
-  - [x]Зависимости: `@google-cloud/vision` — `npm install @google-cloud/vision`
-  - [x]`analyzeImages(imageBuffers: Buffer[]): Promise<OcrFieldResult[]>` — извиква `DocumentTextDetection`
-  - [x]Парсира текст за български vehicle registration fields (виж OcrFieldResult interface в Dev Notes)
-  - [x]Timeout: 10 сек (AbortController + `setTimeout`); при timeout → хвърля `GoogleVisionTimeoutError`
-  - [x]Credentials: `GOOGLE_APPLICATION_CREDENTIALS` env var (path до service account JSON)
+- [x] **Task 4: MlKitResultProcessor** (AC: #2, #4, #5)
+  - [x] Файл: `branivo-api/src/modules/ocr/providers/ml-kit-result.processor.ts`
+  - [x]Няма external dependency — валидира и нормализира резултатите изпратени от Flutter ML Kit
+  - [x]`processResults(mlKitFields: MlKitFieldsDto): Promise<OcrFieldResult[]>`
+  - [x]Изчислява aggregate confidence score; маркира полета под 0.85 за Textract fallback
+  - [x]Не прави мрежови заявки — чисто business logic
 
 - [x] **Task 5: AwsTextractService** (AC: #3, #4, #5)
   - [x] Файл: `branivo-api/src/modules/ocr/providers/aws-textract.service.ts`
@@ -110,13 +109,13 @@ So that my vehicle data is filled automatically without manual typing.
   - [x]Метод `scan(images: Buffer[], sessionToken: string)`:
     1. Rate check (Redis: `ocr_rate:{tenantId}:{ip}`, TTL 60s, max 10)
     2. Създай `ocr_jobs` row с status `processing`
-    3. Try Google Vision (timeout 10s)
-    4. If success AND avg confidence ≥ 0.85 → update job status=`completed`, return results
-    5. If Google Vision fails (timeout / error) OR avg confidence < 0.85 → enqueue Textract BullMQ job
+    3. Валидирай ML Kit резултати чрез MlKitResultProcessor
+    4. If avg confidence ≥ 0.85 → update job status=`completed`, return results
+    5. If confidence < 0.85 OR ML Kit failure flag → enqueue Textract BullMQ job
     6. Return `{ jobId, status: "processing" }` → client polls
   - [x]Метод `getStatus(jobId: string)` → returns current job status + results if completed
   - [x]Метод `updateAnonymousSession(sessionToken, tenantId, ocrResult)` → Redis HSET `anon:{sessionToken}:session` field `vehicle_data` (TTL refresh)
-  - [x]Inject: `GoogleVisionService`, `AwsTextractService`, `OcrQueueProducer`, `OcrJobRepository`, `@InjectRedis() redis: Redis`, `SessionsModule` (за session update)
+  - [x]Inject: `MlKitResultProcessor`, `AwsTextractService`, `OcrQueueProducer`, `OcrJobRepository`, `@InjectRedis() redis: Redis`, `SessionsModule` (за session update)
 
 - [x] **Task 8: OcrProcessor (BullMQ Worker)** (AC: #3, #4, #5, #6)
   - [x] Файл: `branivo-api/src/modules/ocr/ocr.processor.ts`
@@ -142,19 +141,19 @@ So that my vehicle data is filled automatically without manual typing.
 - [x] **Task 11: OcrModule DI** (AC: #2, #3)
   - [x] Файл: `branivo-api/src/modules/ocr/ocr.module.ts`
   - [x]Imports: `TypeOrmModule.forFeature([OcrJobEntity])`, `BullModule.registerQueue({ name: 'ocr-processing' })`, `MulterModule`, `SessionsModule` (за Redis session update), `TenantContextModule`
-  - [x]Providers: `OcrService`, `GoogleVisionService`, `AwsTextractService`, `OcrQueueProducer`, `OcrProcessor`, `OcrJobRepository`
+  - [x]Providers: `OcrService`, `MlKitResultProcessor`, `AwsTextractService`, `OcrQueueProducer`, `OcrProcessor`, `OcrJobRepository`
   - [x]**ВАЖНО:** `OcrModule` вече е в `AppModule` — само го разширяваш, не го добавяш отново
 
 ### Backend — Тестове
 
 - [x] **Task 12: Unit тестове за OcrService** (AC: #2, #3, #4, #5, #6, #8)
   - [x] Файл: `branivo-api/src/modules/ocr/ocr.service.spec.ts`
-  - [x]8 теста: vision success high confidence, vision success low confidence → textract, vision timeout → textract, rate limit exceeded, all providers fail → graceful, getStatus completed, getStatus processing, session token update
-  - [x]Mock: `GoogleVisionService`, `AwsTextractService`, `OcrQueueProducer`, `OcrJobRepository`, Redis
+  - [x]8 теста: ml_kit success high confidence, ml_kit success low confidence → textract, ml_kit failure → textract, rate limit exceeded, all providers fail → graceful, getStatus completed, getStatus processing, session token update
+  - [x]Mock: `MlKitResultProcessor`, `AwsTextractService`, `OcrQueueProducer`, `OcrJobRepository`, Redis
 
 - [x] **Task 13: Integration тестове за OcrController** (AC: #2, #3, #8, #9)
   - [x] Файл: `branivo-api/src/modules/ocr/ocr.controller.spec.ts`
-  - [x]5 теста: `POST /ocr/scan` 200 vision success, `POST /ocr/scan` 200 textract fallback, `POST /ocr/scan` 429 rate limit, `GET /ocr/status/:jobId` 200, `GET /ocr/status/:jobId` 404 not found
+  - [x]5 теста: `POST /ocr/scan` 200 ml_kit success, `POST /ocr/scan` 200 textract fallback, `POST /ocr/scan` 429 rate limit, `GET /ocr/status/:jobId` 200, `GET /ocr/status/:jobId` 404 not found
 
 ### Next.js Web — OCR Component
 
@@ -302,39 +301,26 @@ interface OcrQueuePayload {
 }
 ```
 
-### Google Vision API Pattern
+### ML Kit Integration Pattern
 
-```typescript
-// Task 4 — GoogleVisionService
-import vision from '@google-cloud/vision';
+ML Kit OCR се изпълнява в Flutter (`branivo_app`). NestJS получава вече извлечените полета — снимките НЕ се изпращат към external cloud OCR service при primary path.
 
-// В constructor — не в module level (за тестваемост):
-private readonly client = new vision.ImageAnnotatorClient();
-
-async analyzeImages(imageBuffers: Buffer[]): Promise<OcrFieldResult> {
-  // DocumentTextDetection дава по-добри резултати за documents vs TEXT_DETECTION
-  const requests = imageBuffers.map(buf => ({
-    image: { content: buf.toString('base64') },
-    features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
-  }));
-
-  // AbortController за 10-сек timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
-
-  try {
-    const [results] = await this.client.batchAnnotateImages(
-      { requests },
-      { signal: controller.signal }
-    );
-    clearTimeout(timeoutId);
-    return this.parseVehicleRegistration(results);
-  } catch (err) {
-    if (err.name === 'AbortError') throw new GoogleVisionTimeoutError();
-    throw err;
-  }
+Flutter изпраща към `POST /api/v1/ocr/scan`:
+```json
+{
+  "fields": { "vin": "WBA...", "license_plate": "СА1234АА", ... },
+  "confidence_scores": { "vin": 0.94, "license_plate": 0.91, ... },
+  "provider": "ml_kit"
 }
 ```
+
+`MlKitResultProcessor` в NestJS:
+- Валидира структурата на получените полета
+- Изчислява aggregate confidence score
+- Маркира полета под 0.85 за Textract fallback (ако е нужен)
+- Не прави мрежови заявки — чисто business logic
+
+За Textract fallback — NestJS приема `images[]` multipart (Flutter изпраща снимките само при fallback trigger).
 
 ### AWS Textract Async Pattern
 
@@ -346,7 +332,7 @@ async startAnalysis(s3Bucket: string, s3Keys: string[]): Promise<string> {
   // Textract обработва само 1 document per job → merge pages
   // За vehicle registration: 2 документа = 2 Textract jobs OR 1 job с multiple pages
   // РЕШЕНИЕ: качи всички изображения като pages в 1 S3 PDF или Submit 1 job per image
-  // ЗА Phase 1: submit 1 job с first image (Part I), parse Part II от Google Vision fallback
+  // ЗА Phase 1: submit 1 job с first image (Part I), parse Part II от Textract (ML Kit вече е on-device)
   // TODO Story 3.3: може да се оптимизира с multi-page в Phase 2
 
   const response = await this.textract.send(new StartDocumentAnalysisCommand({
@@ -387,7 +373,7 @@ branivo-api/src/modules/ocr/
 ├── entities/
 │   └── ocr-job.entity.ts                   ← НОВО
 ├── providers/
-│   ├── google-vision.service.ts            ← НОВО
+│   ├── ml-kit-result.processor.ts          ← НОВО
 │   └── aws-textract.service.ts             ← НОВО
 ├── ocr.service.spec.ts                     ← НОВО
 └── ocr.controller.spec.ts                  ← НОВО
@@ -457,9 +443,8 @@ branivo_app/pubspec.yaml                    ← ПРОМЕНЕН (camera: ^0.11.
 ### Env Variables (нови за Story 3.3)
 
 ```bash
-# Google Vision
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-# или GOOGLE_CLOUD_KEY_FILE_JSON за production (base64 encoded JSON)
+# ML Kit е on-device (Flutter) — няма server-side Google credentials нужни
+# GOOGLE_APPLICATION_CREDENTIALS — ПРЕМАХНАТ
 
 # AWS (вече трябва да са настроени от Stories 1.x — само нови)
 DOCUMENTS_BUCKET_NAME=branivo-documents-{env}
@@ -527,8 +512,8 @@ camera: ^0.11.0
 ### References
 
 - [Source: epics.md#Story 3.3] — User story, AC1-AC7, 3 photos flow, confidence thresholds
-- [Source: architecture.md#Cross-Cutting Concerns #3] — OCR pipeline: Vision 15s → Textract 30s → manual fallback
-- [Source: architecture.md#Technical Constraints — External dependencies] — Google Vision 15s/Textract 30s timeouts
+- [Source: architecture.md#Cross-Cutting Concerns #3] — OCR pipeline: ML Kit on-device ~3s → Textract fallback 30s → manual fallback
+- [Source: architecture.md#Technical Constraints — External dependencies] — ML Kit ~3s/Textract 30s timeouts
 - [Source: architecture.md#Authentication & Security] — Rate limiting 10 req/min/IP (OCR)
 - [Source: architecture.md#Frontend Architecture — Flutter] — camera package, BLoC events pattern `{Feature}{Action}Event`
 - [Source: architecture.md#Frontend Architecture — Next.js] — Framer Motion → DISABLED при prefers-reduced-motion
@@ -559,7 +544,7 @@ claude-sonnet-4-6
 - `npm run build` — success
 - `npx tsc --noEmit` — success
 - `flutter analyze --no-fatal-infos` — 1 pre-existing info in `client_auth_repository.dart` (not in story scope)
-- OCR pipeline: Google Vision sync (10s timeout) → AWS Textract async (BullMQ, polling up to 30s) → manual fallback
+- OCR pipeline: Flutter ML Kit on-device (~3s) → AWS Textract async fallback (BullMQ, polling up to 30s) → manual fallback
 
 ### File List
 
@@ -567,7 +552,7 @@ claude-sonnet-4-6
 - `src/infrastructure/database/migrations/1710000010000-CreateOcrJobsTable.ts` — NEW
 - `src/modules/ocr/entities/ocr-job.entity.ts` — NEW
 - `src/modules/ocr/ocr-job.repository.ts` — NEW
-- `src/modules/ocr/providers/google-vision.service.ts` — NEW
+- `src/modules/ocr/providers/ml-kit-result.processor.ts` — NEW
 - `src/modules/ocr/providers/aws-textract.service.ts` — NEW
 - `src/modules/ocr/ocr-queue.producer.ts` — NEW
 - `src/modules/ocr/ocr.service.ts` — UPDATED

@@ -17,6 +17,11 @@ docs/
 .env.*.local
 !.env.example
 
+# Service account credentials — never commit
+*service-account*.json
+*firebase-adminsdk*.json
+*credentials*.json
+
 # Terraform
 *.tfstate
 *.tfstate.*

@@ -30,6 +30,7 @@ export interface OcrField {
 export interface OcrFieldResult {
   license_plate?: OcrField;
   vin?: OcrField;
+  cert_number?: OcrField;
   make?: OcrField;
   model?: OcrField;
   year?: OcrField;
@@ -37,6 +38,9 @@ export interface OcrFieldResult {
   engine_volume?: OcrField;
   fuel_type?: OcrField;
   first_registration_date?: OcrField;
+  owner_name?: OcrField;
+  owner_egn?: OcrField;
+  owner_address?: OcrField;
 }
 
 @Entity('ocr_jobs')
