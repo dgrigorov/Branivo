@@ -13,4 +13,8 @@ export class TenantConfigResponseDto {
     supportEmail: string | null;
     supportPhone: string | null;
   };
+  regulatory!: {
+    kfnLicense: string | null;
+    einCode: string | null;
+  };
 }

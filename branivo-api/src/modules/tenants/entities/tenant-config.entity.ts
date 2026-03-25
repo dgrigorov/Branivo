@@ -56,6 +56,9 @@ export class TenantConfig {
   @Column({ name: 'brand_font', type: 'varchar', length: 32, nullable: true })
   brandFont!: string | null;
 
+  @Column({ name: 'ein_code', type: 'varchar', length: 13, nullable: true })
+  einCode!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

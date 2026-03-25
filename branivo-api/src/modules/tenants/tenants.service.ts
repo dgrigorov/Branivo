@@ -56,6 +56,10 @@ export class TenantsService {
         supportEmail: tenant.config?.supportEmail ?? null,
         supportPhone: tenant.config?.supportPhone ?? null,
       },
+      regulatory: {
+        kfnLicense: tenant.kfnLicense ?? null,
+        einCode: tenant.config?.einCode ?? null,
+      },
     };
 
     await this.setConfigCache(tenantId, dto);
@@ -85,6 +89,7 @@ export class TenantsService {
     if (dto.secondaryColor !== undefined)
       update.secondaryColor = dto.secondaryColor;
     if (dto.brandFont !== undefined) update.brandFont = dto.brandFont;
+    if (dto.einCode !== undefined) update.einCode = dto.einCode;
 
     if (logoFile) {
       const ext =

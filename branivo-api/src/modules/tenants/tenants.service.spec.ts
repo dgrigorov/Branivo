@@ -23,6 +23,10 @@ const mockDto = {
     supportEmail: null,
     supportPhone: null,
   },
+  regulatory: {
+    kfnLicense: null,
+    einCode: null,
+  },
 };
 
 const mockTenant = {
@@ -32,6 +36,7 @@ const mockTenant = {
   status: 'active',
   plan: 'starter',
   features: { fleet: false },
+  kfnLicense: null,
   config: null,
 };
 
@@ -154,6 +159,63 @@ describe('TenantsService', () => {
       expect(result.branding.secondaryColor).toBe('#003366');
       expect(result.branding.brandFont).toBe('Inter');
     });
+
+    it('populates regulatory.kfnLicense from tenant.kfnLicense', async () => {
+      mockRedis.get.mockResolvedValueOnce(null);
+      mockTenantsRepository.findTenantWithConfig.mockResolvedValueOnce({
+        ...mockTenant,
+        kfnLicense: '12345',
+        config: {
+          primaryColor: '#1A56DB',
+          secondaryColor: null,
+          brandFont: null,
+          logoUrl: null,
+          supportEmail: null,
+          supportPhone: null,
+          einCode: null,
+        },
+      });
+
+      const result = await buildService().getTenantConfig();
+
+      expect(result.regulatory.kfnLicense).toBe('12345');
+      expect(result.regulatory.einCode).toBeNull();
+    });
+
+    it('populates regulatory.einCode from tenant.config.einCode', async () => {
+      mockRedis.get.mockResolvedValueOnce(null);
+      mockTenantsRepository.findTenantWithConfig.mockResolvedValueOnce({
+        ...mockTenant,
+        kfnLicense: '12345',
+        config: {
+          primaryColor: '#1A56DB',
+          secondaryColor: null,
+          brandFont: null,
+          logoUrl: null,
+          supportEmail: null,
+          supportPhone: null,
+          einCode: '123456789',
+        },
+      });
+
+      const result = await buildService().getTenantConfig();
+
+      expect(result.regulatory.kfnLicense).toBe('12345');
+      expect(result.regulatory.einCode).toBe('123456789');
+    });
+
+    it('returns regulatory with null values when tenant has no kfnLicense or einCode', async () => {
+      mockRedis.get.mockResolvedValueOnce(null);
+      mockTenantsRepository.findTenantWithConfig.mockResolvedValueOnce({
+        ...mockTenant,
+        kfnLicense: null,
+        config: null,
+      });
+
+      const result = await buildService().getTenantConfig();
+
+      expect(result.regulatory).toEqual({ kfnLicense: null, einCode: null });
+    });
   });
 
   describe('updateBranding', () => {
@@ -255,6 +317,18 @@ describe('TenantsService', () => {
       expect(mockTenantsRepository.upsertBranding).toHaveBeenCalledWith(
         TENANT_ID,
         expect.objectContaining({ brandFont: 'Inter' }),
+      );
+    });
+
+    it('saves einCode when provided and invalidates Redis cache', async () => {
+      await buildService().updateBranding({ einCode: '123456789' });
+
+      expect(mockTenantsRepository.upsertBranding).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ einCode: '123456789' }),
+      );
+      expect(mockRedis.del).toHaveBeenCalledWith(
+        RedisKeyHelper.build(TENANT_ID, 'config', 'tenant'),
       );
     });
   });
