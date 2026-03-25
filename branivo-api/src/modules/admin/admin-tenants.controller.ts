@@ -21,6 +21,7 @@ import { InviteTenantDto } from './dto/invite-tenant.dto';
 import { VerifyKfnDto } from './dto/verify-kfn.dto';
 import { SetupBrokerDto } from './dto/setup-broker.dto';
 import { UpdateTenantStatusDto } from './dto/update-tenant-status.dto';
+import { UpdateKfnLicenseDto } from './dto/update-kfn-license.dto';
 
 interface AuthenticatedRequest {
   user: { userId: string; role: string };
@@ -118,12 +119,28 @@ export class AdminTenantsController {
     );
   }
 
+  @Patch(':id/kfn-license')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async updateKfnLicense(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateKfnLicenseDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.adminTenantsService.updateKfnLicense(
+      id,
+      dto.kfn_license,
+      req.user.userId,
+    );
+  }
+
   @Post(':id/verify-kfn')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('super_admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   async verifyKfn(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: VerifyKfnDto,
     @Request() req: AuthenticatedRequest,
   ) {

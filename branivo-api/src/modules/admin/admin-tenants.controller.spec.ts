@@ -20,6 +20,7 @@ const mockAdminTenantsService = {
     message: 'Invitation sent',
   }),
   updateTenantStatus: jest.fn().mockResolvedValue(undefined),
+  updateKfnLicense: jest.fn().mockResolvedValue(undefined),
   findAll: jest.fn().mockResolvedValue({
     data: [],
     total: 0,
@@ -290,6 +291,72 @@ describe('AdminTenantsController', () => {
       await request(superAdminApp.getHttpServer() as import('http').Server)
         .patch(`/admin/tenants/${VALID_UUID}/status`)
         .send({})
+        .expect(400);
+    });
+  });
+
+  describe('PATCH /admin/tenants/:id/kfn-license', () => {
+    const VALID_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+    it('returns 204 for super_admin with valid license', async () => {
+      await request(superAdminApp.getHttpServer() as import('http').Server)
+        .patch(`/admin/tenants/${VALID_UUID}/kfn-license`)
+        .send({ kfn_license: '12345' })
+        .expect(204);
+
+      expect(mockAdminTenantsService.updateKfnLicense).toHaveBeenCalledWith(
+        VALID_UUID,
+        '12345',
+        'super-uuid',
+      );
+    });
+
+    it('returns 400 for invalid license format (non-digits)', async () => {
+      await request(superAdminApp.getHttpServer() as import('http').Server)
+        .patch(`/admin/tenants/${VALID_UUID}/kfn-license`)
+        .send({ kfn_license: 'ABC' })
+        .expect(400);
+    });
+
+    it('returns 400 for license that is too short (2 digits)', async () => {
+      await request(superAdminApp.getHttpServer() as import('http').Server)
+        .patch(`/admin/tenants/${VALID_UUID}/kfn-license`)
+        .send({ kfn_license: '12' })
+        .expect(400);
+    });
+
+    it('returns 400 for license that is too long (11 digits)', async () => {
+      await request(superAdminApp.getHttpServer() as import('http').Server)
+        .patch(`/admin/tenants/${VALID_UUID}/kfn-license`)
+        .send({ kfn_license: '12345678901' })
+        .expect(400);
+    });
+
+    it('returns 400 for missing kfn_license field', async () => {
+      await request(superAdminApp.getHttpServer() as import('http').Server)
+        .patch(`/admin/tenants/${VALID_UUID}/kfn-license`)
+        .send({})
+        .expect(400);
+    });
+
+    it('returns 403 for broker_admin role', async () => {
+      await request(brokerApp.getHttpServer() as import('http').Server)
+        .patch(`/admin/tenants/${VALID_UUID}/kfn-license`)
+        .send({ kfn_license: '12345' })
+        .expect(403);
+    });
+
+    it('returns 401 without authentication', async () => {
+      await request(unauthApp.getHttpServer() as import('http').Server)
+        .patch(`/admin/tenants/${VALID_UUID}/kfn-license`)
+        .send({ kfn_license: '12345' })
+        .expect(401);
+    });
+
+    it('returns 400 for invalid UUID in :id param', async () => {
+      await request(superAdminApp.getHttpServer() as import('http').Server)
+        .patch('/admin/tenants/not-a-uuid/kfn-license')
+        .send({ kfn_license: '12345' })
         .expect(400);
     });
   });

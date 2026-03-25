@@ -169,6 +169,11 @@ export class TenantsRepository extends BaseRepository<Tenant> {
     await this.repo.update(id, { kfnLicense, status: 'active' });
   }
 
+  async updateKfnLicense(id: string, kfnLicense: string): Promise<void> {
+    // Post-activation update — does NOT change status (unlike activateTenant)
+    await this.repo.update(id, { kfnLicense });
+  }
+
   async findByStripeAccountId(stripeAccountId: string): Promise<Tenant | null> {
     return this.repo.findOne({
       where: { stripeAccountId, deletedAt: IsNull() },

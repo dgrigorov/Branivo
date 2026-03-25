@@ -13,6 +13,8 @@ import { TenantInvitationsRepository } from './repositories/tenant-invitations.r
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { EmailService } from '../../common/email/email.service';
 import { REDIS_CLIENT } from '../../infrastructure/redis/redis.module';
+import { RedisKeyHelper } from '../../common/helpers/redis-key.helper';
+import { KFN_LICENSE_REGEX_MESSAGE } from './dto/update-kfn-license.dto';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { TenantInvitation } from './entities/tenant-invitation.entity';
 
@@ -86,6 +88,7 @@ describe('AdminTenantsService', () => {
     updateStripeAccount: jest.fn(),
     activateTenant: jest.fn(),
     findByStripeAccountId: jest.fn(),
+    updateKfnLicense: jest.fn(),
   };
 
   const invitationsRepo = {
@@ -438,6 +441,98 @@ describe('AdminTenantsService', () => {
           'super-uuid',
         ),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('updateKfnLicense', () => {
+    const TENANT_ID = 'tenant-uuid';
+    const ADMIN_ID = 'super-admin-uuid';
+
+    it('should update kfn_license and invalidate cache', async () => {
+      tenantsRepo.findById.mockResolvedValue(makeTenant({ status: 'active' }));
+      tenantsRepo.updateKfnLicense.mockResolvedValue(undefined);
+      redisMock.del.mockResolvedValue(1);
+
+      await service.updateKfnLicense(TENANT_ID, '12345', ADMIN_ID);
+
+      expect(tenantsRepo.updateKfnLicense).toHaveBeenCalledWith(
+        TENANT_ID,
+        '12345',
+      );
+      // AC1: same key used by TenantConfigService.getTenantConfig() —
+      // invalidation ensures GET /api/v1/tenants/config reflects new license immediately
+      expect(redisMock.del).toHaveBeenCalledWith(
+        RedisKeyHelper.build(TENANT_ID, 'config', 'tenant'),
+      );
+    });
+
+    it('should still write audit log even when redis.del throws', async () => {
+      tenantsRepo.findById.mockResolvedValue(makeTenant({ status: 'active' }));
+      tenantsRepo.updateKfnLicense.mockResolvedValue(undefined);
+      redisMock.del.mockRejectedValue(new Error('Redis connection failed'));
+
+      // Should not throw — redis failure is non-fatal
+      await expect(
+        service.updateKfnLicense(TENANT_ID, '12345', ADMIN_ID),
+      ).resolves.toBeUndefined();
+
+      // Audit log must still be written even if cache invalidation fails
+      expect(managerQueryMock).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO audit_log'),
+        expect.arrayContaining(['tenant.kfn_license_updated']),
+      );
+    });
+
+    it('should throw NotFoundException for unknown tenant without side effects', async () => {
+      tenantsRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.updateKfnLicense('unknown-id', '12345', ADMIN_ID),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(tenantsRepo.updateKfnLicense).not.toHaveBeenCalled();
+      expect(redisMock.del).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException with correct message for invalid license format', async () => {
+      await expect(
+        service.updateKfnLicense(TENANT_ID, 'ABC', ADMIN_ID),
+      ).rejects.toThrow(new BadRequestException(KFN_LICENSE_REGEX_MESSAGE));
+
+      expect(tenantsRepo.findById).not.toHaveBeenCalled();
+      expect(tenantsRepo.updateKfnLicense).not.toHaveBeenCalled();
+    });
+
+    it('should write audit log with correct action', async () => {
+      tenantsRepo.findById.mockResolvedValue(makeTenant({ status: 'active' }));
+      tenantsRepo.updateKfnLicense.mockResolvedValue(undefined);
+      redisMock.del.mockResolvedValue(1);
+
+      await service.updateKfnLicense(TENANT_ID, '12345', ADMIN_ID);
+
+      expect(managerQueryMock).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO audit_log'),
+        expect.arrayContaining([
+          TENANT_ID,
+          ADMIN_ID,
+          'tenant.kfn_license_updated',
+        ]),
+      );
+    });
+
+    it('should work for suspended tenant (no status check)', async () => {
+      tenantsRepo.findById.mockResolvedValue(
+        makeTenant({ status: 'suspended' }),
+      );
+      tenantsRepo.updateKfnLicense.mockResolvedValue(undefined);
+      redisMock.del.mockResolvedValue(1);
+
+      await service.updateKfnLicense(TENANT_ID, '99999', ADMIN_ID);
+
+      expect(tenantsRepo.updateKfnLicense).toHaveBeenCalledWith(
+        TENANT_ID,
+        '99999',
+      );
     });
   });
 

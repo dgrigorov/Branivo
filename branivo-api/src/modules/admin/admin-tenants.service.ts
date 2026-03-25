@@ -21,12 +21,15 @@ import { TenantsRepository } from '../tenants/tenants.repository';
 import { TenantInvitationsRepository } from './repositories/tenant-invitations.repository';
 import { InviteTenantDto } from './dto/invite-tenant.dto';
 import { SetupBrokerDto } from './dto/setup-broker.dto';
+import {
+  KFN_LICENSE_REGEX,
+  KFN_LICENSE_REGEX_MESSAGE,
+} from './dto/update-kfn-license.dto';
 import { OnboardingStatusResponseDto } from './dto/onboarding-status-response.dto';
 import { Tenant } from '../tenants/entities/tenant.entity';
 
 const ONBOARDING_TTL_SECONDS = 48 * 60 * 60; // 48 hours
 const BCRYPT_COST = 12;
-const KFN_LICENSE_REGEX = /^[0-9]{3,10}$/;
 const REDIS_TTL_SUBDOMAIN = 300; // 5 min
 
 interface OnboardingTokenPayload {
@@ -214,9 +217,7 @@ export class AdminTenantsService {
     }
 
     if (!KFN_LICENSE_REGEX.test(kfnLicense)) {
-      throw new BadRequestException(
-        'Invalid КФН license format (3–10 digits required)',
-      );
+      throw new BadRequestException(KFN_LICENSE_REGEX_MESSAGE);
     }
 
     await this.tenantsRepository.activateTenant(tenantId, kfnLicense);
@@ -278,6 +279,40 @@ export class AdminTenantsService {
     const userId = result[0].id;
 
     return { userId, otpauthUrl };
+  }
+
+  async updateKfnLicense(
+    tenantId: string,
+    kfnLicense: string,
+    superAdminId: string,
+  ): Promise<void> {
+    if (!KFN_LICENSE_REGEX.test(kfnLicense)) {
+      throw new BadRequestException(KFN_LICENSE_REGEX_MESSAGE);
+    }
+
+    await this.findTenantOrThrow(tenantId);
+
+    await this.tenantsRepository.updateKfnLicense(tenantId, kfnLicense);
+
+    // Инвалидирай TenantConfigResponseDto cache (TTL 300s) — footer отразява
+    // новия лиценз веднага при следващ GET /api/v1/tenants/config
+    const cacheKey = RedisKeyHelper.build(tenantId, 'config', 'tenant');
+    try {
+      await this.redis.del(cacheKey);
+    } catch (err) {
+      this.logger.warn(
+        `Cache invalidation failed for tenant ${tenantId} after kfn_license update`,
+        err,
+      );
+    }
+
+    await this.writeAuditLog({
+      tenantId,
+      userId: superAdminId,
+      action: 'tenant.kfn_license_updated',
+      entityType: 'tenant',
+      entityId: tenantId,
+    });
   }
 
   async updateTenantStatus(
