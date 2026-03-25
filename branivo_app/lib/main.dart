@@ -34,6 +34,7 @@ Future<void> main() async {
   await Hive.initFlutter();
   await Hive.openBox<dynamic>('policies');
   await Hive.openBox<dynamic>('tenant_theme');
+  await Hive.openBox<dynamic>('onboarding');
 
   const storage = FlutterSecureStorage();
   final dio = DioClient.instance;

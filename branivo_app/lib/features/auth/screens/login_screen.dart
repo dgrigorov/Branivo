@@ -261,7 +261,21 @@ class _LoginScreenState extends State<LoginScreen> {
             validator: (v) =>
                 (v == null || v.isEmpty) ? 'Паролата е задължителна' : null,
           ),
-          const SizedBox(height: 24),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => context.push('/reset-password'),
+              child: const Text(
+                'Забравена парола?',
+                style: TextStyle(
+                  color: _kBlueMid,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           _GradientButton(
             label: 'Влез',
             isLoading: state is AuthLoadingState,

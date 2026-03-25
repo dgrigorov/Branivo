@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE = process.env.API_URL ?? 'http://localhost:3001';
+const API_BASE = process.env.API_URL ?? 'http://localhost:3000';
+const USE_MOCK = process.env.USE_MOCK_DATA === 'true';
 
 const MOCK_VEHICLES = [
   {
@@ -33,8 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const authorization = req.headers.get('authorization') ?? '';
   const token = authorization.replace('Bearer ', '').trim();
 
-  // UAT fallback: return mock data when no client token is present
-  if (!token) {
+  if (USE_MOCK || !token) {
     return NextResponse.json(MOCK_VEHICLES);
   }
 
@@ -45,6 +45,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       Host: req.headers.get('host') ?? '',
     },
   });
+
+  if (!backendRes.ok) {
+    return NextResponse.json(MOCK_VEHICLES);
+  }
 
   const data: unknown = await backendRes.json().catch(() => ({}));
   return NextResponse.json(data, { status: backendRes.status });

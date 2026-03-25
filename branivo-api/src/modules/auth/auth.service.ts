@@ -326,6 +326,103 @@ export class AuthService {
     }
   }
 
+  async sendPasswordResetOtp(emailOrPhone: string): Promise<void> {
+    const rateKey = `_system:pw_otp_rate:${emailOrPhone}`;
+    let count: number;
+    try {
+      count = await this.redis.incr(rateKey);
+      if (count === 1)
+        await this.redis.expire(rateKey, PASSWORD_RESET_RATE_TTL_SECONDS);
+    } catch {
+      count = 1;
+    }
+    if (count > PASSWORD_RESET_RATE_LIMIT) {
+      throw new HttpException(
+        'Твърде много заявки. Моля, изчакайте преди да опитате отново.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const isEmail = emailOrPhone.includes('@');
+    const user = isEmail
+      ? await this.usersRepository.findByEmailPlatformWide(emailOrPhone)
+      : await this.usersRepository.findByPhonePlatformWide(emailOrPhone);
+
+    if (!user) return; // anti-enumeration
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpKey = `_system:pw_reset_otp:${emailOrPhone}`;
+    await this.redis.set(otpKey, otp, 'EX', 300); // 5 min
+
+    try {
+      if (isEmail) {
+        await this.emailService.sendPasswordResetOtp({ to: user.email, otp });
+      } else {
+        // SMS fallback — log for now (SMS service not yet wired)
+        this.logger.log(`[SMS OTP] Would send ${otp} to ${emailOrPhone}`);
+      }
+    } catch (err) {
+      this.logger.error('Failed to send OTP', err);
+      throw new ServiceUnavailableException(
+        'Неуспешно изпращане на код. Моля, опитайте отново.',
+      );
+    }
+  }
+
+  async verifyPasswordResetOtp(
+    emailOrPhone: string,
+    otp: string,
+  ): Promise<string> {
+    const otpKey = `_system:pw_reset_otp:${emailOrPhone}`;
+    const stored = await this.redis.get(otpKey);
+    if (!stored || stored !== otp) {
+      throw new UnauthorizedException('Невалиден или изтекъл код');
+    }
+    await this.redis.del(otpKey);
+
+    const isEmail = emailOrPhone.includes('@');
+    const user = isEmail
+      ? await this.usersRepository.findByEmailPlatformWide(emailOrPhone)
+      : await this.usersRepository.findByPhonePlatformWide(emailOrPhone);
+
+    if (!user) throw new UnauthorizedException('Потребителят не е намерен');
+
+    const secret = this.config.getOrThrow<string>('JWT_SECRET');
+    const resetToken = this.jwtService.sign(
+      { sub: user.id, tid: user.tenantId, type: 'pw_reset_otp' },
+      { secret, expiresIn: 600 }, // 10 min
+    );
+    return resetToken;
+  }
+
+  async resetPasswordWithOtpToken(
+    jwtToken: string,
+    newPassword: string,
+  ): Promise<void> {
+    interface OtpResetPayload {
+      sub: string;
+      tid: string;
+      type: string;
+    }
+    let payload: OtpResetPayload;
+    try {
+      payload = this.jwtService.verify<OtpResetPayload>(jwtToken, {
+        secret: this.config.getOrThrow<string>('JWT_SECRET'),
+      });
+    } catch {
+      throw new BadRequestException('Линкът е изтекъл или невалиден');
+    }
+    if (payload.type !== 'pw_reset_otp') {
+      throw new BadRequestException('Невалиден токен');
+    }
+    const passwordHash: string = await bcrypt.hash(newPassword, 12);
+    await this.usersRepository.updatePassword(payload.sub, passwordHash);
+    await this.invalidateAllRefreshTokensForUser(payload.sub, payload.tid);
+    this.logger.log(
+      'Password reset via OTP completed for userId: ' + payload.sub,
+    );
+  }
+
   async resetPassword(rawToken: string, newPassword: string): Promise<void> {
     const tokenHash = crypto
       .createHash('sha256')

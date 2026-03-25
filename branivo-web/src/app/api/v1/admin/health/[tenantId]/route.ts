@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_URL = process.env.API_URL ?? 'http://localhost:3001';
+const API_URL = process.env.API_URL ?? 'http://localhost:3000';
+const USE_MOCK = process.env.USE_MOCK_DATA === 'true';
 
 export async function GET(
   request: NextRequest,
@@ -9,7 +10,7 @@ export async function GET(
   const { tenantId } = await params;
   const token = request.cookies.get('access_token')?.value;
 
-  if (!token) {
+  if (USE_MOCK || !token) {
     return NextResponse.json({
       tenantId,
       tenantName: tenantId === 'aaaaaaaa-0000-0000-0000-000000000001' ? 'Demo Broker' : 'Test Broker',

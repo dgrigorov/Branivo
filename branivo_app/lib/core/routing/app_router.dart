@@ -1,6 +1,8 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../api/dio_client.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
@@ -32,6 +34,9 @@ import '../../features/policies/presentation/screens/policy_wallet_screen.dart';
 import '../../features/policies/bloc/policy_wallet_bloc.dart';
 import '../../features/policies/data/repositories/policy_repository.dart';
 import '../../features/payments/screens/policy_confirmation_screen.dart';
+import '../../features/onboarding/onboarding_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
+import '../../features/anonymous_session/data/repositories/anonymous_session_repository.dart';
 
 /// Navigation extras for /fleet route
 class FleetRouteArgs {
@@ -88,7 +93,43 @@ const _publicRoutes = {
   '/vehicles/scan',
   '/vehicles/validate',
   '/quotes/offers',
+  '/onboarding',
+  '/reset-password',
 };
+
+Future<void> _startAnonScan(
+  BuildContext context,
+  AnonymousSessionRepository repo,
+) async {
+  final sessionId = await repo.createSession();
+  if (!context.mounted) return;
+  context.push(
+    '/vehicles/scan',
+    extra: OcrWizardRouteArgs(
+      sessionToken: sessionId,
+      onComplete: (fields) {
+        final vin = fields['vin']?.value ?? '';
+        final plate = fields['license_plate']?.value ?? '';
+        context.go(
+          '/vehicles/validate',
+          extra: VehicleValidateRouteArgs(
+            vin: vin,
+            licensePlate: plate,
+            sessionToken: sessionId,
+          ),
+        );
+      },
+      onManualEntry: () => context.go(
+        '/vehicles/validate',
+        extra: VehicleValidateRouteArgs(
+          vin: '',
+          licensePlate: '',
+          sessionToken: sessionId,
+        ),
+      ),
+    ),
+  );
+}
 
 class AppRouter {
   AppRouter._();
@@ -98,8 +139,15 @@ class AppRouter {
     debugLogDiagnostics: false,
     redirect: (context, state) async {
       final location = state.matchedLocation;
-      if (_publicRoutes.contains(location)) return null;
-
+      if (location == '/onboarding') return null;
+      if (_publicRoutes.contains(location)) {
+        if (location == '/login') {
+          final box = Hive.box<dynamic>('onboarding');
+          final seen = box.get('seen', defaultValue: false) as bool;
+          if (!seen) return '/onboarding';
+        }
+        return null;
+      }
       final token = await _storage.read(key: 'access_token');
       if (token == null || token.isEmpty) return '/login';
       return null;
@@ -247,6 +295,21 @@ class AppRouter {
             paymentIntentId: args.paymentIntentId,
           );
         },
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) {
+          final anonRepo = context.read<AnonymousSessionRepository>();
+          return OnboardingScreen(
+            onLogin: () => context.go('/login'),
+            onRegister: () => context.go('/registration'),
+            onAnonScan: () => _startAnonScan(context, anonRepo),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) => const ResetPasswordScreen(),
       ),
       GoRoute(
         path: '/payment',

@@ -86,6 +86,12 @@ export class UsersRepository extends BaseRepository<User> {
     });
   }
 
+  findByPhonePlatformWide(phone: string): Promise<User | null> {
+    // phone column not yet in schema — returns null until migration adds it
+    void phone;
+    return Promise.resolve(null);
+  }
+
   async updatePassword(userId: string, passwordHash: string): Promise<void> {
     await this.userRepo.update({ id: userId }, { passwordHash });
   }

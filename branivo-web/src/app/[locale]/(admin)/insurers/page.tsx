@@ -195,7 +195,7 @@ export default function AdminInsurersPage() {
                   <span
                     className={`text-sm ${ins.errorRate5min > 1 ? 'font-medium text-red-600' : 'text-gray-700'}`}
                   >
-                    {ins.errorRate5min.toFixed(2)}%
+                    {(ins.errorRate5min ?? 0).toFixed(2)}%
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-700">

@@ -16,6 +16,14 @@ class ApiEndpoints {
   static String get sendOtp => '$_baseUrl/api/v1/auth/otp/send';
   static String get verifyOtp => '$_baseUrl/api/v1/auth/otp/verify';
 
+  // Password reset
+  static String get passwordResetSendOtp =>
+      '$_baseUrl/api/v1/auth/password-reset/send-otp';
+  static String get passwordResetVerifyOtp =>
+      '$_baseUrl/api/v1/auth/password-reset/verify-otp';
+  static String get passwordResetConfirm =>
+      '$_baseUrl/api/v1/auth/password-reset/confirm-otp';
+
   // Quotes
   static String get quotes => '$_baseUrl/api/v1/quotes';
   static String quoteById(String id) => '$_baseUrl/api/v1/quotes/$id';

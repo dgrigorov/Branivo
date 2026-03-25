@@ -322,4 +322,24 @@ export class EmailService {
 
     this.logger.warn(`Renewal failure alert sent to ${to}`);
   }
+
+  async sendPasswordResetOtp(params: {
+    to: string;
+    otp: string;
+  }): Promise<void> {
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM ?? 'noreply@branivo.com',
+      to: params.to,
+      subject: 'Код за смяна на парола — Branivo',
+      html: `
+        <h2>Код за смяна на парола</h2>
+        <p>Вашият код за смяна на парола е:</p>
+        <h1 style="letter-spacing:8px;font-size:36px;color:#6366F1;">${params.otp}</h1>
+        <p>Кодът е валиден 5 минути.</p>
+        <p>Ако не сте поискали смяна на парола, игнорирайте това писмо.</p>
+        <p>— Branivo</p>
+      `,
+    });
+    this.logger.log('Password reset OTP email sent to ' + params.to);
+  }
 }

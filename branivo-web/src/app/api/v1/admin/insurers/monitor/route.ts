@@ -1,57 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_URL = process.env.API_URL ?? 'http://localhost:3001';
+const API_URL = process.env.API_URL ?? 'http://localhost:3000';
+const USE_MOCK = process.env.USE_MOCK_DATA === 'true';
 
 const MOCK_INSURERS = [
   {
-    id: 'ins-001',
-    name: 'Allianz Bulgaria',
-    code: 'allianz',
-    isActive: true,
+    insurerId: 'ins-001',
+    insurerName: 'Allianz Bulgaria',
+    insurerCode: 'allianz',
+    circuitState: 'closed' as const,
+    errorRate5min: 0.00,
+    avgLatencyMs: 120,
+    totalCalls5min: 47,
     isManuallyDisabled: false,
-    rating: 4.5,
-    claimSpeed: 8.5,
-    lastResponseMs: 120,
-    lastCheckedAt: new Date().toISOString(),
+    disabledReason: null,
   },
   {
-    id: 'ins-002',
-    name: 'Generali Bulgaria',
-    code: 'generali',
-    isActive: true,
+    insurerId: 'ins-002',
+    insurerName: 'Generali Bulgaria',
+    insurerCode: 'generali',
+    circuitState: 'closed' as const,
+    errorRate5min: 1.23,
+    avgLatencyMs: 250,
+    totalCalls5min: 31,
     isManuallyDisabled: false,
-    rating: 4.2,
-    claimSpeed: 7.8,
-    lastResponseMs: 250,
-    lastCheckedAt: new Date().toISOString(),
+    disabledReason: null,
   },
   {
-    id: 'ins-003',
-    name: 'ДЗИ (DSK)',
-    code: 'dsk',
-    isActive: true,
+    insurerId: 'ins-003',
+    insurerName: 'ДЗИ (DSK)',
+    insurerCode: 'dsk',
+    circuitState: 'half-open' as const,
+    errorRate5min: 12.50,
+    avgLatencyMs: 1850,
+    totalCalls5min: 8,
     isManuallyDisabled: false,
-    rating: 4.0,
-    claimSpeed: 7.0,
-    lastResponseMs: 180,
-    lastCheckedAt: new Date().toISOString(),
+    disabledReason: null,
   },
   {
-    id: 'ins-004',
-    name: 'Булстрад',
-    code: 'bulstrad',
-    isActive: false,
+    insurerId: 'ins-004',
+    insurerName: 'Булстрад',
+    insurerCode: 'bulstrad',
+    circuitState: 'open' as const,
+    errorRate5min: 67.80,
+    avgLatencyMs: 4200,
+    totalCalls5min: 5,
     isManuallyDisabled: true,
-    rating: 3.8,
-    claimSpeed: 6.5,
-    lastResponseMs: null,
-    lastCheckedAt: new Date(Date.now() - 3600_000).toISOString(),
+    disabledReason: 'API деградация — висок error rate',
+  },
+  {
+    insurerId: 'ins-005',
+    insurerName: 'Армеец',
+    insurerCode: 'armeec',
+    circuitState: 'closed' as const,
+    errorRate5min: 0.50,
+    avgLatencyMs: 180,
+    totalCalls5min: 22,
+    isManuallyDisabled: false,
+    disabledReason: null,
   },
 ];
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value;
-  if (!token) {
+  if (USE_MOCK || !token) {
     return NextResponse.json(MOCK_INSURERS);
   }
 
@@ -59,6 +71,9 @@ export async function GET(request: NextRequest) {
     const apiRes = await fetch(`${API_URL}/api/v1/admin/insurers/monitor`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (!apiRes.ok) {
+      return NextResponse.json(MOCK_INSURERS);
+    }
     const data = await apiRes.json() as unknown;
     return NextResponse.json(data, { status: apiRes.status });
   } catch {

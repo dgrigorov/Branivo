@@ -268,7 +268,7 @@ class _OcrWizardScreenState extends State<OcrWizardScreen> {
   }
 }
 
-// ─── Capture view (stateful for tap-to-focus) ─────────────────────────────────
+// ─── Capture view (stateful for scan animation) ───────────────────────────────
 
 class _CaptureView extends StatefulWidget {
   const _CaptureView({
@@ -291,19 +291,27 @@ class _CaptureView extends StatefulWidget {
   State<_CaptureView> createState() => _CaptureViewState();
 }
 
-class _CaptureViewState extends State<_CaptureView> {
+class _CaptureViewState extends State<_CaptureView>
+    with SingleTickerProviderStateMixin {
   final GlobalKey _cameraKey = GlobalKey();
-  Offset? _focusPoint;
-  Timer? _focusTimer;
   double _currentZoom = 1.0;
   double _baseZoom = 1.0;
   double _minZoom = 1.0;
   double _maxZoom = 8.0;
+  late AnimationController _scanController;
+  late Animation<double> _scanAnim;
 
   @override
   void initState() {
     super.initState();
     _initZoomLimits();
+    _scanController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+    _scanAnim = Tween<double>(begin: 0.05, end: 0.95).animate(
+      CurvedAnimation(parent: _scanController, curve: Curves.easeInOut),
+    );
   }
 
   Future<void> _initZoomLimits() async {
@@ -325,7 +333,7 @@ class _CaptureViewState extends State<_CaptureView> {
 
   @override
   void dispose() {
-    _focusTimer?.cancel();
+    _scanController.dispose();
     super.dispose();
   }
 
@@ -342,41 +350,6 @@ class _CaptureViewState extends State<_CaptureView> {
     try {
       await controller.setZoomLevel(newZoom);
     } catch (_) {}
-  }
-
-  Future<void> _onCameraTap(TapUpDetails details) async {
-    final controller = widget.cameraController;
-    if (controller == null || !widget.cameraReady) return;
-
-    // Use the GestureDetector's render box for coordinates —
-    // avoids misalignment caused by FittedBox.cover cropping.
-    final box = _cameraKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null) return;
-
-    final local = box.globalToLocal(details.globalPosition);
-    final x = (local.dx / box.size.width).clamp(0.0, 1.0);
-    final y = (local.dy / box.size.height).clamp(0.0, 1.0);
-
-    setState(() => _focusPoint = local);
-    _focusTimer?.cancel();
-    _focusTimer = Timer(const Duration(milliseconds: 2500), () {
-      if (mounted) setState(() => _focusPoint = null);
-      // Reset focus point to null → iOS returns to continuous AF at center.
-      // Do NOT call setFocusMode — keeps continuous AF active.
-      controller.setFocusPoint(null).catchError((_) {});
-      controller.setExposurePoint(null).catchError((_) {});
-    });
-
-    try {
-      // FocusMode.auto + setFocusPoint triggers a one-shot AF at the tapped
-      // point. After the timer, point resets to null → back to continuous AF.
-      await controller.setFocusMode(FocusMode.auto);
-      await controller.setExposureMode(ExposureMode.auto);
-      await controller.setFocusPoint(Offset(x, y));
-      await controller.setExposurePoint(Offset(x, y));
-    } catch (_) {
-      // focus not supported on this device — silently ignore
-    }
   }
 
   @override
@@ -548,7 +521,6 @@ class _CaptureViewState extends State<_CaptureView> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
         key: _cameraKey,
-        onTapUp: _onCameraTap,
         onScaleStart: _onScaleStart,
         onScaleUpdate: _onScaleUpdate,
         child: ClipRRect(
@@ -565,7 +537,14 @@ class _CaptureViewState extends State<_CaptureView> {
                     child: const Center(child: CircularProgressIndicator(color: _kIndigo)),
                   ),
                 CustomPaint(painter: _FrameGuidePainter()),
-                if (_focusPoint != null) _buildFocusIndicator(_focusPoint!),
+                AnimatedBuilder(
+                  animation: _scanAnim,
+                  builder: (context, _) => Positioned.fill(
+                    child: CustomPaint(
+                      painter: _ScanLinePainter(progress: _scanAnim.value),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -585,19 +564,6 @@ class _CaptureViewState extends State<_CaptureView> {
       child: SizedBox(width: w, height: h, child: CameraPreview(controller)),
     );
   }
-
-  Widget _buildFocusIndicator(Offset point) => Positioned(
-    left: point.dx - 26,
-    top: point.dy - 26,
-    child: Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.white70, width: 1.5),
-        borderRadius: BorderRadius.circular(4),
-      ),
-    ),
-  );
 
   Widget _buildPartialReveal(int currentStep) {
     final previewFields = currentStep == 2 ? _step2PreviewFields : _step1PreviewFields;
@@ -796,15 +762,6 @@ class _FrameGuidePainter extends CustomPainter {
     _drawCorner(canvas, rect.bottomLeft, paint, cornerLen, 1, -1);
     _drawCorner(canvas, rect.bottomRight, paint, cornerLen, -1, -1);
 
-    final scanPaint = Paint()
-      ..color = _kIndigo.withAlpha(120)
-      ..strokeWidth = 1.5;
-    final scanY = size.height / 2;
-    canvas.drawLine(
-      Offset(inset + cornerLen + 4, scanY),
-      Offset(size.width - inset - cornerLen - 4, scanY),
-      scanPaint,
-    );
   }
 
   void _drawCorner(Canvas canvas, Offset origin, Paint paint, double len, double sx, double sy) {
@@ -814,6 +771,31 @@ class _FrameGuidePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ─── Scan line painter ────────────────────────────────────────────────────────
+
+class _ScanLinePainter extends CustomPainter {
+  const _ScanLinePainter({required this.progress});
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final y = size.height * progress;
+    final glowPaint = Paint()
+      ..color = const Color(0xFF6366F1).withAlpha(60)
+      ..strokeWidth = 12
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), glowPaint);
+    final linePaint = Paint()
+      ..color = const Color(0xFF6366F1).withAlpha(200)
+      ..strokeWidth = 1.5;
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
+  }
+
+  @override
+  bool shouldRepaint(_ScanLinePainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 // ─── Permission denied view ───────────────────────────────────────────────────

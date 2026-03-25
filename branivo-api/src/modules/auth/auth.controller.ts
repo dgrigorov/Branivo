@@ -22,6 +22,8 @@ import {
 import { AuthenticatedUser } from './strategies/jwt.strategy';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
+import { SendPasswordResetOtpDto } from './dto/send-password-reset-otp.dto';
+import { VerifyPasswordResetOtpDto } from './dto/verify-password-reset-otp.dto';
 
 interface RequestWithUser extends Request {
   user: AuthenticatedUser;
@@ -97,5 +99,48 @@ export class AuthController {
     return {
       message: 'Паролата е сменена успешно. Моля, влезте с новата парола.',
     };
+  }
+
+  @Post('password-reset/send-otp')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: { ttl: 60000, limit: 10 } })
+  @ApiOperation({
+    summary: 'Send 6-digit OTP to email or phone for password reset',
+  })
+  async sendPasswordResetOtp(
+    @Body() dto: SendPasswordResetOtpDto,
+  ): Promise<{ message: string }> {
+    await this.authService.sendPasswordResetOtp(dto.emailOrPhone);
+    return {
+      message: 'Ако акаунтът съществува, ще получите код за верификация.',
+    };
+  }
+
+  @Post('password-reset/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: { ttl: 60000, limit: 10 } })
+  @ApiOperation({ summary: 'Verify OTP and get reset token' })
+  async verifyPasswordResetOtp(
+    @Body() dto: VerifyPasswordResetOtpDto,
+  ): Promise<{ reset_token: string }> {
+    const resetToken = await this.authService.verifyPasswordResetOtp(
+      dto.emailOrPhone,
+      dto.otp,
+    );
+    return { reset_token: resetToken };
+  }
+
+  @Post('password-reset/confirm-otp')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: { ttl: 60000, limit: 10 } })
+  @ApiOperation({ summary: 'Set new password with OTP reset token' })
+  async confirmPasswordResetOtp(
+    @Body() dto: ConfirmPasswordResetDto,
+  ): Promise<{ message: string }> {
+    await this.authService.resetPasswordWithOtpToken(
+      dto.token,
+      dto.newPassword,
+    );
+    return { message: 'Паролата е сменена успешно.' };
   }
 }
