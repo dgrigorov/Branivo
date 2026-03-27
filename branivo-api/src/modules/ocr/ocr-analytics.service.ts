@@ -9,9 +9,34 @@ import { EmailService } from '../../common/email/email.service';
 import type {
   OcrAnalyticsFiltersDto,
   OcrAnalyticsResponseDto,
+  OcrFieldDto,
+  OcrFieldResultDto,
   OcrFieldStat,
+  OcrSessionDto,
+  OcrSessionFiltersDto,
+  OcrSessionsResponseDto,
   OcrTrendPoint,
 } from './dto/ocr-analytics.dto';
+
+type RawOcrField = {
+  value: string | null;
+  confidence: number;
+  auto_filled: boolean;
+};
+type RawOcrResult = Record<string, RawOcrField>;
+
+interface RawOcrSession {
+  id: string;
+  session_token: string;
+  tenant_id: string;
+  provider: string | null;
+  status: string;
+  images_count: number;
+  result: RawOcrResult | null;
+  confidence_scores: Record<string, number> | null;
+  created_at: Date;
+  total_count: string;
+}
 
 interface RawOcrStat {
   field_name: string;
@@ -120,6 +145,69 @@ export class OcrAnalyticsService {
       fallbackRate: parseFloat(r.fallback_rate),
       totalJobs: parseInt(r.total_jobs, 10),
     }));
+  }
+
+  async getSessions(
+    filters: OcrSessionFiltersDto,
+  ): Promise<OcrSessionsResponseDto> {
+    const days = filters.days ?? 7;
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 25;
+    const offset = (page - 1) * limit;
+    const params: (string | number)[] = [days, limit, offset];
+    let tenantFilter = '';
+    if (filters.tenantId) {
+      params.push(filters.tenantId);
+      tenantFilter = `AND tenant_id = $${params.length}`;
+    }
+    const rows = await this.dataSource.query<RawOcrSession[]>(
+      `SELECT id, session_token, tenant_id, provider, status, images_count,
+              result, confidence_scores, created_at,
+              COUNT(*) OVER() AS total_count
+       FROM ocr_jobs
+       WHERE status = 'completed'
+         AND created_at >= NOW() - make_interval(days => $1::int)
+         AND deleted_at IS NULL
+         ${tenantFilter}
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      params,
+    );
+    const total = rows.length > 0 ? parseInt(rows[0].total_count, 10) : 0;
+    return {
+      sessions: rows.map((r) => this.mapRawSession(r)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  private mapRawSession(row: RawOcrSession): OcrSessionDto {
+    return {
+      id: row.id,
+      sessionToken: row.session_token,
+      tenantId: row.tenant_id,
+      provider: row.provider,
+      status: row.status,
+      imagesCount: row.images_count,
+      result: row.result ? this.mapRawResult(row.result) : null,
+      confidenceScores: row.confidence_scores,
+      createdAt: new Date(row.created_at).toISOString(),
+    };
+  }
+
+  private mapRawResult(raw: RawOcrResult): OcrFieldResultDto {
+    const result: OcrFieldResultDto = {};
+    for (const [key, field] of Object.entries(raw)) {
+      const typedKey = key as keyof OcrFieldResultDto;
+      const mapped: OcrFieldDto = {
+        value: field.value,
+        confidence: field.confidence,
+        autoFilled: field.auto_filled,
+      };
+      (result as Record<string, OcrFieldDto>)[typedKey] = mapped;
+    }
+    return result;
   }
 
   async checkAndSendAlerts(): Promise<void> {

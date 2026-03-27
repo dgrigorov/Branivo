@@ -4,7 +4,6 @@ import { useVehicles, VehicleData, CreateVehiclePayload } from '@/lib/hooks/use-
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-const ACCESS_TOKEN = 'test-access-token';
 const VEHICLE_ID = 'vehicle-uuid-456';
 
 const mockVehicle: VehicleData = {
@@ -37,7 +36,7 @@ describe('useVehicles', () => {
       json: async () => [mockVehicle],
     });
 
-    const { result } = renderHook(() => useVehicles(ACCESS_TOKEN));
+    const { result } = renderHook(() => useVehicles());
 
     let vehicles: VehicleData[] = [];
     await act(async () => {
@@ -57,7 +56,7 @@ describe('useVehicles', () => {
       json: async () => [],
     });
 
-    const { result } = renderHook(() => useVehicles(ACCESS_TOKEN));
+    const { result } = renderHook(() => useVehicles());
 
     let vehicles: VehicleData[] = [];
     await act(async () => {
@@ -75,7 +74,7 @@ describe('useVehicles', () => {
       json: async () => mockVehicle,
     });
 
-    const { result } = renderHook(() => useVehicles(ACCESS_TOKEN));
+    const { result } = renderHook(() => useVehicles());
 
     const payload: CreateVehiclePayload = {
       vin: 'WVWZZZ3BZ3E123456',
@@ -102,7 +101,7 @@ describe('useVehicles', () => {
       json: async () => mockVehicle,
     });
 
-    const { result } = renderHook(() => useVehicles(ACCESS_TOKEN));
+    const { result } = renderHook(() => useVehicles());
 
     let vehicle: VehicleData | null = null;
     await act(async () => {
@@ -120,7 +119,7 @@ describe('useVehicles', () => {
       json: async () => ({ message: 'Not found' }),
     });
 
-    const { result } = renderHook(() => useVehicles(ACCESS_TOKEN));
+    const { result } = renderHook(() => useVehicles());
 
     let vehicle: VehicleData | null = null;
     await act(async () => {
@@ -134,7 +133,7 @@ describe('useVehicles', () => {
   it('listVehicles — network error → sets error state', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    const { result } = renderHook(() => useVehicles(ACCESS_TOKEN));
+    const { result } = renderHook(() => useVehicles());
 
     await act(async () => {
       await result.current.listVehicles();

@@ -1,14 +1,24 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PoliciesRepository } from './policies.repository';
 import { S3Service } from '../../infrastructure/s3/s3.service';
 import { ShipmentsRepository } from '../logistics/shipments.repository';
+import { PoliciesService, PolicyDetailsDto } from './policies.service';
+import { CreatePolicyDto } from './dto/create-policy.dto';
+import { UpdatePolicyDto } from './dto/update-policy.dto';
 
 export class PolicyDocumentsResponseDto {
   policyPdfUrl!: string;
@@ -28,10 +38,23 @@ export class PolicyShipmentResponseDto {
 @Controller('policies')
 export class PoliciesController {
   constructor(
+    private readonly policiesService: PoliciesService,
     private readonly policiesRepo: PoliciesRepository,
     private readonly s3Service: S3Service,
     private readonly shipmentsRepo: ShipmentsRepository,
   ) {}
+
+  @UseGuards(JwtAuthGuard)
+  @Get()
+  async listPolicies(): Promise<PolicyDetailsDto[]> {
+    return this.policiesService.listPoliciesDetailed();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post()
+  async createPolicy(@Body() dto: CreatePolicyDto): Promise<PolicyDetailsDto> {
+    return this.policiesService.createPolicy(dto);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/documents')
@@ -88,5 +111,29 @@ export class PoliciesController {
       status: shipment.status,
       createdAt: shipment.createdAt.toISOString(),
     };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id')
+  async getPolicy(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<PolicyDetailsDto> {
+    return this.policiesService.getPolicyDetailedById(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id')
+  async updatePolicy(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePolicyDto,
+  ): Promise<PolicyDetailsDto> {
+    return this.policiesService.updatePolicy(id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deletePolicy(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.policiesService.deletePolicy(id);
   }
 }

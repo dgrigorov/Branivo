@@ -44,13 +44,8 @@ const initialState: VehiclesState = {
   vehicles: [],
 };
 
-export function useVehicles(accessToken: string) {
+export function useVehicles() {
   const [state, setState] = useState<VehiclesState>(initialState);
-
-  const authHeaders = {
-    Authorization: `Bearer ${accessToken}`,
-    'Content-Type': 'application/json',
-  };
 
   const listVehicles = useCallback(async (): Promise<VehicleData[]> => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -58,7 +53,7 @@ export function useVehicles(accessToken: string) {
     try {
       const res = await fetch('/api/v1/vehicles', {
         method: 'GET',
-        headers: { Authorization: `Bearer ${accessToken}` },
+        credentials: 'include',
       });
 
       if (!res.ok) {
@@ -76,7 +71,7 @@ export function useVehicles(accessToken: string) {
       }));
       return [];
     }
-  }, [accessToken]);
+  }, []);
 
   const saveVehicle = useCallback(
     async (payload: CreateVehiclePayload): Promise<VehicleData | null> => {
@@ -85,7 +80,8 @@ export function useVehicles(accessToken: string) {
       try {
         const res = await fetch('/api/v1/vehicles', {
           method: 'POST',
-          headers: authHeaders,
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(payload),
         });
 
@@ -109,8 +105,7 @@ export function useVehicles(accessToken: string) {
         return null;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accessToken],
+    [],
   );
 
   const getVehicle = useCallback(
@@ -120,7 +115,7 @@ export function useVehicles(accessToken: string) {
       try {
         const res = await fetch(`/api/v1/vehicles/${id}`, {
           method: 'GET',
-          headers: { Authorization: `Bearer ${accessToken}` },
+          credentials: 'include',
         });
 
         if (res.status === 404) {
@@ -144,7 +139,7 @@ export function useVehicles(accessToken: string) {
         return null;
       }
     },
-    [accessToken],
+    [],
   );
 
   return {

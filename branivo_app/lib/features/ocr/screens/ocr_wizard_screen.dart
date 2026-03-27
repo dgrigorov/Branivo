@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../bloc/ocr_wizard_bloc.dart';
@@ -236,7 +237,7 @@ class _OcrWizardScreenState extends State<OcrWizardScreen> {
       return _ResultsView(
         fields: state.fields,
         rawText: state.rawText,
-        onProceed: () => widget.onComplete(state.fields),
+        onProceed: (edited) => widget.onComplete(edited),
         onManualEntry: widget.onManualEntry,
       );
     }
@@ -975,7 +976,7 @@ class _ResultsView extends StatefulWidget {
   });
 
   final Map<String, OcrField> fields;
-  final VoidCallback onProceed;
+  final void Function(Map<String, OcrField>) onProceed;
   final VoidCallback onManualEntry;
   final String? rawText;
 
@@ -985,6 +986,34 @@ class _ResultsView extends StatefulWidget {
 
 class _ResultsViewState extends State<_ResultsView> {
   bool _showDebug = false;
+  late final Map<String, TextEditingController> _controllers;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {
+      for (final key in _fieldLabels.keys)
+        key: TextEditingController(text: widget.fields[key]?.value ?? ''),
+    };
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Map<String, OcrField> _buildEditedFields() => {
+        for (final entry in _controllers.entries)
+          if (entry.value.text.isNotEmpty)
+            entry.key: OcrField(
+              value: entry.value.text,
+              confidence: widget.fields[entry.key]?.confidence ?? 1.0,
+              autoFilled: false,
+            ),
+      };
 
   // Таблон кодове → описание (EU Directive 1999/37/EC)
   static const _legendCodes = <String, String>{
@@ -1055,11 +1084,9 @@ class _ResultsViewState extends State<_ResultsView> {
                 const Divider(color: Colors.white12),
                 const SizedBox(height: 8),
               ],
-              ..._fieldLabels.entries.map((entry) {
-                final field = widget.fields[entry.key];
-                if (field == null) return const SizedBox.shrink();
-                return _buildFieldCard(entry.value, field);
-              }),
+              ..._fieldLabels.entries.map((entry) =>
+                _buildFieldCard(entry.value, entry.key),
+              ),
             ],
           ),
         ),
@@ -1069,7 +1096,7 @@ class _ResultsViewState extends State<_ResultsView> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: widget.onProceed,
+              onPressed: () => widget.onProceed(_buildEditedFields()),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _kIndigo,
                 foregroundColor: Colors.white,
@@ -1087,6 +1114,35 @@ class _ResultsViewState extends State<_ResultsView> {
     );
   }
 
+  String _buildMappingText() {
+    final buf = StringBuffer();
+    for (final legend in _legendCodes.entries) {
+      final fieldKey = _legendCodeToFieldKey(legend.key);
+      final field = fieldKey != null ? widget.fields[fieldKey] : null;
+      if (field?.value != null) {
+        buf.writeln(
+          '${legend.value} → ${field!.value!} (${(field.confidence * 100).toStringAsFixed(0)}%)',
+        );
+      } else {
+        buf.writeln('${legend.value} → не е разпознато');
+      }
+    }
+    return buf.toString().trimRight();
+  }
+
+  Future<void> _copyToClipboard(String text, String label) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$label копиран'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: _kSurface,
+        ),
+      );
+    }
+  }
+
   Widget _buildDebugSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1102,9 +1158,26 @@ class _ResultsViewState extends State<_ResultsView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '🔍 Разпознати полета (TalonParser)',
-                style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w700),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '🔍 Разпознати полета (TalonParser)',
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => _copyToClipboard(_buildMappingText(), 'Mapping'),
+                    icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.amber),
+                    tooltip: 'Копирай mapping',
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               ..._legendCodes.entries.map((legend) {
@@ -1169,9 +1242,32 @@ class _ResultsViewState extends State<_ResultsView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '📄 Raw ML Kit текст',
-                style: TextStyle(color: _kMuted, fontSize: 12, fontWeight: FontWeight.w700),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '📄 Raw ML Kit текст',
+                      style: TextStyle(
+                        color: _kMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: widget.rawText?.isNotEmpty == true
+                        ? () => _copyToClipboard(widget.rawText!, 'Raw текст')
+                        : null,
+                    icon: Icon(
+                      Icons.copy_rounded,
+                      size: 18,
+                      color: widget.rawText?.isNotEmpty == true ? _kTextSub : _kMuted.withAlpha(80),
+                    ),
+                    tooltip: 'Копирай raw текст',
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text(
@@ -1211,44 +1307,102 @@ class _ResultsViewState extends State<_ResultsView> {
         _ => null,
       };
 
-  Widget _buildFieldCard(String label, OcrField field) {
-    final isLow = field.isLowConfidence;
+  // Keyboard type per field key
+  static TextInputType _keyboardType(String key) => switch (key) {
+        'engine_volume' || 'power_kw' || 'year' => TextInputType.number,
+        'owner_egn' => TextInputType.number,
+        'first_registration_date' || 'registration_validity' =>
+          TextInputType.datetime,
+        _ => TextInputType.text,
+      };
+
+  // Format placeholder hint per field key
+  static String _placeholder(String key) => switch (key) {
+        'license_plate' => 'напр. СА1234АВ',
+        'vin' => 'напр. WBA3A5G51DNP26082',
+        'cert_number' => 'напр. 002345678',
+        'make' => 'напр. BMW',
+        'model' => 'напр. 320d',
+        'year' => 'напр. 2019',
+        'color' => 'напр. черен',
+        'engine_volume' => 'напр. 1995',
+        'power_kw' => 'напр. 140',
+        'fuel_type' => 'напр. дизел',
+        'seats' => 'напр. 5 или 4+1',
+        'vehicle_category' => 'напр. M1',
+        'euro_standard' => 'напр. EURO 6',
+        'first_registration_date' => 'напр. 15.03.2019',
+        'registration_validity' => 'напр. 31.12.2026',
+        'owner_name' => 'напр. Иванов Иван',
+        'owner_egn' => 'напр. 8501011234',
+        'owner_address' => 'напр. гр. София, ул. Раковски 1',
+        _ => 'Въведете ръчно...',
+      };
+
+  Widget _buildFieldCard(String label, String fieldKey) {
+    final original = widget.fields[fieldKey];
+    final controller = _controllers[fieldKey]!;
+    final isMissing = original == null || (original.value?.isEmpty ?? true);
+    final isLow = original?.isLowConfidence ?? true;
+
+    final Color borderColor;
+    final Color iconColor;
+    final IconData iconData;
+    if (isMissing) {
+      borderColor = Colors.red.withAlpha(120);
+      iconColor = Colors.red.shade300;
+      iconData = Icons.edit_outlined;
+    } else if (isLow) {
+      borderColor = Colors.amber.withAlpha(100);
+      iconColor = Colors.amber;
+      iconData = Icons.warning_amber_rounded;
+    } else {
+      borderColor = _kGreen.withAlpha(80);
+      iconColor = _kGreen;
+      iconData = Icons.check_circle_rounded;
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
       decoration: BoxDecoration(
         color: _kSurface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isLow ? Colors.amber.withAlpha(100) : _kGreen.withAlpha(80),
-        ),
+        border: Border.all(color: borderColor),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: _kMuted, fontSize: 11, fontWeight: FontWeight.w600,
-                  ),
+          Row(
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: _kMuted, fontSize: 11, fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  field.value ?? '—',
-                  style: const TextStyle(
-                    color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const Spacer(),
+              Icon(iconData, color: iconColor, size: 16),
+            ],
           ),
-          Icon(
-            isLow ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
-            color: isLow ? Colors.amber : _kGreen,
-            size: 18,
+          TextField(
+            controller: controller,
+            keyboardType: _keyboardType(fieldKey),
+            style: const TextStyle(
+              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: false,
+              contentPadding: const EdgeInsets.symmetric(vertical: 6),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              hintText: _placeholder(fieldKey),
+              hintStyle: const TextStyle(
+                color: _kMuted, fontSize: 13, fontWeight: FontWeight.normal,
+              ),
+            ),
           ),
         ],
       ),

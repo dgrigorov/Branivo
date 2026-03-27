@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+// Mock vehicle validation — КАТ/ГФ APIs not yet integrated
+const _mockValidation = true; // TODO: set to false when KAT/GF keys are added
+
 class VehicleGfBlockedException implements Exception {
   const VehicleGfBlockedException();
 
@@ -56,6 +59,17 @@ class VehicleApiRepository {
     String licensePlate, {
     bool? katManuallyConfirmed,
   }) async {
+    if (_mockValidation) {
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      return VehicleValidationResult(
+        canProceedToQuote: true,
+        katStatus: 'ok',
+        gfStatus: 'ok',
+        vinValid: true,
+        validatedAt: DateTime.now().toIso8601String(),
+      );
+    }
+
     final sessionToken = await _storage.read(key: 'session_token') ?? '';
 
     try {

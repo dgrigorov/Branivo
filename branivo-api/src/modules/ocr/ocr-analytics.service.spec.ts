@@ -4,7 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import { OcrAnalyticsService } from './ocr-analytics.service';
 import { EmailService } from '../../common/email/email.service';
 import { REDIS_CLIENT } from '../../infrastructure/redis/redis.module';
-import type { OcrAnalyticsFiltersDto } from './dto/ocr-analytics.dto';
+import type {
+  OcrAnalyticsFiltersDto,
+  OcrSessionFiltersDto,
+} from './dto/ocr-analytics.dto';
 
 describe('OcrAnalyticsService', () => {
   let service: OcrAnalyticsService;
@@ -150,6 +153,111 @@ describe('OcrAnalyticsService', () => {
         (string | number)[],
       ];
       expect(queryCall[1]).toContain('tenant-uuid-1');
+    });
+  });
+
+  describe('getSessions()', () => {
+    const rawSessionRows = [
+      {
+        id: 'sess-uuid-1',
+        session_token: 'tok-abc',
+        tenant_id: 'tenant-1',
+        provider: 'ml_kit',
+        status: 'completed',
+        images_count: 2,
+        result: {
+          license_plate: {
+            value: 'AA0000BB',
+            confidence: 0.97,
+            auto_filled: false,
+          },
+          vin: {
+            value: 'WDDTESTVIN0000001',
+            confidence: 0.91,
+            auto_filled: false,
+          },
+        },
+        confidence_scores: { license_plate: 0.97, vin: 0.91 },
+        created_at: new Date('2026-03-20T10:00:00Z'),
+        total_count: '2',
+      },
+      {
+        id: 'sess-uuid-2',
+        session_token: 'tok-def',
+        tenant_id: 'tenant-2',
+        provider: 'google_vision',
+        status: 'completed',
+        images_count: 1,
+        result: null,
+        confidence_scores: null,
+        created_at: new Date('2026-03-19T09:00:00Z'),
+        total_count: '2',
+      },
+    ];
+
+    it('returns paginated sessions with mapped camelCase result', async () => {
+      mockQuery.mockResolvedValueOnce(rawSessionRows);
+      const filters: OcrSessionFiltersDto = {};
+
+      const result = await service.getSessions(filters);
+
+      expect(result.total).toBe(2);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(25);
+      expect(result.sessions).toHaveLength(2);
+      expect(result.sessions[0]).toMatchObject({
+        id: 'sess-uuid-1',
+        sessionToken: 'tok-abc',
+        tenantId: 'tenant-1',
+        provider: 'ml_kit',
+        imagesCount: 2,
+      });
+      expect(result.sessions[0].result?.license_plate).toMatchObject({
+        value: 'AA0000BB',
+        confidence: 0.97,
+        autoFilled: false,
+      });
+    });
+
+    it('handles sessions with null result gracefully', async () => {
+      mockQuery.mockResolvedValueOnce([rawSessionRows[1]]);
+      const result = await service.getSessions({});
+
+      expect(result.sessions[0].result).toBeNull();
+    });
+
+    it('returns empty sessions when no rows', async () => {
+      mockQuery.mockResolvedValueOnce([]);
+      const result = await service.getSessions({});
+
+      expect(result.sessions).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
+
+    it('passes tenantId filter when provided', async () => {
+      mockQuery.mockResolvedValueOnce([rawSessionRows[0]]);
+      const filters: OcrSessionFiltersDto = { tenantId: 'tenant-1', days: 30 };
+
+      await service.getSessions(filters);
+
+      const queryCall = mockQuery.mock.calls[0] as [
+        string,
+        (string | number)[],
+      ];
+      expect(queryCall[1]).toContain('tenant-1');
+    });
+
+    it('calculates correct offset for page 2', async () => {
+      mockQuery.mockResolvedValueOnce([]);
+      const filters: OcrSessionFiltersDto = { page: 2, limit: 10 };
+
+      await service.getSessions(filters);
+
+      const queryCall = mockQuery.mock.calls[0] as [
+        string,
+        (string | number)[],
+      ];
+      expect(queryCall[1][2]).toBe(10); // offset = (2-1)*10
     });
   });
 

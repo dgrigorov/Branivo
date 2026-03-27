@@ -6,15 +6,6 @@ import VehicleListPage from '@/app/[locale]/(client)/vehicles/page';
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Mock localStorage
-const localStorageMock = {
-  getItem: jest.fn().mockReturnValue('test-access-token'),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-};
-Object.defineProperty(window, 'localStorage', { value: localStorageMock });
-
 const mockVehicle = {
   id: 'vehicle-uuid-456',
   tenantId: 'tenant-uuid',
@@ -36,7 +27,6 @@ const mockVehicle = {
 describe('VehicleListPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorageMock.getItem.mockReturnValue('test-access-token');
   });
 
   it('renders empty state with CTA when no vehicles', async () => {

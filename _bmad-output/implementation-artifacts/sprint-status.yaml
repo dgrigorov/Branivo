@@ -44,7 +44,7 @@ development_status:
 
   # ═══════════════════════════════════════════════════════════════
   # PHASE 1 — MVP (Q1–Q2 2026) · България · само ГО продукт
-  # Phase 1 приключва когато: epic-22: done AND epic-11: done AND UAT: approved
+  # Phase 1 приключва когато: epic-22: done AND epic-11: done AND epic-23: done AND UAT: approved
   # ВАЖНО: Не се стартира НИКАКВА Phase 2 story преди Phase 1 UAT е преминат.
   # ═══════════════════════════════════════════════════════════════
   # ─────────────────────────────────────────────────────────────
@@ -139,10 +139,25 @@ development_status:
   22-1-stripe-webhook-idempotency-fix: done            # КРИТИЧНО — data integrity (NFR35/NFR9)
   22-2-broker-password-reset-flow: done               # КРИТИЧНО — operational blocker
   22-3-gdpr-client-data-export: done                    # Законово задължително (FR63)
-  22-4-pwa-browser-push-notifications: backlog        # Phase 1 requirement (FR42)
+  22-4-pwa-browser-push-notifications: ready-for-dev  # Phase 1 requirement (FR42)
   22-5-guarantee-fund-api-integration: backlog        # Phase 1 requirement (FR20)
   22-6-terraform-iac-infrastructure: backlog          # Infrastructure (NFR38)
   epic-22-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
+  # Epic 23: Публичен Insurer Registry
+  # Публичен агрегатор на лицензирани застрахователи от КФН регистър,
+  # официални сайтове и публични БГ форуми. Без tenant scope.
+  # FR91–FR95 · Добавен: 2026-03-26
+  # DEPENDENCY ORDER: 23-1 → 23-2 → 23-3 → 23-4 → 23-5
+  # ─────────────────────────────────────────────────────────────
+  epic-23: backlog
+  23-1-insurer-registry-module-scaffold-db-schema: backlog  # Module + insurer_profiles + insurer_crawl_raw migrations
+  23-2-fsc-scraper-website-discovery: backlog              # fsc.bg Cheerio scraper + Google Custom Search API (FR91)
+  23-3-website-enricher-ai-profile-builder: backlog        # Cheerio/Puppeteer meta extraction + Claude Haiku structuring (FR91/FR92)
+  23-4-forum-sentiment-analysis: backlog                   # forums.bg + automedia.bg scraping → Claude Haiku sentiment score (FR93)
+  23-5-public-rest-api-caching: backlog                    # GET /api/v1/public/insurers/** + Redis cache + rate limiting (FR94/FR95)
+  epic-23-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────
   # Epic 11: Compliance, GDPR & Legal Pages

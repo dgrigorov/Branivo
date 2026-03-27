@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 interface InsurerApiStatus {
   insurerId: string;
@@ -69,17 +70,156 @@ interface DisableModalState {
   reason: string;
 }
 
+interface FscSyncResponse {
+  total: number;
+  byCategory: Array<{
+    categoryKey: string;
+    categoryLabel: string;
+    url: string;
+    imported: number;
+  }>;
+  syncedAt: string;
+}
+
+interface FscSyncStatusResponse {
+  runId: string | null;
+  status: 'idle' | 'running' | 'success' | 'error';
+  startedAt: string | null;
+  finishedAt: string | null;
+  total: number | null;
+  byCategory: Array<{
+    categoryKey: string;
+    categoryLabel: string;
+    url: string;
+    imported: number;
+  }>;
+  errorMessage: string | null;
+  logs: Array<{
+    at: string;
+    level: 'info' | 'warn' | 'error';
+    message: string;
+  }>;
+}
+
+interface FscInsurerRecord {
+  id: string;
+  categoryKey: string;
+  categoryLabel: string;
+  name: string;
+  eik: string | null;
+  officeAddress: string | null;
+  website: string | null;
+  contactDetails: string | null;
+  contactPhone: string | null;
+  contactEmails: string[];
+  longDescription: string | null;
+  logoUrl: string | null;
+  socialLinks: string[];
+  trustpilotUrl: string | null;
+  websiteEnrichedAt: string | null;
+  sourceUrl: string;
+  scrapedAt: string;
+  updatedAt: string;
+}
+
+type FscCategoryKey =
+  | 'life_insurers'
+  | 'non_life_insurers'
+  | 'insurance_brokers'
+  | 'reinsurers';
+
+const FSC_TABS: Array<{ key: FscCategoryKey; label: string }> = [
+  { key: 'life_insurers', label: 'Животозастраховане' },
+  { key: 'non_life_insurers', label: 'Общо застраховане' },
+  { key: 'insurance_brokers', label: 'Брокери' },
+  { key: 'reinsurers', label: 'Презастрахователи' },
+];
+
+function splitPhones(value: string | null): string[] {
+  if (!value) return [];
+  return value
+    .split(';')
+    .map((phone) => phone.replace(/^тел\.?\s*/i, '').trim())
+    .filter((phone) => phone.length > 0);
+}
+
+function toTelHref(phone: string): string {
+  return `tel:${phone.replace(/[^\d+]/g, '')}`;
+}
+
+function socialLabel(url: string): string {
+  const lower = url.toLowerCase();
+  if (lower.includes('facebook.com')) return 'Facebook';
+  if (lower.includes('instagram.com')) return 'Instagram';
+  if (lower.includes('linkedin.com')) return 'LinkedIn';
+  if (lower.includes('youtube.com')) return 'YouTube';
+  if (lower.includes('tiktok.com')) return 'TikTok';
+  if (lower.includes('x.com') || lower.includes('twitter.com')) return 'X';
+  return 'Social';
+}
+
+async function syncFscInsurers(): Promise<FscSyncResponse> {
+  const res = await fetch('/api/v1/admin/insurers/fsc/sync', {
+    method: 'POST',
+    credentials: 'include',
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    message?: string;
+  } & Partial<FscSyncResponse>;
+  if (!res.ok) {
+    throw new Error(body.message ?? 'Грешка при FSC sync');
+  }
+  return body as FscSyncResponse;
+}
+
+async function fetchFscInsurers(): Promise<FscInsurerRecord[]> {
+  const res = await fetch('/api/v1/admin/insurers/fsc?limit=500', {
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to fetch FSC insurers');
+  return res.json() as Promise<FscInsurerRecord[]>;
+}
+
+async function fetchFscSyncStatus(): Promise<FscSyncStatusResponse> {
+  const res = await fetch('/api/v1/admin/insurers/fsc/sync/status', {
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to fetch FSC sync status');
+  return res.json() as Promise<FscSyncStatusResponse>;
+}
+
 export default function AdminInsurersPage() {
   const queryClient = useQueryClient();
+  const user = useCurrentUser();
   const [disableModal, setDisableModal] = useState<DisableModalState | null>(
     null,
   );
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [isSyncPolling, setIsSyncPolling] = useState(false);
+  const [activeFscTab, setActiveFscTab] =
+    useState<FscCategoryKey>('life_insurers');
 
   const { data, isLoading, error } = useQuery<InsurerApiStatus[]>({
     queryKey: ['admin', 'insurers', 'monitor'],
     queryFn: fetchInsurerMonitor,
     refetchInterval: 30_000,
     staleTime: 30_000,
+  });
+
+  const { data: fscInsurers = [], isLoading: isFscLoading } = useQuery<
+    FscInsurerRecord[]
+  >({
+    queryKey: ['admin', 'insurers', 'fsc'],
+    queryFn: fetchFscInsurers,
+    staleTime: 60_000,
+  });
+  const { data: syncStatus } = useQuery<FscSyncStatusResponse>({
+    queryKey: ['admin', 'insurers', 'fsc', 'sync-status'],
+    queryFn: fetchFscSyncStatus,
+    enabled: user.role === 'super_admin' && isSyncPolling,
+    retry: false,
+    refetchInterval: isSyncPolling ? 1500 : false,
+    staleTime: 0,
   });
 
   const disableMutation = useMutation({
@@ -89,6 +229,9 @@ export default function AdminInsurersPage() {
       setDisableModal(null);
       void queryClient.invalidateQueries({
         queryKey: ['admin', 'insurers', 'monitor'],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'insurers', 'fsc'],
       });
     },
   });
@@ -116,6 +259,39 @@ export default function AdminInsurersPage() {
     });
   };
 
+  const syncMutation = useMutation({
+    mutationFn: syncFscInsurers,
+    onMutate: () => {
+      setIsSyncPolling(true);
+      setSyncMessage('FSC sync стартиран...');
+    },
+    onSuccess: (result) => {
+      setSyncMessage(
+        `FSC sync успешно. Импортирани записи: ${result.total}.`,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'insurers', 'monitor'],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'insurers', 'fsc'],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'insurers', 'fsc', 'sync-status'],
+      });
+    },
+    onError: (err: unknown) => {
+      setSyncMessage(
+        err instanceof Error ? err.message : 'Грешка при FSC sync',
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'insurers', 'fsc', 'sync-status'],
+      });
+    },
+    onSettled: () => {
+      setIsSyncPolling(false);
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -133,6 +309,9 @@ export default function AdminInsurersPage() {
   }
 
   const insurers = data ?? [];
+  const filteredFscInsurers = fscInsurers.filter(
+    (row) => row.categoryKey === activeFscTab,
+  );
 
   return (
     <div className="p-6">
@@ -143,7 +322,58 @@ export default function AdminInsurersPage() {
             Обновява се автоматично на всеки 30 секунди
           </p>
         </div>
+        {user.role === 'super_admin' && (
+          <button
+            onClick={() => {
+              setSyncMessage(null);
+              syncMutation.mutate();
+            }}
+            disabled={syncMutation.isPending}
+            className="rounded-md border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+          >
+            {syncMutation.isPending ? 'Sync...' : 'Sync FSC'}
+          </button>
+        )}
       </div>
+      {syncMessage && (
+        <p className="mb-4 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+          {syncMessage}
+        </p>
+      )}
+      {(syncStatus?.logs?.length ?? 0) > 0 && (
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900">
+              FSC Sync Debug
+            </h2>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                syncStatus?.status === 'running'
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : syncStatus?.status === 'error'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-green-100 text-green-700'
+              }`}
+            >
+              {syncStatus?.status === 'running'
+                ? 'В процес'
+                : syncStatus?.status === 'error'
+                  ? 'Грешка'
+                  : 'Готово'}
+            </span>
+          </div>
+          {syncStatus?.errorMessage && (
+            <p className="mb-2 text-xs text-red-600">{syncStatus.errorMessage}</p>
+          )}
+          <div className="max-h-56 overflow-auto rounded border border-gray-100 bg-gray-50 p-2 font-mono text-xs text-gray-700">
+            {(syncStatus?.logs ?? []).slice().reverse().map((log, idx) => (
+              <div key={`${log.at}-${idx}`} className="mb-1">
+                [{new Date(log.at).toLocaleTimeString('bg-BG')}] {log.level.toUpperCase()} {log.message}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">
@@ -256,6 +486,174 @@ export default function AdminInsurersPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">
+            FSC регистър (записи от базата)
+          </h2>
+          <span className="text-sm text-gray-500">
+            {isFscLoading
+              ? 'Зареждане...'
+              : `Общо в таба: ${filteredFscInsurers.length}`}
+          </span>
+        </div>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {FSC_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveFscTab(tab.key)}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                tab.key === activeFscTab
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Наименование
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  ЕИК
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Адрес
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Телефон
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Имейли
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Описание
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Social / Trustpilot
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Уебсайт
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {filteredFscInsurers.map((row) => (
+                <tr key={row.id}>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700">{row.eik ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {row.officeAddress ? (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.officeAddress)}`}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="underline"
+                      >
+                        {row.officeAddress}
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {splitPhones(row.contactPhone).length > 0 ? (
+                      splitPhones(row.contactPhone).map((phone, idx) => (
+                        <span key={`${row.id}-${phone}`}>
+                          {idx > 0 ? ' | ' : ''}
+                          <a href={toTelHref(phone)} className="underline">
+                            {phone}
+                          </a>
+                        </span>
+                      ))
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {row.contactEmails && row.contactEmails.length > 0
+                      ? row.contactEmails.map((email, idx) => (
+                          <span key={`${row.id}-${email}`}>
+                            {idx > 0 ? ', ' : ''}
+                            <a href={`mailto:${email}`} className="underline">
+                              {email}
+                            </a>
+                          </span>
+                        ))
+                      : '—'}
+                  </td>
+                  <td className="max-w-md px-4 py-3 text-sm text-gray-700">
+                    {row.longDescription
+                      ? `${row.longDescription.slice(0, 240)}${
+                          row.longDescription.length > 240 ? '…' : ''
+                        }`
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {row.socialLinks?.length ? (
+                      <div className="mb-1">
+                        {row.socialLinks.slice(0, 3).map((link) => (
+                          <a
+                            key={link}
+                            href={link}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="mr-2 underline"
+                          >
+                            {socialLabel(link)}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                    {row.trustpilotUrl ? (
+                      <a
+                        href={row.trustpilotUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="underline"
+                      >
+                        Trustpilot
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-blue-700">
+                    {row.website ? (
+                      <a
+                        href={row.website}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="underline"
+                      >
+                        {row.website}
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!isFscLoading && filteredFscInsurers.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-4 py-6 text-center text-sm text-gray-500"
+                  >
+                    Няма FSC записи в базата.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Disable Confirm Modal */}

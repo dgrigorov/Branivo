@@ -27,6 +27,8 @@ interface ShipmentInfo {
   createdAt: string;
 }
 
+type WalletTab = 'active' | 'expired';
+
 async function fetchPolicies(token: string): Promise<PolicyDocument[]> {
   const res = await fetch('/api/v1/policies', {
     headers: { Authorization: `Bearer ${token}` },
@@ -75,6 +77,7 @@ const PROVIDER_LABELS: Record<ShipmentInfo['provider'], string> = {
 export default function PolicyWalletPage() {
   const [policies, setPolicies] = useState<PolicyDocument[]>([]);
   const [shipments, setShipments] = useState<Record<string, ShipmentInfo | null>>({});
+  const [activeTab, setActiveTab] = useState<WalletTab>('active');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -119,6 +122,19 @@ export default function PolicyWalletPage() {
     }
   };
 
+  const isExpiredPolicy = (policy: PolicyDocument): boolean => {
+    if (!policy.coverageEndDate) return policy.status !== 'active';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const coverageEnd = new Date(policy.coverageEndDate);
+    coverageEnd.setHours(0, 0, 0, 0);
+    return coverageEnd < today;
+  };
+
+  const activePolicies = policies.filter((policy) => !isExpiredPolicy(policy));
+  const expiredPolicies = policies.filter((policy) => isExpiredPolicy(policy));
+  const visiblePolicies = activeTab === 'active' ? activePolicies : expiredPolicies;
+
   if (loading) {
     return (
       <div className="p-6">
@@ -147,13 +163,40 @@ export default function PolicyWalletPage() {
   return (
     <div className="p-6">
       <h1 className="mb-6 text-2xl font-bold">Моите полици</h1>
+      <div className="mb-4 flex w-fit rounded-lg bg-gray-100 p-1">
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+            activeTab === 'active'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          Активни ({activePolicies.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('expired')}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+            activeTab === 'expired'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          Изтекли ({expiredPolicies.length})
+        </button>
+      </div>
 
-      {policies.length === 0 ? (
-        <p className="text-gray-500">Нямате активни полици.</p>
+      {visiblePolicies.length === 0 ? (
+        <p className="text-gray-500">
+          {activeTab === 'active'
+            ? 'Нямате активни полици.'
+            : 'Нямате изтекли полици.'}
+        </p>
       ) : (
         <ul className="space-y-4">
-          {policies.map((policy) => {
+          {visiblePolicies.map((policy) => {
             const shipment = shipments[policy.id];
+            const isExpired = isExpiredPolicy(policy);
             return (
               <li
                 key={policy.id}
@@ -161,9 +204,15 @@ export default function PolicyWalletPage() {
               >
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-semibold">{policy.policyNumber}</span>
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                    {policy.status}
-                  </span>
+                  {isExpired ? (
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
+                      изтекла
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                      активна
+                    </span>
+                  )}
                 </div>
                 <p className="mb-1 text-sm text-gray-600">
                   {policy.premiumAmount} {policy.currency}

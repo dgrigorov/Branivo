@@ -75,6 +75,12 @@ export class ClientAuthService {
       throw new ServiceUnavailableException('Услугата временно не е достъпна');
     }
 
+    if (this.config.get<string>('NODE_ENV') !== 'production') {
+      this.logger.warn(
+        `\n${'='.repeat(50)}\n[DEV OTP] ${phoneNumber} → ${otpCode}\n${'='.repeat(50)}`,
+      );
+    }
+
     await this.smsService.sendOtp(phoneNumber, otpCode);
 
     return { expires_in: OTP_TTL_SECONDS };

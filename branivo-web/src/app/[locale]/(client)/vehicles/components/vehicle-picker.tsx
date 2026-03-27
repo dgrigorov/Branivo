@@ -4,17 +4,15 @@ import { useEffect } from 'react';
 import { useVehicles, type VehicleData } from '@/lib/hooks/use-vehicles';
 
 interface VehiclePickerProps {
-  accessToken: string;
   onSelect: (vehicle: VehicleData) => void;
   selectedId?: string;
 }
 
 export function VehiclePicker({
-  accessToken,
   onSelect,
   selectedId,
 }: VehiclePickerProps) {
-  const { isLoading, vehicles, listVehicles } = useVehicles(accessToken);
+  const { isLoading, vehicles, listVehicles } = useVehicles();
 
   useEffect(() => {
     void listVehicles();

@@ -21,8 +21,8 @@ class ClientAuthRepository {
   ClientAuthRepository({
     required Dio dio,
     required FlutterSecureStorage storage,
-  })  : _dio = dio,
-        _storage = storage;
+  }) : _dio = dio,
+       _storage = storage;
 
   final Dio _dio;
   final FlutterSecureStorage _storage;
@@ -55,7 +55,7 @@ class ClientAuthRepository {
         data: {
           'phone_number': phoneNumber,
           'otp_code': otpCode,
-          if (sessionId != null) 'session_id': sessionId,
+          'session_id': ?sessionId,
         },
       );
       final body = response.data!;

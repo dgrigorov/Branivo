@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -14,7 +15,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { OcrService } from './ocr.service';
-import { OcrScanResponseDto } from './dto/ocr-scan.dto';
+import { OcrScanResponseDto, ReportMlKitScanDto } from './dto/ocr-scan.dto';
 import { OcrStatusResponseDto } from './dto/ocr-status.dto';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -68,6 +69,15 @@ export class OcrController {
 
     const imageBuffers = files.map((f) => f.buffer);
     return this.ocrService.scan(imageBuffers, sessionToken, clientIp);
+  }
+
+  @Post('report-mlkit-scan')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async reportMlKitScan(
+    @Body() dto: ReportMlKitScanDto,
+  ): Promise<OcrScanResponseDto> {
+    return this.ocrService.reportMlKitScan(dto);
   }
 
   @Get('status/:jobId')

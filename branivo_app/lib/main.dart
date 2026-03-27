@@ -14,6 +14,7 @@ import 'features/ocr/data/repositories/mlkit_ocr_repository.dart';
 import 'features/payments/data/payment_api_repository.dart';
 import 'features/policies/data/repositories/policy_repository.dart';
 import 'features/registration/data/repositories/client_auth_repository.dart';
+import 'features/quotes/data/quote_api_repository.dart';
 import 'features/vehicles/data/repositories/vehicle_api_repository.dart';
 import 'features/vehicles/data/repositories/vehicles_repository.dart';
 
@@ -41,12 +42,13 @@ Future<void> main() async {
 
   final vehiclesRepository = VehiclesRepository(dio: dio);
   final vehicleApiRepository = VehicleApiRepository(dio: dio, storage: storage);
-  final OcrRepository ocrApiRepository = MlKitOcrRepository();
+  final OcrRepository ocrApiRepository = MlKitOcrRepository(dio: dio);
   final paymentApiRepository = PaymentApiRepository(dio: dio);
   final anonSessionRepository = AnonymousSessionRepository(dio: dio);
   final policyRepository = PolicyRepository(dio: dio);
   final fleetRepository = FleetRepository(dio: dio);
   final clientAuthRepository = ClientAuthRepository(dio: dio, storage: storage);
+  final quoteApiRepository = QuoteApiRepository(dio: dio);
 
   runApp(
     MultiRepositoryProvider(
@@ -63,6 +65,8 @@ Future<void> main() async {
         RepositoryProvider<FleetRepository>.value(value: fleetRepository),
         RepositoryProvider<ClientAuthRepository>.value(
             value: clientAuthRepository),
+        RepositoryProvider<QuoteApiRepository>.value(
+            value: quoteApiRepository),
       ],
       child: const BranivoApp(),
     ),

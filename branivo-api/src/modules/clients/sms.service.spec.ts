@@ -29,8 +29,11 @@ describe('SmsService', () => {
   });
 
   describe('sendOtp', () => {
-    it('should throw ServiceUnavailableException when Twilio is not configured', async () => {
-      mockConfig.get.mockReturnValue(undefined);
+    it('should throw ServiceUnavailableException when Twilio is not configured in production', async () => {
+      mockConfig.get.mockImplementation((key: string) => {
+        if (key === 'NODE_ENV') return 'production';
+        return undefined;
+      });
 
       await expect(service.sendOtp('+35988000000', '123456')).rejects.toThrow(
         ServiceUnavailableException,

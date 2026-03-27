@@ -23,7 +23,7 @@ import {
   OcrJobStatus,
   OcrProvider,
 } from './entities/ocr-job.entity';
-import { OcrScanResponseDto } from './dto/ocr-scan.dto';
+import { OcrScanResponseDto, ReportMlKitScanDto } from './dto/ocr-scan.dto';
 import { OcrStatusResponseDto } from './dto/ocr-status.dto';
 
 const OCR_RATE_LIMIT = 10;
@@ -93,6 +93,39 @@ export class OcrService {
 
       return this.enqueueTextractFallback(job, images, sessionToken, tenantId);
     }
+  }
+
+  async reportMlKitScan(dto: ReportMlKitScanDto): Promise<OcrScanResponseDto> {
+    const tenantId = this.tenantContext.getTenantId();
+
+    const job = await this.ocrJobRepository.createJob({
+      tenantId,
+      sessionToken: dto.session_token,
+      imagesCount: dto.images_count,
+    });
+
+    const avgConfidence = this.calcAvgConfidence(dto.fields);
+
+    await this.ocrJobRepository.updateStatus(job.id, OcrJobStatus.COMPLETED, {
+      result: dto.fields,
+      confidenceScores: this.extractConfidenceScores(dto.fields),
+      provider: OcrProvider.ML_KIT,
+    });
+
+    await this.updateAnonymousSession(
+      dto.session_token,
+      tenantId,
+      dto.fields,
+      job.id,
+    );
+
+    return {
+      jobId: job.id,
+      status: OcrJobStatus.COMPLETED,
+      provider: OcrProvider.ML_KIT,
+      fields: dto.fields,
+      avgConfidence,
+    };
   }
 
   async getStatus(jobId: string): Promise<OcrStatusResponseDto> {

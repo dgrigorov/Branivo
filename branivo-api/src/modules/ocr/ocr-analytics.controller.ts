@@ -6,6 +6,8 @@ import { OcrAnalyticsService } from './ocr-analytics.service';
 import {
   OcrAnalyticsFiltersDto,
   OcrAnalyticsResponseDto,
+  OcrSessionFiltersDto,
+  OcrSessionsResponseDto,
   OcrTrendFiltersDto,
   OcrTrendPoint,
 } from './dto/ocr-analytics.dto';
@@ -32,5 +34,12 @@ export class OcrAnalyticsController {
       filters.days ?? 7,
       filters.tenantId,
     );
+  }
+
+  @Get('sessions')
+  async getSessions(
+    @Query() filters: OcrSessionFiltersDto,
+  ): Promise<OcrSessionsResponseDto> {
+    return this.analyticsService.getSessions(filters);
   }
 }

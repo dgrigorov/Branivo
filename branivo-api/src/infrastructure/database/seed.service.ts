@@ -258,17 +258,36 @@ export class SeedService implements OnApplicationBootstrap {
       `SELECT id FROM insurers WHERE code = 'allianz' LIMIT 1`,
     );
     const insurerId = insurer[0]?.id ?? '';
+    const clientRows = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM end_clients WHERE tenant_id = $1 LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    const vehicleRows = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM vehicles WHERE tenant_id = $1 LIMIT 1`,
+      [DEMO_TENANT_ID],
+    );
+    const endClientId = clientRows[0]?.id ?? null;
+    const vehicleId = vehicleRows[0]?.id ?? null;
 
     await this.dataSource.query(
       `INSERT INTO policies
          (id, tenant_id, payment_id, quote_id, insurer_id, policy_number,
           status, stripe_payment_intent_id, premium_amount, commission_amount,
-          commission_pct, currency, metadata)
+          commission_pct, currency, end_client_id, vehicle_id, coverage_start_date, coverage_end_date, metadata)
        VALUES
          (gen_random_uuid(), $1, $2, $3, $4, 'DEMO-SEED-001',
-          'active', 'pi_demo_seed_001', 450.00, 22.50, 0.05, 'BGN', '{}')
+          'active', 'pi_demo_seed_001', 450.00, 22.50, 0.05, 'BGN', $5, $6,
+          CURRENT_DATE - INTERVAL '30 days', CURRENT_DATE + INTERVAL '335 days',
+          '{"source":"seed","has_full_owner_and_vehicle":true}')
        ON CONFLICT (policy_number) DO NOTHING`,
-      [DEMO_TENANT_ID, payment.id, payment.quote_id, insurerId],
+      [
+        DEMO_TENANT_ID,
+        payment.id,
+        payment.quote_id,
+        insurerId,
+        endClientId,
+        vehicleId,
+      ],
     );
     this.logger.log('Policies seeded.');
   }
@@ -362,6 +381,10 @@ export class SeedService implements OnApplicationBootstrap {
         plate: 'КА0001ФЛ',
         make: 'BMW',
         model: 'X5',
+        color: 'Черен',
+        engineVolume: '3.0',
+        fuelType: 'Дизел',
+        firstRegistrationDate: '2021-05-10',
         daysOffset: 60,
         label: 'green (60d)',
       },
@@ -370,6 +393,10 @@ export class SeedService implements OnApplicationBootstrap {
         plate: 'КА0002ФЛ',
         make: 'Mercedes',
         model: 'C-Class',
+        color: 'Бял',
+        engineVolume: '2.0',
+        fuelType: 'Бензин',
+        firstRegistrationDate: '2020-11-18',
         daysOffset: 20,
         label: 'yellow (20d)',
       },
@@ -378,6 +405,10 @@ export class SeedService implements OnApplicationBootstrap {
         plate: 'КА0003ФЛ',
         make: 'Audi',
         model: 'A4',
+        color: 'Сив',
+        engineVolume: '2.0',
+        fuelType: 'Дизел',
+        firstRegistrationDate: '2019-03-22',
         daysOffset: 7,
         label: 'yellow (7d)',
       },
@@ -386,6 +417,10 @@ export class SeedService implements OnApplicationBootstrap {
         plate: 'КА0004ФЛ',
         make: 'Ford',
         model: 'Focus',
+        color: 'Син',
+        engineVolume: '1.6',
+        fuelType: 'Бензин',
+        firstRegistrationDate: '2018-06-01',
         daysOffset: -5,
         label: 'red (expired)',
       },
@@ -394,6 +429,10 @@ export class SeedService implements OnApplicationBootstrap {
         plate: 'КА0005ФЛ',
         make: 'Renault',
         model: 'Megane',
+        color: 'Червен',
+        engineVolume: '1.5',
+        fuelType: 'Дизел',
+        firstRegistrationDate: '2017-04-15',
         daysOffset: null,
         label: 'red (no policy)',
       },
@@ -401,11 +440,23 @@ export class SeedService implements OnApplicationBootstrap {
 
     for (const v of fleetVehicles) {
       const vResult = await this.dataSource.query<{ id: string }[]>(
-        `INSERT INTO vehicles (id, tenant_id, owner_id, vin, license_plate, make, model, year)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, 2022)
+        `INSERT INTO vehicles
+           (id, tenant_id, owner_id, vin, license_plate, make, model, year, color, engine_volume, fuel_type, first_registration_date)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, 2022, $7, $8, $9, $10)
          ON CONFLICT DO NOTHING
          RETURNING id`,
-        [DEMO_TENANT_ID, clientId, v.vin, v.plate, v.make, v.model],
+        [
+          DEMO_TENANT_ID,
+          clientId,
+          v.vin,
+          v.plate,
+          v.make,
+          v.model,
+          v.color,
+          v.engineVolume,
+          v.fuelType,
+          v.firstRegistrationDate,
+        ],
       );
       if (vResult.length === 0) continue;
       const newVehicleId = vResult[0].id;
@@ -426,26 +477,57 @@ export class SeedService implements OnApplicationBootstrap {
           `INSERT INTO policies
              (id, tenant_id, payment_id, quote_id, insurer_id, policy_number, status,
               stripe_payment_intent_id, premium_amount, commission_amount, commission_pct,
-              currency, vehicle_id, coverage_end_date, metadata)
+              currency, end_client_id, vehicle_id, coverage_start_date, coverage_end_date, metadata)
            VALUES
              (gen_random_uuid(), $1,
               '00000000-0000-0000-0000-000000000001',
               '00000000-0000-0000-0000-000000000002',
-              $2, $3, 'active', 'pi_fleet_seed', 500.00, 25.00, 0.05, 'BGN', $4, $5, '{}')
+              $2, $3, 'active', 'pi_fleet_seed', 500.00, 25.00, 0.05, 'BGN', $4, $5, $6, $7, '{}')
            ON CONFLICT (policy_number) DO NOTHING`,
           [
             DEMO_TENANT_ID,
             insurerId,
             `FLEET-SEED-${v.plate}`,
+            clientId,
             newVehicleId,
+            new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+              .toISOString()
+              .split('T')[0],
             coverageEndStr,
+          ],
+        );
+
+        await this.dataSource.query(
+          `UPDATE policies
+           SET metadata = $1::jsonb
+           WHERE tenant_id = $2 AND policy_number = $3 AND deleted_at IS NULL`,
+          [
+            JSON.stringify({
+              source: 'seed',
+              has_full_owner_and_vehicle: true,
+              owner: {
+                endClientId: clientId,
+              },
+              vehicle: {
+                vin: v.vin,
+                licensePlate: v.plate,
+                make: v.make,
+                model: v.model,
+                color: v.color,
+                engineVolume: v.engineVolume,
+                fuelType: v.fuelType,
+                firstRegistrationDate: v.firstRegistrationDate,
+              },
+            }),
+            DEMO_TENANT_ID,
+            `FLEET-SEED-${v.plate}`,
           ],
         );
       }
       this.logger.log(`Fleet vehicle seeded: ${v.plate} (${v.label})`);
     }
 
-    // Assign first fleet vehicle (green) to the demo driver
+    // Assign one active and one expired fleet vehicle to the demo driver
     const DEMO_DRIVER_ID = 'bbbbbbbb-0000-0000-0000-000000000002';
     await this.dataSource.query(
       `UPDATE fleet_vehicles
@@ -458,9 +540,20 @@ export class SeedService implements OnApplicationBootstrap {
          )`,
       [DEMO_DRIVER_ID, DEMO_TENANT_ID],
     );
+    await this.dataSource.query(
+      `UPDATE fleet_vehicles
+       SET driver_user_id = $1
+       WHERE tenant_id = $2
+         AND vehicle_id = (
+           SELECT id FROM vehicles
+           WHERE tenant_id = $2 AND vin = 'DEMO1FLEET00000004'
+           LIMIT 1
+         )`,
+      [DEMO_DRIVER_ID, DEMO_TENANT_ID],
+    );
 
     this.logger.log(
-      'Fleet vehicles seeded (5 vehicles: 1 green, 2 yellow, 1 red-expired, 1 red-no-policy). 1 assigned to demo driver.',
+      'Fleet vehicles seeded (5 vehicles: 1 green, 2 yellow, 1 red-expired, 1 red-no-policy). Demo driver has 1 active + 1 expired vehicle policy.',
     );
   }
 

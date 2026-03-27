@@ -24,7 +24,12 @@ export class SmsService {
     const fromNumber = this.config.get<string>('TWILIO_PHONE_NUMBER');
 
     if (!accountSid || !authToken || !fromNumber) {
-      this.logger.warn('Twilio not configured — SMS OTP not sent');
+      if (this.config.get<string>('NODE_ENV') !== 'production') {
+        this.logger.warn(
+          `[DEV] Twilio not configured — OTP за ${phoneNumber}: ${otpCode}`,
+        );
+        return;
+      }
       throw new ServiceUnavailableException('SMS услугата не е конфигурирана');
     }
 

@@ -7,6 +7,7 @@ import { S3Service } from '../../infrastructure/s3/s3.service';
 import { ShipmentsRepository } from '../logistics/shipments.repository';
 import { Policy, PolicyStatus } from './entities/policy.entity';
 import { Shipment } from '../logistics/entities/shipment.entity';
+import { PoliciesService } from './policies.service';
 
 const mockPolicyWithDocs: Partial<Policy> = {
   id: 'policy-id-1',
@@ -47,6 +48,7 @@ describe('PoliciesController', () => {
   let mockPoliciesRepo: jest.Mocked<PoliciesRepository>;
   let mockS3Service: jest.Mocked<S3Service>;
   let mockShipmentsRepo: jest.Mocked<ShipmentsRepository>;
+  let mockPoliciesService: jest.Mocked<PoliciesService>;
 
   beforeEach(async () => {
     mockPoliciesRepo = {
@@ -63,9 +65,19 @@ describe('PoliciesController', () => {
       findByPolicyIdForTenant: jest.fn(),
     } as unknown as jest.Mocked<ShipmentsRepository>;
 
+    mockPoliciesService = {
+      listPoliciesDetailed: jest.fn(),
+      createPolicy: jest.fn(),
+      getPolicyDetailedById: jest.fn(),
+      updatePolicy: jest.fn(),
+      deletePolicy: jest.fn(),
+      findPolicyById: jest.fn(),
+    } as unknown as jest.Mocked<PoliciesService>;
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PoliciesController],
       providers: [
+        { provide: PoliciesService, useValue: mockPoliciesService },
         { provide: PoliciesRepository, useValue: mockPoliciesRepo },
         { provide: S3Service, useValue: mockS3Service },
         { provide: ShipmentsRepository, useValue: mockShipmentsRepo },

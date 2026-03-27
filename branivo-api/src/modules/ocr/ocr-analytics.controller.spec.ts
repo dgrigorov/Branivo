@@ -13,12 +13,14 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
 import type {
   OcrAnalyticsResponseDto,
+  OcrSessionsResponseDto,
   OcrTrendPoint,
 } from './dto/ocr-analytics.dto';
 
 const mockAnalyticsService = {
   getAnalytics: jest.fn(),
   getTrend: jest.fn(),
+  getSessions: jest.fn(),
 };
 
 const superAdminUser = { userId: 'super-uuid', role: 'super_admin' };
@@ -118,10 +120,36 @@ describe('OcrAnalyticsController (integration)', () => {
     await unauthApp.close();
   });
 
+  const mockSessionsResponse: OcrSessionsResponseDto = {
+    sessions: [
+      {
+        id: 'sess-1',
+        sessionToken: 'tok-abc',
+        tenantId: 'tenant-1',
+        provider: 'ml_kit',
+        status: 'completed',
+        imagesCount: 2,
+        result: {
+          license_plate: {
+            value: 'AA0000BB',
+            confidence: 0.97,
+            autoFilled: false,
+          },
+        },
+        confidenceScores: { license_plate: 0.97 },
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    total: 1,
+    page: 1,
+    limit: 25,
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockAnalyticsService.getAnalytics.mockResolvedValue(mockAnalyticsResponse);
     mockAnalyticsService.getTrend.mockResolvedValue(mockTrendResponse);
+    mockAnalyticsService.getSessions.mockResolvedValue(mockSessionsResponse);
   });
 
   describe('GET /ocr/analytics', () => {
@@ -163,6 +191,49 @@ describe('OcrAnalyticsController (integration)', () => {
     it('returns 400 for invalid tenantId (not UUID)', async () => {
       await request(superAdminApp.getHttpServer() as import('http').Server)
         .get('/ocr/analytics?tenantId=not-a-uuid')
+        .expect(400);
+    });
+  });
+
+  describe('GET /ocr/analytics/sessions', () => {
+    it('returns 200 with sessions data for super_admin', async () => {
+      const res = await request(
+        superAdminApp.getHttpServer() as import('http').Server,
+      )
+        .get('/ocr/analytics/sessions')
+        .expect(200);
+
+      const body = res.body as OcrSessionsResponseDto;
+      expect(body.sessions).toHaveLength(1);
+      expect(body.total).toBe(1);
+      expect(body.page).toBe(1);
+    });
+
+    it('returns 403 for broker_admin role', async () => {
+      await request(brokerApp.getHttpServer() as import('http').Server)
+        .get('/ocr/analytics/sessions')
+        .expect(403);
+    });
+
+    it('returns 401 without authentication', async () => {
+      await request(unauthApp.getHttpServer() as import('http').Server)
+        .get('/ocr/analytics/sessions')
+        .expect(401);
+    });
+
+    it('passes pagination params to service', async () => {
+      await request(superAdminApp.getHttpServer() as import('http').Server)
+        .get('/ocr/analytics/sessions?page=2&limit=10')
+        .expect(200);
+
+      expect(mockAnalyticsService.getSessions).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 2, limit: 10 }),
+      );
+    });
+
+    it('returns 400 for invalid limit value', async () => {
+      await request(superAdminApp.getHttpServer() as import('http').Server)
+        .get('/ocr/analytics/sessions?limit=99')
         .expect(400);
     });
   });

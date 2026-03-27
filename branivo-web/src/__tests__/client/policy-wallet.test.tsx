@@ -19,6 +19,8 @@ const mockPolicies = [
     status: 'active',
     premiumAmount: 300,
     currency: 'BGN',
+    coverageStartDate: '2024-01-01',
+    coverageEndDate: '2024-12-31',
   },
 ];
 
@@ -72,7 +74,7 @@ describe('PolicyWalletPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('TEST-001')).toBeInTheDocument();
-      expect(screen.getByText('TEST-002')).toBeInTheDocument();
+      expect(screen.queryByText('TEST-002')).not.toBeInTheDocument();
     });
   });
 
@@ -90,8 +92,14 @@ describe('PolicyWalletPage', () => {
     await waitFor(() => {
       const policyButtons = screen.getAllByText('Изтегли Полица');
       const greenCardButtons = screen.getAllByText('Изтегли Зелена карта');
-      expect(policyButtons).toHaveLength(2);
-      expect(greenCardButtons).toHaveLength(2);
+      expect(policyButtons).toHaveLength(1);
+      expect(greenCardButtons).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getByText('Изтекли (1)'));
+
+    await waitFor(() => {
+      expect(screen.getByText('TEST-002')).toBeInTheDocument();
     });
   });
 
@@ -105,6 +113,30 @@ describe('PolicyWalletPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Нямате активни полици.')).toBeInTheDocument();
+    });
+  });
+
+  it('separates active and expired policies in the right tabs', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: mockPolicies }),
+      } as Response)
+      .mockResolvedValue(notFoundResponse());
+
+    render(<PolicyWalletPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('TEST-001')).toBeInTheDocument();
+      expect(screen.queryByText('TEST-002')).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Изтекли (1)'));
+
+    await waitFor(() => {
+      expect(screen.getByText('TEST-002')).toBeInTheDocument();
+      expect(screen.queryByText('TEST-001')).not.toBeInTheDocument();
     });
   });
 

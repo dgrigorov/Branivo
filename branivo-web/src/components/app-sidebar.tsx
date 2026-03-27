@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useCurrentUser, type UserRole } from '@/lib/hooks/use-current-user';
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
 
@@ -48,20 +49,25 @@ interface NavItem {
   label: string;
   href: string;
   icon: keyof typeof ICONS;
+  /** Roles allowed to see this item. Undefined = all roles that can see the section. */
+  allowedRoles?: UserRole[];
 }
 
 interface NavSection {
   id: string;
-  label: string;
-  headerColor: string;
   items: NavItem[];
+  /** Roles allowed to see this section. Empty array = always visible. */
+  allowedRoles: UserRole[];
 }
+
+const BROKER_ROLES: UserRole[] = ['broker_admin', 'broker_agent', 'fleet_admin', 'fleet_viewer'];
+const CLIENT_ROLES: UserRole[] = ['client', 'end_client', 'driver'];
+const PLATFORM_ROLES: UserRole[] = ['super_admin', 'admin'];
 
 const SECTIONS: NavSection[] = [
   {
     id: 'auth',
-    label: 'AUTH',
-    headerColor: 'text-slate-500',
+    allowedRoles: [],
     items: [
       { label: 'Login (Broker)',     href: '/login',              icon: 'login' },
       { label: 'Forgot Password',    href: '/forgot-password',    icon: 'key' },
@@ -71,8 +77,7 @@ const SECTIONS: NavSection[] = [
   },
   {
     id: 'client',
-    label: 'CLIENT',
-    headerColor: 'text-emerald-600',
+    allowedRoles: CLIENT_ROLES,
     items: [
       { label: 'МПС',                href: '/bg/vehicles',                  icon: 'car' },
       { label: 'Оферти',             href: '/bg/quotes',                    icon: 'chart' },
@@ -83,8 +88,7 @@ const SECTIONS: NavSection[] = [
   },
   {
     id: 'broker',
-    label: 'BROKER',
-    headerColor: 'text-blue-600',
+    allowedRoles: BROKER_ROLES,
     items: [
       { label: 'Потребители',        href: '/bg/users',               icon: 'users' },
       { label: 'Брандиране',         href: '/bg/branding',            icon: 'palette' },
@@ -98,13 +102,13 @@ const SECTIONS: NavSection[] = [
   },
   {
     id: 'admin',
-    label: 'SUPER ADMIN',
-    headerColor: 'text-purple-600',
+    allowedRoles: PLATFORM_ROLES,
     items: [
       { label: 'Тенанти',            href: '/bg/tenants',        icon: 'building' },
       { label: 'Застрахователи',     href: '/bg/insurers',       icon: 'shield' },
-      { label: 'Комисиони',          href: '/bg/commissions',    icon: 'percent' },
-      { label: 'Billing Runs',       href: '/bg/billing-runs',   icon: 'calendar' },
+      { label: 'Автомобили',         href: '/bg/vehicle-catalog', icon: 'car' },
+      { label: 'Комисиони',          href: '/bg/commissions',    icon: 'percent',  allowedRoles: ['super_admin'] },
+      { label: 'Billing Runs',       href: '/bg/billing-runs',   icon: 'calendar', allowedRoles: ['super_admin'] },
       { label: 'OCR Analytics',      href: '/bg/ocr-analytics',  icon: 'search' },
       { label: 'Известия',           href: '/bg/notifications',  icon: 'bell' },
     ],
@@ -113,10 +117,24 @@ const SECTIONS: NavSection[] = [
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+function isSectionVisible(section: NavSection, role: UserRole | null): boolean {
+  if (section.allowedRoles.length === 0) return true;
+  if (!role) return false;
+  if (role === 'super_admin') return true;
+  return (section.allowedRoles as string[]).includes(role);
+}
+
+function isItemVisible(item: NavItem, role: UserRole | null): boolean {
+  if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
+  if (!role) return false;
+  return (item.allowedRoles as string[]).includes(role);
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { role } = useCurrentUser();
 
   useEffect(() => {
     setMounted(true);
@@ -156,19 +174,14 @@ export function AppSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2">
-        {SECTIONS.map((section) => (
+        {SECTIONS.filter((s) => isSectionVisible(s, role)).map((section) => (
           <div key={section.id} className="mb-1">
-            {/* Section header */}
-            {mounted && !collapsed ? (
-              <p className={`mx-3 mb-0.5 mt-2 text-[10px] font-bold uppercase tracking-widest ${section.headerColor}`}>
-                {section.label}
-              </p>
-            ) : (
+            {section.id !== 'auth' && (
               <div className="mx-3 my-1 border-t border-gray-100" />
             )}
 
             {/* Items */}
-            {section.items.map((item) => {
+            {section.items.filter((item) => isItemVisible(item, role)).map((item) => {
               const active = isActive(item.href);
               return (
                 <Link

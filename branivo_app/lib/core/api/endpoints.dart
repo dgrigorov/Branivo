@@ -34,6 +34,7 @@ class ApiEndpoints {
 
   // OCR
   static String get ocrScan => '$_baseUrl/api/v1/ocr/scan';
+  static String get ocrReportMlKit => '$_baseUrl/api/v1/ocr/report-mlkit-scan';
 
   // Health
   static String get health => '$_baseUrl/health';

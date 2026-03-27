@@ -19,6 +19,7 @@ export enum OcrJobStatus {
 export enum OcrProvider {
   GOOGLE_VISION = 'google_vision',
   AWS_TEXTRACT = 'aws_textract',
+  ML_KIT = 'ml_kit',
 }
 
 export interface OcrField {

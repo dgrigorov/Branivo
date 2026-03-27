@@ -422,38 +422,54 @@ abstract final class TalonParser {
   // plus the NEXT line as a continuation (used when value is on the next line).
   // When the inline value is empty, nextLine is still returned so callers can
   // use it as a fallback (e.g. `(R)` alone with `ЧЕРЕН` on the next line).
+  //
+  // Robustness: laminated talons often drop the dot or replace it with a space
+  // (e.g. `(P3)` instead of `(P.3)`, `(P 2)` instead of `(P.2)`).
+  // A relaxed pass is attempted automatically for codes that contain dots.
   static ({String? value, double confidence, String? nextLine}) _extractByCode(
     List<String> lines,
     String code,
   ) {
-    final escaped = code.replaceAll('.', r'\.');
-    final re = RegExp('\\($escaped\\)\\**\\s*(.*)', caseSensitive: false);
+    // Build patterns: strict first, then relaxed (dot optional / replaced by space).
+    final patternsToTry = [
+      RegExp(
+        '\\(${code.replaceAll('.', r'\.')}\\)\\**\\s*(.*)',
+        caseSensitive: false,
+      ),
+      if (code.contains('.'))
+        RegExp(
+          '\\(${code.replaceAll('.', r'[.\s]?')}\\)\\**\\s*(.*)',
+          caseSensitive: false,
+        ),
+    ];
 
-    for (int i = 0; i < lines.length; i++) {
-      final m = re.firstMatch(lines[i]);
-      if (m == null) continue;
+    for (final re in patternsToTry) {
+      for (int i = 0; i < lines.length; i++) {
+        final m = re.firstMatch(lines[i]);
+        if (m == null) continue;
 
-      final val = m
-          .group(1)!
-          .split(RegExp(r'\s{2,}|\t|\s+\([A-Z]|\s+N[oe]\b'))
-          .first
-          .replaceAll(RegExp(r'\*+'), '')
-          .trim();
+        final val = m
+            .group(1)!
+            .split(RegExp(r'\s{2,}|\t|\s+\([A-Z]|\s+N[oe]\b'))
+            .first
+            .replaceAll(RegExp(r'\*+'), '')
+            .trim();
 
-      final nextRaw = i + 1 < lines.length ? lines[i + 1] : null;
-      final nextLine = (nextRaw != null &&
-              !nextRaw.startsWith('(') &&
-              !nextRaw.startsWith('N'))
-          ? nextRaw.replaceAll(RegExp(r'\*+'), '').trim()
-          : null;
-      final cleanNext = (nextLine?.isEmpty ?? true) ? null : nextLine;
+        final nextRaw = i + 1 < lines.length ? lines[i + 1] : null;
+        final nextLine = (nextRaw != null &&
+                !nextRaw.startsWith('(') &&
+                !nextRaw.startsWith('N'))
+            ? nextRaw.replaceAll(RegExp(r'\*+'), '').trim()
+            : null;
+        final cleanNext = (nextLine?.isEmpty ?? true) ? null : nextLine;
 
-      if (val.isNotEmpty) {
-        return (value: val, confidence: _highConf, nextLine: cleanNext);
-      }
-      // val is empty — return nextLine as fallback (e.g. (R) → ЧЕРЕН next line)
-      if (cleanNext != null) {
-        return (value: null, confidence: _noConf, nextLine: cleanNext);
+        if (val.isNotEmpty) {
+          return (value: val, confidence: _highConf, nextLine: cleanNext);
+        }
+        // val is empty — return nextLine as fallback (e.g. (R) → ЧЕРЕН next line)
+        if (cleanNext != null) {
+          return (value: null, confidence: _noConf, nextLine: cleanNext);
+        }
       }
     }
     return (value: null, confidence: _noConf, nextLine: null);

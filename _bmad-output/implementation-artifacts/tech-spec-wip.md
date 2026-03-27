@@ -2,8 +2,8 @@
 title: 'КФН Regulatory Footer'
 slug: 'kfn-regulatory-footer'
 created: '2026-03-25'
-status: 'in-progress'
-stepsCompleted: [1, 2]
+status: 'review'
+stepsCompleted: [1, 2, 3]
 tech_stack: [NestJS, TypeORM, PostgreSQL, Next.js]
 files_to_modify:
   - branivo-api/src/infrastructure/database/migrations/1710000039000-AddEinCodeToTenantConfigs.ts

@@ -31,8 +31,7 @@ const MOCK_VEHICLES = [
 ];
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const authorization = req.headers.get('authorization') ?? '';
-  const token = authorization.replace('Bearer ', '').trim();
+  const token = req.cookies.get('access_token')?.value;
 
   if (USE_MOCK || !token) {
     return NextResponse.json(MOCK_VEHICLES);
@@ -41,7 +40,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const backendRes = await fetch(`${API_BASE}/api/v1/vehicles`, {
     method: 'GET',
     headers: {
-      Authorization: authorization,
+      Authorization: `Bearer ${token}`,
       Host: req.headers.get('host') ?? '',
     },
   });
@@ -55,15 +54,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const authorization = req.headers.get('authorization') ?? '';
+  const token = req.cookies.get('access_token')?.value;
 
   const body: unknown = await req.json().catch(() => ({}));
+
+  if (USE_MOCK || !token) {
+    return NextResponse.json(
+      { id: `v-${Date.now()}`, ...body as object, createdAt: new Date().toISOString() },
+      { status: 201 },
+    );
+  }
 
   const backendRes = await fetch(`${API_BASE}/api/v1/vehicles`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: authorization,
+      Authorization: `Bearer ${token}`,
       Host: req.headers.get('host') ?? '',
     },
     body: JSON.stringify(body),

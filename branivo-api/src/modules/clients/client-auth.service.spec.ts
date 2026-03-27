@@ -36,6 +36,7 @@ const mockJwtService = {
 
 const mockConfig = {
   getOrThrow: jest.fn().mockReturnValue('test-secret'),
+  get: jest.fn().mockReturnValue('test'),
 };
 
 const TENANT_ID = 'tenant-uuid-123';

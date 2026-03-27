@@ -24,8 +24,12 @@ export default async function DashboardPage() {
   const token = cookieStore.get('access_token')?.value;
   const role = token ? decodeJwtRole(token) : null;
 
-  if (role === 'super_admin') {
+  if (role === 'super_admin' || role === 'admin') {
     redirect(`/${locale}/tenants`);
+  }
+
+  if (role === 'driver' || role === 'client' || role === 'end_client') {
+    redirect(`/${locale}/vehicles`);
   }
 
   redirect(`/${locale}/users`);

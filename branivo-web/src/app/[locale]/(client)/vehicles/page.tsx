@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useVehicles, type VehicleData } from '@/lib/hooks/use-vehicles';
 
 function VehicleCard({ vehicle }: { vehicle: VehicleData }) {
@@ -24,8 +24,8 @@ function VehicleCard({ vehicle }: { vehicle: VehicleData }) {
   );
 }
 
-function VehicleListContent({ accessToken }: { accessToken: string }) {
-  const { isLoading, error, vehicles, listVehicles } = useVehicles(accessToken);
+export default function VehicleListPage() {
+  const { isLoading, error, vehicles, listVehicles } = useVehicles();
 
   useEffect(() => {
     void listVehicles();
@@ -52,7 +52,7 @@ function VehicleListContent({ accessToken }: { accessToken: string }) {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
         <p className="text-gray-500">Нямате регистрирани МПС-та</p>
         <a
-          href="/vehicles/add"
+          href="vehicles/add"
           className="rounded-lg bg-blue-600 px-6 py-3 text-white hover:bg-blue-700"
         >
           Добави МПС
@@ -63,7 +63,15 @@ function VehicleListContent({ accessToken }: { accessToken: string }) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold">Моите МПС-та</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Моите МПС-та</h1>
+        <a
+          href="vehicles/add"
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+        >
+          + Добави МПС
+        </a>
+      </div>
       <div className="flex flex-col gap-4">
         {vehicles.map((vehicle) => (
           <VehicleCard key={vehicle.id} vehicle={vehicle} />
@@ -71,23 +79,4 @@ function VehicleListContent({ accessToken }: { accessToken: string }) {
       </div>
     </div>
   );
-}
-
-export default function VehicleListPage() {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem('access_token') ?? '';
-    setAccessToken(token);
-  }, []);
-
-  if (accessToken === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-gray-500">Зареждане...</p>
-      </div>
-    );
-  }
-
-  return <VehicleListContent accessToken={accessToken} />;
 }
