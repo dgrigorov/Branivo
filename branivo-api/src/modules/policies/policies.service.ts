@@ -90,8 +90,7 @@ export class PoliciesService {
       policyNumber: dto.policyNumber,
       status: (dto.status ?? 'active') as Policy['status'],
       stripePaymentIntentId:
-        dto.stripePaymentIntentId ??
-        `pi_manual_${Date.now()}_${randomSuffix}`,
+        dto.stripePaymentIntentId ?? `pi_manual_${Date.now()}_${randomSuffix}`,
       premiumAmount: dto.premiumAmount,
       commissionAmount: dto.commissionAmount ?? 0,
       commissionPct: dto.commissionPct ?? 0,
@@ -108,7 +107,10 @@ export class PoliciesService {
     return this.getPolicyDetailedById(policy.id);
   }
 
-  async updatePolicy(id: string, dto: UpdatePolicyDto): Promise<PolicyDetailsDto> {
+  async updatePolicy(
+    id: string,
+    dto: UpdatePolicyDto,
+  ): Promise<PolicyDetailsDto> {
     const existing = await this.policiesRepo.findByIdForTenant(id);
     if (!existing) throw new NotFoundException('Policy not found');
 
@@ -177,12 +179,14 @@ export class PoliciesService {
     ownerId: string,
     vehicleId: string,
   ): Promise<void> {
-    const ownerExists = await this.policiesRepo.endClientExistsForTenant(ownerId);
+    const ownerExists =
+      await this.policiesRepo.endClientExistsForTenant(ownerId);
     if (!ownerExists) {
       throw new BadRequestException('Owner is not found in current tenant');
     }
 
-    const vehicleOwner = await this.policiesRepo.findVehicleOwnerForTenant(vehicleId);
+    const vehicleOwner =
+      await this.policiesRepo.findVehicleOwnerForTenant(vehicleId);
     if (!vehicleOwner) {
       throw new BadRequestException('Vehicle is not found in current tenant');
     }

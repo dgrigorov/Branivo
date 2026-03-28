@@ -4,9 +4,23 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "scrape": "npx ts-node scripts/autodata24-scraper.ts",
+    "import": "npx ts-node scripts/import-autodata24-to-branivo.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.14.0",
+    "cheerio": "^1.2.0",
+    "fs-extra": "^11.3.4"
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.35",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  }
 }

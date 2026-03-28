@@ -78,8 +78,7 @@ class VehicleApiRepository {
         data: {
           'vin': vin,
           'licensePlate': licensePlate,
-          if (katManuallyConfirmed != null)
-            'katManuallyConfirmed': katManuallyConfirmed,
+          'katManuallyConfirmed': katManuallyConfirmed,
         },
         options: Options(
           headers: {'X-Session-Token': sessionToken},

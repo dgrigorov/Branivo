@@ -62,7 +62,7 @@ interface NavSection {
 
 const BROKER_ROLES: UserRole[] = ['broker_admin', 'broker_agent', 'fleet_admin', 'fleet_viewer'];
 const CLIENT_ROLES: UserRole[] = ['client', 'end_client', 'driver'];
-const PLATFORM_ROLES: UserRole[] = ['super_admin', 'admin'];
+const SUPER_ADMIN_ROLES: UserRole[] = ['super_admin', 'admin'];
 
 const SECTIONS: NavSection[] = [
   {
@@ -102,7 +102,7 @@ const SECTIONS: NavSection[] = [
   },
   {
     id: 'admin',
-    allowedRoles: PLATFORM_ROLES,
+    allowedRoles: SUPER_ADMIN_ROLES,
     items: [
       { label: 'Тенанти',            href: '/bg/tenants',        icon: 'building' },
       { label: 'Застрахователи',     href: '/bg/insurers',       icon: 'shield' },

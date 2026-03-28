@@ -92,6 +92,7 @@ describe('AuthService', () => {
             findByIdAndTenant: jest.fn(),
             findById: jest.fn(),
             findByEmailPlatformWide: jest.fn(),
+            findByPhonePlatformWide: jest.fn(),
             updatePassword: jest.fn(),
             incrementAndMaybeLock: jest.fn(),
             resetFailedLoginCount: jest.fn(),
@@ -107,7 +108,10 @@ describe('AuthService', () => {
         },
         {
           provide: EmailService,
-          useValue: { sendPasswordResetEmail: jest.fn() },
+          useValue: {
+            sendPasswordResetEmail: jest.fn(),
+            sendPasswordResetOtp: jest.fn(),
+          },
         },
         {
           provide: PasswordResetTokensRepository,
@@ -453,6 +457,148 @@ describe('AuthService', () => {
 
       expect(passwordResetTokensRepo.create).toHaveBeenCalled();
       expect(emailService.sendPasswordResetEmail).toHaveBeenCalled();
+    });
+  });
+
+  describe('sendPasswordResetOtp', () => {
+    beforeEach(() => {
+      redisMock.incr.mockResolvedValue(1);
+      redisMock.expire.mockResolvedValue(1);
+      redisMock.set.mockResolvedValue('OK');
+    });
+
+    it('returns silently for non-existent email (anti-enumeration)', async () => {
+      usersRepo.findByEmailPlatformWide.mockResolvedValue(null);
+
+      await expect(
+        service.sendPasswordResetOtp('nobody@example.com'),
+      ).resolves.toBeUndefined();
+
+      expect(redisMock.set).not.toHaveBeenCalled();
+    });
+
+    it('stores OTP in Redis and sends email for valid email', async () => {
+      usersRepo.findByEmailPlatformWide.mockResolvedValue(mockUser);
+      (
+        emailService as unknown as { sendPasswordResetOtp: jest.Mock }
+      ).sendPasswordResetOtp = jest.fn().mockResolvedValue(undefined);
+
+      await service.sendPasswordResetOtp('broker@example.com');
+
+      expect(redisMock.set).toHaveBeenCalledWith(
+        '_system:pw_reset_otp:broker@example.com',
+        expect.stringMatching(/^\d{6}$/),
+        'EX',
+        300,
+      );
+    });
+
+    it('throws 429 when rate limit exceeded (>3 requests/hour)', async () => {
+      redisMock.incr.mockResolvedValue(4);
+
+      const err = await service
+        .sendPasswordResetOtp('broker@example.com')
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+      expect(redisMock.set).not.toHaveBeenCalled();
+    });
+
+    it('resolves silently for non-existent phone (anti-enumeration)', async () => {
+      usersRepo.findByPhonePlatformWide = jest.fn().mockResolvedValue(null);
+
+      await expect(
+        service.sendPasswordResetOtp('+359888123456'),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('verifyPasswordResetOtp', () => {
+    beforeEach(() => {
+      redisMock.get.mockResolvedValue('123456');
+      redisMock.del.mockResolvedValue(1);
+      usersRepo.findByEmailPlatformWide.mockResolvedValue(mockUser);
+    });
+
+    it('returns a JWT reset token on valid OTP', async () => {
+      const token = await service.verifyPasswordResetOtp(
+        'broker@example.com',
+        '123456',
+      );
+
+      expect(token).toBe('signed-token');
+      expect(redisMock.del).toHaveBeenCalledWith(
+        '_system:pw_reset_otp:broker@example.com',
+      );
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'pw_reset_otp' }),
+        expect.any(Object),
+      );
+    });
+
+    it('throws UnauthorizedException for invalid OTP', async () => {
+      redisMock.get.mockResolvedValue('654321');
+
+      await expect(
+        service.verifyPasswordResetOtp('broker@example.com', '000000'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException for expired OTP (null in Redis)', async () => {
+      redisMock.get.mockResolvedValue(null);
+
+      await expect(
+        service.verifyPasswordResetOtp('broker@example.com', '123456'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('resetPasswordWithOtpToken', () => {
+    beforeEach(() => {
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
+      usersRepo.updatePassword.mockResolvedValue(undefined);
+      redisMock.scan.mockResolvedValue(['0', []]);
+      redisMock.mget.mockResolvedValue([]);
+    });
+
+    it('resets password on valid pw_reset_otp token', async () => {
+      jwtService.verify.mockReturnValue({
+        sub: 'user-uuid',
+        tid: 'tenant-uuid',
+        type: 'pw_reset_otp',
+      });
+
+      await service.resetPasswordWithOtpToken('valid-jwt', 'NewPass123!');
+
+      expect(usersRepo.updatePassword).toHaveBeenCalledWith(
+        'user-uuid',
+        'new-hash',
+      );
+    });
+
+    it('throws BadRequestException on expired/invalid JWT', async () => {
+      jwtService.verify.mockImplementation(() => {
+        throw new Error('jwt expired');
+      });
+
+      await expect(
+        service.resetPasswordWithOtpToken('expired-token', 'NewPass123!'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException on wrong token type', async () => {
+      jwtService.verify.mockReturnValue({
+        sub: 'user-uuid',
+        tid: 'tenant-uuid',
+        type: 'temp_2fa',
+      });
+
+      await expect(
+        service.resetPasswordWithOtpToken('wrong-type-token', 'NewPass123!'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

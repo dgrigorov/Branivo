@@ -12,7 +12,8 @@
         kill-stockcrm \
         status \
         flutter-pub-get flutter-test flutter-analyze \
-        flutter-run flutter-install flutter-run-clean flutter-clean
+        flutter-run flutter-install flutter-run-clean flutter-clean \
+        scrape-vehicles import-vehicles
 
 # ── Default ──────────────────────────────────────────────────────────────────
 
@@ -175,6 +176,14 @@ flutter-run-clean: ## Full clean → reinstall (use only after native/pubspec ch
 
 flutter-clean: ## Clean Flutter build cache only (no run)
 	cd branivo_app && flutter clean
+# ── Vehicle Catalog (autodata24) ─────────────────────────────────────────────
+
+scrape-vehicles: ## Crawl bg.autodata24.com and save to scripts/output/autodata24-modifications.json
+	npm run scrape
+
+import-vehicles: ## Import scripts/output/autodata24-modifications.json into Branivo vehicle catalog
+	npm run import
+
 # ── Utilities ─────────────────────────────────────────────────────────────────
 
 kill-stockcrm: ## Stop all StockCRM/DanioDashboard processes

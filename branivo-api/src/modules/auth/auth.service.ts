@@ -350,7 +350,7 @@ export class AuthService {
 
     if (!user) return; // anti-enumeration
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const otpKey = `_system:pw_reset_otp:${emailOrPhone}`;
     await this.redis.set(otpKey, otp, 'EX', 300); // 5 min
 
@@ -359,7 +359,7 @@ export class AuthService {
         await this.emailService.sendPasswordResetOtp({ to: user.email, otp });
       } else {
         // SMS fallback — log for now (SMS service not yet wired)
-        this.logger.log(`[SMS OTP] Would send ${otp} to ${emailOrPhone}`);
+        this.logger.log(`[SMS OTP] Would send OTP to ${emailOrPhone}`);
       }
     } catch (err) {
       this.logger.error('Failed to send OTP', err);

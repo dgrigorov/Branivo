@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddFscInsurersWebsiteMetadata1710000046000
-  implements MigrationInterface
-{
+export class AddFscInsurersWebsiteMetadata1710000046000 implements MigrationInterface {
   name = 'AddFscInsurersWebsiteMetadata1710000046000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

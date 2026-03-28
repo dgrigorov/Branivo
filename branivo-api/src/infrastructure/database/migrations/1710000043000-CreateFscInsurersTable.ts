@@ -38,7 +38,9 @@ export class CreateFscInsurersTable1710000043000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_fsc_insurers_name"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_fsc_insurers_category_key"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_fsc_insurers_category_key"`,
+    );
     await queryRunner.query(
       `DROP INDEX IF EXISTS "uq_fsc_insurers_category_eik_name"`,
     );

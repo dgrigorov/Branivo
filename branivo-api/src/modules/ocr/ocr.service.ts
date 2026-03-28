@@ -110,6 +110,7 @@ export class OcrService {
       result: dto.fields,
       confidenceScores: this.extractConfidenceScores(dto.fields),
       provider: OcrProvider.ML_KIT,
+      rawText: dto.raw_text,
     });
 
     await this.updateAnonymousSession(

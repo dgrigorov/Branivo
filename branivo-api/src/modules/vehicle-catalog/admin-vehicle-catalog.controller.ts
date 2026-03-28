@@ -18,14 +18,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   CreateVehicleMakeDto,
   CreateVehicleModelDto,
-  SyncVpicMakesResponseDto,
-  SyncVpicModelsResponseDto,
+  CreateVehicleModificationDto,
   UpdateVehicleMakeDto,
   UpdateVehicleModelDto,
+  UpdateVehicleModificationDto,
   VehicleMakeDto,
   VehicleMakeQueryDto,
   VehicleModelDto,
   VehicleModelQueryDto,
+  VehicleModificationDto,
+  VehicleModificationQueryDto,
 } from './dto/vehicle-catalog.dto';
 import { VehicleCatalogService } from './vehicle-catalog.service';
 
@@ -34,6 +36,18 @@ import { VehicleCatalogService } from './vehicle-catalog.service';
 @Roles('super_admin', 'admin')
 export class AdminVehicleCatalogController {
   constructor(private readonly vehicleCatalogService: VehicleCatalogService) {}
+
+  // ─── Makes ────────────────────────────────────────────────────────────────
+
+  @Get('makes')
+  async listMakes(
+    @Query() query: VehicleMakeQueryDto,
+  ): Promise<VehicleMakeDto[]> {
+    return this.vehicleCatalogService.listMakes({
+      ...query,
+      includeInactive: true,
+    });
+  }
 
   @Post('makes')
   @HttpCode(HttpStatus.CREATED)
@@ -53,6 +67,18 @@ export class AdminVehicleCatalogController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteMake(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.vehicleCatalogService.deleteMake(id);
+  }
+
+  // ─── Models ───────────────────────────────────────────────────────────────
+
+  @Get('models')
+  async listModels(
+    @Query() query: VehicleModelQueryDto,
+  ): Promise<VehicleModelDto[]> {
+    return this.vehicleCatalogService.listModels({
+      ...query,
+      includeInactive: true,
+    });
   }
 
   @Post('models')
@@ -77,33 +103,39 @@ export class AdminVehicleCatalogController {
     await this.vehicleCatalogService.deleteModel(id);
   }
 
-  @Post('sync/vpic/makes')
-  async syncMakesFromVpic(): Promise<SyncVpicMakesResponseDto> {
-    return this.vehicleCatalogService.syncMakesFromVpic();
-  }
+  // ─── Modifications ────────────────────────────────────────────────────────
 
-  @Post('sync/vpic/makes/:makeId/models')
-  async syncModelsFromVpic(
-    @Param('makeId', ParseUUIDPipe) makeId: string,
-  ): Promise<SyncVpicModelsResponseDto> {
-    return this.vehicleCatalogService.syncModelsFromVpic(makeId);
-  }
-
-  @Get('makes')
-  async listMakes(@Query() query: VehicleMakeQueryDto): Promise<VehicleMakeDto[]> {
-    return this.vehicleCatalogService.listMakes({
+  @Get('modifications')
+  async listModifications(
+    @Query() query: VehicleModificationQueryDto,
+  ): Promise<VehicleModificationDto[]> {
+    return this.vehicleCatalogService.listModifications({
       ...query,
       includeInactive: true,
     });
   }
 
-  @Get('models')
-  async listModels(
-    @Query() query: VehicleModelQueryDto,
-  ): Promise<VehicleModelDto[]> {
-    return this.vehicleCatalogService.listModels({
-      ...query,
-      includeInactive: true,
-    });
+  @Post('modifications')
+  @HttpCode(HttpStatus.CREATED)
+  async createModification(
+    @Body() dto: CreateVehicleModificationDto,
+  ): Promise<VehicleModificationDto> {
+    return this.vehicleCatalogService.createModification(dto);
+  }
+
+  @Patch('modifications/:id')
+  async updateModification(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateVehicleModificationDto,
+  ): Promise<VehicleModificationDto> {
+    return this.vehicleCatalogService.updateModification(id, dto);
+  }
+
+  @Delete('modifications/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteModification(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.vehicleCatalogService.deleteModification(id);
   }
 }

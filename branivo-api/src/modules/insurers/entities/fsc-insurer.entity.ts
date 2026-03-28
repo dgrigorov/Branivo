@@ -54,8 +54,32 @@ export class FscInsurerEntity {
   @Column({ name: 'social_links', type: 'jsonb', default: () => "'[]'::jsonb" })
   socialLinks!: string[];
 
-  @Column({ name: 'trustpilot_url', type: 'varchar', length: 1000, nullable: true })
+  @Column({
+    name: 'trustpilot_url',
+    type: 'varchar',
+    length: 1000,
+    nullable: true,
+  })
   trustpilotUrl!: string | null;
+
+  @Column({
+    name: 'trustpilot_score',
+    type: 'decimal',
+    precision: 3,
+    scale: 1,
+    nullable: true,
+  })
+  trustpilotScore!: number | null;
+
+  @Column({ name: 'trustpilot_reviews_count', type: 'int', nullable: true })
+  trustpilotReviewsCount!: number | null;
+
+  @Column({
+    name: 'trustpilot_enriched_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  trustpilotEnrichedAt!: Date | null;
 
   @Column({ name: 'website_enriched_at', type: 'timestamptz', nullable: true })
   websiteEnrichedAt!: Date | null;

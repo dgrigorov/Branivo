@@ -12,7 +12,9 @@ export class VehicleCatalogController {
   constructor(private readonly vehicleCatalogService: VehicleCatalogService) {}
 
   @Get('makes')
-  async listMakes(@Query() query: VehicleMakeQueryDto): Promise<VehicleMakeDto[]> {
+  async listMakes(
+    @Query() query: VehicleMakeQueryDto,
+  ): Promise<VehicleMakeDto[]> {
     return this.vehicleCatalogService.listMakes(query);
   }
 

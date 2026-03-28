@@ -6,16 +6,22 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { VehicleMakeEntity } from './vehicle-make.entity';
+import { VehicleModificationEntity } from './vehicle-modification.entity';
 
 @Entity('vehicle_models')
 @Index('idx_vehicle_models_make_id', ['makeId'])
-@Index('uq_vehicle_models_make_id_normalized_name', ['makeId', 'normalizedName'], {
-  unique: true,
-})
+@Index(
+  'uq_vehicle_models_make_id_normalized_name',
+  ['makeId', 'normalizedName'],
+  {
+    unique: true,
+  },
+)
 @Index('uq_vehicle_models_vpic_model_id', ['vpicModelId'], {
   unique: true,
   where: 'vpic_model_id IS NOT NULL',
@@ -42,11 +48,25 @@ export class VehicleModelEntity {
   @Column({ name: 'vpic_model_id', type: 'int', nullable: true })
   vpicModelId!: number | null;
 
+  @Column({
+    name: 'autodata24_slug',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
+  autodata24Slug!: string | null;
+
   @Column({ name: 'year_from', type: 'int', nullable: true })
   yearFrom!: number | null;
 
   @Column({ name: 'year_to', type: 'int', nullable: true })
   yearTo!: number | null;
+
+  @Column({ name: 'body_type', type: 'varchar', length: 60, nullable: true })
+  bodyType!: string | null;
+
+  @Column({ name: 'image_url', type: 'text', nullable: true })
+  imageUrl!: string | null;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
@@ -62,4 +82,7 @@ export class VehicleModelEntity {
 
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
+
+  @OneToMany(() => VehicleModificationEntity, (mod) => mod.model)
+  modifications!: VehicleModificationEntity[];
 }

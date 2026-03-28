@@ -54,6 +54,7 @@ export class OcrJobRepository extends BaseRepository<OcrJobEntity> {
       confidenceScores?: Record<string, number>;
       provider?: OcrProvider;
       errorMessage?: string;
+      rawText?: string;
     },
   ): Promise<void> {
     await this.setTenantSession();
@@ -67,6 +68,7 @@ export class OcrJobRepository extends BaseRepository<OcrJobEntity> {
       ...(opts?.errorMessage !== undefined && {
         errorMessage: opts.errorMessage,
       }),
+      ...(opts?.rawText !== undefined && { rawText: opts.rawText }),
     });
   }
 }

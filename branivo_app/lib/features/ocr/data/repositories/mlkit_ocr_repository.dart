@@ -1,5 +1,5 @@
-import 'package:camera/camera.dart';
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../../../../core/api/endpoints.dart';
 import '../services/talon_parser.dart';
@@ -40,7 +40,7 @@ class MlKitOcrRepository implements OcrRepository {
     final fields = TalonParser.parse(rawText);
 
     // Report to backend for analytics — fire-and-forget, don't block the UX
-    _reportToBackend(sessionToken, fields, images.length).ignore();
+    _reportToBackend(sessionToken, fields, images.length, rawText).ignore();
 
     return OcrScanResponse(
       jobId: 'local-${DateTime.now().millisecondsSinceEpoch}',
@@ -55,6 +55,7 @@ class MlKitOcrRepository implements OcrRepository {
     String sessionToken,
     Map<String, OcrField> fields,
     int imagesCount,
+    String rawText,
   ) async {
     try {
       final fieldsJson = fields.map(
@@ -70,6 +71,7 @@ class MlKitOcrRepository implements OcrRepository {
           'session_token': sessionToken,
           'fields': fieldsJson,
           'images_count': imagesCount,
+          if (rawText.isNotEmpty) 'raw_text': rawText,
         },
       );
     } catch (_) {

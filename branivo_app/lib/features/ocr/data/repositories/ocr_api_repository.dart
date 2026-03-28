@@ -1,4 +1,4 @@
-import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
 import 'ocr_models.dart';
 import 'ocr_repository.dart';

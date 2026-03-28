@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -34,6 +41,18 @@ export class InsurersController {
     return this.insurersService.getSyncStatus();
   }
 
+  @Post('trustpilot/enrich')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  async enrichTrustpilot(): Promise<{
+    enriched: number;
+    failed: number;
+    skipped: number;
+  }> {
+    return this.insurersService.enrichTrustpilotAll();
+  }
+
   @Get()
   async list(@Query() query: FscInsurerQueryDto): Promise<FscInsurerDto[]> {
     const rows = await this.insurersService.list(query);
@@ -52,6 +71,12 @@ export class InsurersController {
       logoUrl: row.logoUrl,
       socialLinks: row.socialLinks ?? [],
       trustpilotUrl: row.trustpilotUrl,
+      trustpilotScore:
+        row.trustpilotScore !== null ? Number(row.trustpilotScore) : null,
+      trustpilotReviewsCount: row.trustpilotReviewsCount,
+      trustpilotEnrichedAt: row.trustpilotEnrichedAt
+        ? row.trustpilotEnrichedAt.toISOString()
+        : null,
       websiteEnrichedAt: row.websiteEnrichedAt
         ? row.websiteEnrichedAt.toISOString()
         : null,

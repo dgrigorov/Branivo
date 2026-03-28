@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 import '../data/repositories/ocr_models.dart';
 import '../data/repositories/ocr_repository.dart';
 

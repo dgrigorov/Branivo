@@ -1,4 +1,4 @@
-import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:branivo_app/features/ocr/bloc/ocr_wizard_bloc.dart';

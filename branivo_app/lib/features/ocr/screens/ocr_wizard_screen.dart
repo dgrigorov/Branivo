@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'dart:io';
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:image_picker/image_picker.dart';
 import '../bloc/ocr_wizard_bloc.dart';
 import '../data/repositories/ocr_models.dart';
 
@@ -113,89 +111,24 @@ class OcrWizardScreen extends StatefulWidget {
 }
 
 class _OcrWizardScreenState extends State<OcrWizardScreen> {
-  CameraController? _cameraController;
-  List<CameraDescription> _cameras = [];
-  bool _cameraReady = false;
-  bool _permissionDenied = false;
-  bool _permissionPermanentlyDenied = false;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
     context.read<OcrWizardBloc>().add(OcrStartCaptureEvent());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initCamera());
-  }
-
-  Future<void> _initCamera() async {
-    try {
-      _cameras = await availableCameras();
-      if (!mounted) return;
-      if (_cameras.isEmpty) {
-        setState(() {
-          _permissionDenied = true;
-          _permissionPermanentlyDenied = false;
-        });
-        return;
-      }
-      final rear = _cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.back,
-        orElse: () => _cameras.first,
-      );
-      _cameraController = CameraController(
-        rear,
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-      await _cameraController!.initialize();
-      // Do NOT call setFocusMode here — iOS defaults to
-      // AVCaptureFocusModeContinuousAutoFocus which allows close-up refocus.
-      // Calling FocusMode.auto locks focus after one shot (blurry at close range).
-      try {
-        await _cameraController!.setExposureMode(ExposureMode.auto);
-      } catch (_) {}
-      if (mounted) setState(() => _cameraReady = true);
-    } on CameraException catch (e) {
-      if (!mounted) return;
-      final isPermanent =
-          e.code == 'CameraAccessDeniedWithoutPrompt' ||
-          e.code == 'CameraAccessRestricted';
-      setState(() {
-        _permissionDenied = true;
-        _permissionPermanentlyDenied = isPermanent;
-      });
-    }
-  }
-
-  Future<void> _retryPermission() async {
-    setState(() {
-      _permissionDenied = false;
-      _permissionPermanentlyDenied = false;
-    });
-    _cameraController?.dispose();
-    _cameraController = null;
-    await _initCamera();
-  }
-
-  @override
-  void dispose() {
-    _cameraController?.dispose();
-    super.dispose();
   }
 
   Future<void> _captureImage(int step) async {
-    if (_cameraController == null || !_cameraReady) return;
-    try {
-      final file = await _cameraController!.takePicture();
-      if (!mounted) return;
-      // Only emit ImageCaptured — preview confirmation will trigger submission.
-      context.read<OcrWizardBloc>().add(
-        OcrImageCapturedEvent(step: step, image: file),
-      );
-    } catch (_) {
-      if (mounted) {
-        context.read<OcrWizardBloc>().add(OcrManualFallbackRequestedEvent());
-      }
-    }
+    final file = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 100,
+      preferredCameraDevice: CameraDevice.rear,
+    );
+    if (file == null || !mounted) return;
+    context.read<OcrWizardBloc>().add(
+      OcrImageCapturedEvent(step: step, image: file),
+    );
   }
 
   @override
@@ -217,20 +150,10 @@ class _OcrWizardScreenState extends State<OcrWizardScreen> {
   }
 
   Widget _buildBody(BuildContext context, OcrWizardState state, bool disableAnimations) {
-    if (_permissionDenied) {
-      return _PermissionDeniedView(
-        isPermanent: _permissionPermanentlyDenied,
-        onRetry: _retryPermission,
-        onManualEntry: widget.onManualEntry,
-        onBack: () => Navigator.of(context).maybePop(),
-      );
-    }
     if (state is OcrFailedState) {
       return _FailedView(message: state.errorMessage, onManualEntry: widget.onManualEntry);
     }
-    if (state is OcrInitialState ||
-        state is OcrProcessingState ||
-        (state is OcrCapturingState && !_cameraReady)) {
+    if (state is OcrInitialState || state is OcrProcessingState) {
       return _LoadingView(disableAnimations: disableAnimations);
     }
     if (state is OcrCompletedState) {
@@ -261,97 +184,26 @@ class _OcrWizardScreenState extends State<OcrWizardScreen> {
     return _CaptureView(
       step: step,
       capturedCount: capturedCount,
-      cameraController: _cameraController,
-      cameraReady: _cameraReady,
       onCapture: () => _captureImage(step),
       onBack: widget.onManualEntry,
     );
   }
 }
 
-// ─── Capture view (stateful for scan animation) ───────────────────────────────
+// ─── Capture view ─────────────────────────────────────────────────────────────
 
-class _CaptureView extends StatefulWidget {
+class _CaptureView extends StatelessWidget {
   const _CaptureView({
     required this.step,
     required this.capturedCount,
-    required this.cameraController,
-    required this.cameraReady,
     required this.onCapture,
     required this.onBack,
   });
 
   final int step;
   final int capturedCount;
-  final CameraController? cameraController;
-  final bool cameraReady;
   final VoidCallback onCapture;
   final VoidCallback onBack;
-
-  @override
-  State<_CaptureView> createState() => _CaptureViewState();
-}
-
-class _CaptureViewState extends State<_CaptureView>
-    with SingleTickerProviderStateMixin {
-  final GlobalKey _cameraKey = GlobalKey();
-  double _currentZoom = 1.0;
-  double _baseZoom = 1.0;
-  double _minZoom = 1.0;
-  double _maxZoom = 8.0;
-  late AnimationController _scanController;
-  late Animation<double> _scanAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _initZoomLimits();
-    _scanController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat(reverse: true);
-    _scanAnim = Tween<double>(begin: 0.05, end: 0.95).animate(
-      CurvedAnimation(parent: _scanController, curve: Curves.easeInOut),
-    );
-  }
-
-  Future<void> _initZoomLimits() async {
-    final controller = widget.cameraController;
-    if (controller == null || !widget.cameraReady) return;
-    try {
-      _minZoom = await controller.getMinZoomLevel();
-      _maxZoom = await controller.getMaxZoomLevel();
-    } catch (_) {}
-  }
-
-  @override
-  void didUpdateWidget(_CaptureView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!oldWidget.cameraReady && widget.cameraReady) {
-      _initZoomLimits();
-    }
-  }
-
-  @override
-  void dispose() {
-    _scanController.dispose();
-    super.dispose();
-  }
-
-  void _onScaleStart(ScaleStartDetails details) {
-    _baseZoom = _currentZoom;
-  }
-
-  Future<void> _onScaleUpdate(ScaleUpdateDetails details) async {
-    final controller = widget.cameraController;
-    if (controller == null || !widget.cameraReady) return;
-    final newZoom = (_baseZoom * details.scale).clamp(_minZoom, _maxZoom);
-    if ((newZoom - _currentZoom).abs() < 0.05) return;
-    setState(() => _currentZoom = newZoom);
-    try {
-      await controller.setZoomLevel(newZoom);
-    } catch (_) {}
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -362,18 +214,18 @@ class _CaptureViewState extends State<_CaptureView>
         _buildProgressBar(),
         const SizedBox(height: 4),
         _buildStepHint(),
-        if (widget.step == 0) _buildLegend(_legendStep0),
-        if (widget.step == 1) _buildLegend(_legendStep1),
+        if (step == 0) _buildLegend(_legendStep0),
+        if (step == 1) _buildLegend(_legendStep1),
         const SizedBox(height: 10),
-        _buildCameraArea(),
-        if (widget.capturedCount > 0) ...[
+        _buildInstructionArea(),
+        if (capturedCount > 0) ...[
           const SizedBox(height: 8),
-          _buildPartialReveal(widget.step),
+          _buildPartialReveal(step),
         ],
         _buildCaptureButton(),
         Center(
           child: TextButton(
-            onPressed: widget.onBack,
+            onPressed: onBack,
             child: const Text('Въведи ръчно', style: TextStyle(color: _kMuted, fontSize: 13)),
           ),
         ),
@@ -387,7 +239,7 @@ class _CaptureViewState extends State<_CaptureView>
     child: Row(
       children: [
         GestureDetector(
-          onTap: widget.onBack,
+          onTap: onBack,
           child: Container(
             width: 36,
             height: 36,
@@ -408,9 +260,9 @@ class _CaptureViewState extends State<_CaptureView>
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
     child: Row(
       children: List.generate(_totalSteps, (i) {
-        final color = i < widget.step
+        final color = i < step
             ? _kGreen
-            : i == widget.step
+            : i == step
                 ? _kIndigo
                 : const Color(0xFF374151);
         return Expanded(
@@ -430,18 +282,18 @@ class _CaptureViewState extends State<_CaptureView>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'СТЪПКА ${widget.step + 1} ОТ $_totalSteps',
+          'СТЪПКА ${step + 1} ОТ $_totalSteps',
           style: const TextStyle(
             color: _kIndigo, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          _stepTitles[widget.step],
+          _stepTitles[step],
           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 2),
-        Text(_stepSubs[widget.step], style: const TextStyle(color: _kMuted, fontSize: 12)),
+        Text(_stepSubs[step], style: const TextStyle(color: _kMuted, fontSize: 12)),
       ],
     ),
   );
@@ -517,54 +369,61 @@ class _CaptureViewState extends State<_CaptureView>
     ),
   );
 
-  Widget _buildCameraArea() => Expanded(
+  Widget _buildInstructionArea() => Expanded(
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: GestureDetector(
-        key: _cameraKey,
-        onScaleStart: _onScaleStart,
-        onScaleUpdate: _onScaleUpdate,
-        child: ClipRRect(
+      child: Container(
+        decoration: BoxDecoration(
+          color: _kSurface,
           borderRadius: BorderRadius.circular(16),
-          child: SizedBox.expand(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (widget.cameraReady && widget.cameraController != null)
-                  _buildCameraPreview()
-                else
-                  Container(
-                    color: _kSurface,
-                    child: const Center(child: CircularProgressIndicator(color: _kIndigo)),
-                  ),
-                CustomPaint(painter: _FrameGuidePainter()),
-                AnimatedBuilder(
-                  animation: _scanAnim,
-                  builder: (context, _) => Positioned.fill(
-                    child: CustomPaint(
-                      painter: _ScanLinePainter(progress: _scanAnim.value),
-                    ),
-                  ),
-                ),
-              ],
+          border: Border.all(color: const Color(0xFF374151)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: _kIndigo.withAlpha(30),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.document_scanner_outlined, size: 36, color: _kIndigo),
             ),
-          ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                _stepSubs[step],
+                style: const TextStyle(color: _kTextSub, fontSize: 13, height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: _kIndigo.withAlpha(25),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _kIndigo.withAlpha(60)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.tips_and_updates_outlined, size: 13, color: _kIndigo),
+                  SizedBox(width: 6),
+                  Text(
+                    'Натиснете "Снимай" за да отворите камерата',
+                    style: TextStyle(color: _kIndigo, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     ),
   );
-
-  Widget _buildCameraPreview() {
-    final controller = widget.cameraController!;
-    // previewSize is reported in landscape — swap w/h for portrait rendering
-    final previewSize = controller.value.previewSize;
-    final w = previewSize?.height ?? 1920.0;
-    final h = previewSize?.width ?? 1080.0;
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(width: w, height: h, child: CameraPreview(controller)),
-    );
-  }
 
   Widget _buildPartialReveal(int currentStep) {
     final previewFields = currentStep == 2 ? _step2PreviewFields : _step1PreviewFields;
@@ -606,7 +465,7 @@ class _CaptureViewState extends State<_CaptureView>
     child: SizedBox(
       height: 52,
       child: ElevatedButton.icon(
-        onPressed: widget.onCapture,
+        onPressed: onCapture,
         style: ElevatedButton.styleFrom(
           backgroundColor: _kIndigo,
           foregroundColor: Colors.white,
@@ -744,150 +603,6 @@ class _PreviewView extends StatelessWidget {
   }
 }
 
-// ─── Frame guide painter ──────────────────────────────────────────────────────
-
-class _FrameGuidePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    const inset = 16.0;
-    const cornerLen = 22.0;
-    final paint = Paint()
-      ..color = _kIndigo
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.square;
-
-    final rect = Rect.fromLTRB(inset, inset, size.width - inset, size.height - inset);
-    _drawCorner(canvas, rect.topLeft, paint, cornerLen, 1, 1);
-    _drawCorner(canvas, rect.topRight, paint, cornerLen, -1, 1);
-    _drawCorner(canvas, rect.bottomLeft, paint, cornerLen, 1, -1);
-    _drawCorner(canvas, rect.bottomRight, paint, cornerLen, -1, -1);
-
-  }
-
-  void _drawCorner(Canvas canvas, Offset origin, Paint paint, double len, double sx, double sy) {
-    canvas.drawLine(origin, origin.translate(len * sx, 0), paint);
-    canvas.drawLine(origin, origin.translate(0, len * sy), paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// ─── Scan line painter ────────────────────────────────────────────────────────
-
-class _ScanLinePainter extends CustomPainter {
-  const _ScanLinePainter({required this.progress});
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final y = size.height * progress;
-    final glowPaint = Paint()
-      ..color = const Color(0xFF6366F1).withAlpha(60)
-      ..strokeWidth = 12
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawLine(Offset(0, y), Offset(size.width, y), glowPaint);
-    final linePaint = Paint()
-      ..color = const Color(0xFF6366F1).withAlpha(200)
-      ..strokeWidth = 1.5;
-    canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
-  }
-
-  @override
-  bool shouldRepaint(_ScanLinePainter oldDelegate) =>
-      oldDelegate.progress != progress;
-}
-
-// ─── Permission denied view ───────────────────────────────────────────────────
-
-class _PermissionDeniedView extends StatelessWidget {
-  const _PermissionDeniedView({
-    required this.isPermanent,
-    required this.onRetry,
-    required this.onManualEntry,
-    required this.onBack,
-  });
-
-  final bool isPermanent;
-  final VoidCallback onRetry;
-  final VoidCallback onManualEntry;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: GestureDetector(
-            onTap: onBack,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(color: _kSurface, shape: BoxShape.circle),
-              child: const Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: Colors.white),
-            ),
-          ),
-        ),
-        Expanded(child: _buildContent()),
-      ],
-    );
-  }
-
-  Widget _buildContent() => Padding(
-    padding: const EdgeInsets.all(32),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: const BoxDecoration(color: _kSurface, shape: BoxShape.circle),
-          child: const Icon(Icons.camera_alt_outlined, size: 36, color: _kIndigo),
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Нужен е достъп до камерата',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          isPermanent
-              ? 'Достъпът до камерата е блокиран. Отвори Настройки → Поверителност и защита → Камера и разреши достъп за Branivo.'
-              : 'За да сканирате талона, приложението се нуждае от достъп до камерата.',
-          style: const TextStyle(color: _kMuted, fontSize: 14, height: 1.5),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 32),
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: isPermanent ? () => launchUrl(Uri.parse('app-settings:')) : onRetry,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _kIndigo,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text(
-              isPermanent ? 'Отвори настройки' : 'Дай разрешение',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextButton(
-          onPressed: onManualEntry,
-          child: const Text('Въведи ръчно', style: TextStyle(color: _kMuted)),
-        ),
-      ],
-    ),
-  );
-}
 
 // ─── Loading view ─────────────────────────────────────────────────────────────
 

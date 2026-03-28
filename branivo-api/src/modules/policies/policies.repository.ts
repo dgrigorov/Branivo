@@ -180,7 +180,9 @@ export class PoliciesRepository extends BaseRepository<Policy> {
     );
   }
 
-  async findDetailedByIdForTenant(id: string): Promise<PolicyDetailsRow | null> {
+  async findDetailedByIdForTenant(
+    id: string,
+  ): Promise<PolicyDetailsRow | null> {
     await this.setTenantSession();
     const rows = await this.policyRepo.query<PolicyDetailsRow[]>(
       `SELECT

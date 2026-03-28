@@ -82,6 +82,9 @@ export class OcrJobEntity {
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage!: string | null;
 
+  @Column({ name: 'raw_text', type: 'text', nullable: true })
+  rawText!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

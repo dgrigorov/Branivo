@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsObject, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsObject,
+  IsInt,
+  Min,
+  IsOptional,
+} from 'class-validator';
 import type { OcrFieldResult } from '../entities/ocr-job.entity';
 import { OcrJobStatus, OcrProvider } from '../entities/ocr-job.entity';
 
@@ -19,6 +26,10 @@ export class ReportMlKitScanDto {
   @IsInt()
   @Min(1)
   images_count!: number;
+
+  @IsOptional()
+  @IsString()
+  raw_text?: string;
 }
 
 export class OcrScanResponseDto {

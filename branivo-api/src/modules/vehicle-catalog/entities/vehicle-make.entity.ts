@@ -31,8 +31,23 @@ export class VehicleMakeEntity {
   @Column({ name: 'vpic_make_id', type: 'int', nullable: true })
   vpicMakeId!: number | null;
 
+  @Column({ name: 'logo_url', type: 'text', nullable: true })
+  logoUrl!: string | null;
+
+  @Column({
+    name: 'autodata24_slug',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+    unique: true,
+  })
+  autodata24Slug!: string | null;
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
+
+  @Column({ name: 'is_popular', type: 'boolean', default: false })
+  isPopular!: boolean;
 
   @Column({ name: 'source', type: 'varchar', length: 20, default: 'manual' })
   source!: string;

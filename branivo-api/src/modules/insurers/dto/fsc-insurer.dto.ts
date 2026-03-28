@@ -38,6 +38,9 @@ export class FscInsurerDto {
   logoUrl!: string | null;
   socialLinks!: string[];
   trustpilotUrl!: string | null;
+  trustpilotScore!: number | null;
+  trustpilotReviewsCount!: number | null;
+  trustpilotEnrichedAt!: string | null;
   websiteEnrichedAt!: string | null;
   sourceUrl!: string;
   scrapedAt!: string;

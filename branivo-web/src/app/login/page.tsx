@@ -130,7 +130,7 @@ function CredentialsForm({
   isLoading: boolean;
   error: string | null;
 }) {
-  const { register, handleSubmit, formState, setValue } = form;
+  const { register, handleSubmit, formState } = form;
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -241,9 +241,7 @@ function CredentialsForm({
                 key={account.email}
                 type="button"
                 onClick={() => {
-                  setValue('email', account.email, { shouldValidate: true });
-                  setValue('password', account.password, { shouldValidate: true });
-                  void handleSubmit(onSubmit)();
+                  void onSubmit({ email: account.email, password: account.password });
                 }}
                 className="flex flex-col items-start gap-0.5 border border-slate-700/60 hover:border-indigo-500/50 bg-[#0f172a]/40 hover:bg-indigo-500/10 rounded-xl px-3 py-2.5 transition-all duration-150 text-left group"
               >
