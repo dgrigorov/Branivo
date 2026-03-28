@@ -106,6 +106,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { label: 'Тенанти',            href: '/bg/tenants',        icon: 'building' },
       { label: 'Застрахователи',     href: '/bg/insurers',       icon: 'shield' },
+      { label: 'API Партньори',       href: '/bg/insurers/partners', icon: 'key', allowedRoles: ['super_admin'] },
       { label: 'Автомобили',         href: '/bg/vehicle-catalog', icon: 'car' },
       { label: 'Комисиони',          href: '/bg/commissions',    icon: 'percent',  allowedRoles: ['super_admin'] },
       { label: 'Billing Runs',       href: '/bg/billing-runs',   icon: 'calendar', allowedRoles: ['super_admin'] },

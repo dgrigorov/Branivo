@@ -78,6 +78,10 @@ export class InsurersService {
     return this.trustpilot.enrichAll();
   }
 
+  async findById(id: string): Promise<FscInsurerEntity | null> {
+    return this.repo.findOne({ where: { id } });
+  }
+
   async list(query: FscInsurerQueryDto): Promise<FscInsurerEntity[]> {
     const where: Record<string, unknown>[] = [];
     const limit = query.limit ?? 500;

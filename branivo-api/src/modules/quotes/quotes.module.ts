@@ -7,6 +7,7 @@ import { QuotesService } from './quotes.service';
 import { QuotesRepository } from './quotes.repository';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { ScoringService } from './scoring/scoring.service';
+import { NlpScoringService } from './scoring/nlp-scoring.service';
 import { Quote } from './entities/quote.entity';
 import { Insurer } from './entities/insurer.entity';
 import { INSURER_ADAPTERS } from './adapters/insurer-adapter.interface';
@@ -24,6 +25,7 @@ import { MockInsurerAdapter } from './adapters/mock-insurer.adapter';
     QuotesRepository,
     CircuitBreakerService,
     ScoringService,
+    NlpScoringService,
     {
       provide: INSURER_ADAPTERS,
       useFactory: () => [

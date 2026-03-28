@@ -18,6 +18,7 @@ import { AdminHealthController } from './admin-health.controller';
 import { AdminHealthJob } from './admin-health.job';
 import { AdminInsurerMonitorRepository } from './repositories/admin-insurer-monitor.repository';
 import { AdminInsurerMonitorService } from './admin-insurer-monitor.service';
+import { AdminInsurerDetailService } from './admin-insurer-detail.service';
 import { AdminInsurerMonitorController } from './admin-insurer-monitor.controller';
 import { AdminInsurerMonitorJob } from './admin-insurer-monitor.job';
 import { AdminSubscriptionRepository } from './repositories/admin-subscription.repository';
@@ -61,6 +62,7 @@ import { AdminNotificationController } from './admin-notification.controller';
     AdminHealthJob,
     AdminInsurerMonitorRepository,
     AdminInsurerMonitorService,
+    AdminInsurerDetailService,
     AdminInsurerMonitorJob,
     AdminSubscriptionRepository,
     AdminSubscriptionService,

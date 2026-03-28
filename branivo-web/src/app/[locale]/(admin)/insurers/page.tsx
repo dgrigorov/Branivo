@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import {
@@ -11,7 +13,7 @@ import {
   FaTiktok,
   FaXTwitter,
 } from 'react-icons/fa6';
-import { Globe } from 'lucide-react';
+import { Globe, Zap, ChevronRight } from 'lucide-react';
 
 interface FscSyncResponse {
   total: number;
@@ -228,7 +230,7 @@ function InsurerLogoImage({
   );
 }
 
-function InsurerCard({ insurer }: { insurer: FscInsurerRecord }) {
+function InsurerCard({ insurer, locale }: { insurer: FscInsurerRecord; locale: string }) {
   const phones = splitPhones(insurer.contactPhone);
   const ranking = computeRanking(insurer);
   const initials = insurer.name
@@ -249,9 +251,12 @@ function InsurerCard({ insurer }: { insurer: FscInsurerRecord }) {
           initials={initials}
         />
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">
+          <Link
+            href={`/${locale}/insurers/fsc/${insurer.id}`}
+            className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2 hover:text-blue-600 hover:underline transition-colors"
+          >
             {insurer.name}
-          </h3>
+          </Link>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {insurer.eik && (
               <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
@@ -420,6 +425,8 @@ async function fetchFscSyncStatus(): Promise<FscSyncStatusResponse> {
 export default function AdminInsurersPage() {
   const queryClient = useQueryClient();
   const user = useCurrentUser();
+  const params = useParams();
+  const locale = (params?.locale as string) ?? 'bg';
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [isSyncPolling, setIsSyncPolling] = useState(false);
   const [activeFscTab, setActiveFscTab] = useState<FscCategoryKey>('life_insurers');
@@ -511,6 +518,25 @@ export default function AdminInsurersPage() {
         )}
       </div>
 
+      {/* API Partners quick-access banner */}
+      <Link
+        href={`/${locale}/insurers/partners`}
+        className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-4 hover:from-blue-100 hover:to-indigo-100 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
+            <Zap className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-blue-900">API Партньори</p>
+            <p className="text-xs text-blue-600">
+              Управление на интеграции, API ключове и мониторинг на реалните застрахователи
+            </p>
+          </div>
+        </div>
+        <ChevronRight className="h-5 w-5 text-blue-400 shrink-0" />
+      </Link>
+
       {syncMessage && (
         <p className="mb-4 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
           {syncMessage}
@@ -600,7 +626,7 @@ export default function AdminInsurersPage() {
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filteredFscInsurers.map((row) => (
-              <InsurerCard key={row.id} insurer={row} />
+              <InsurerCard key={row.id} insurer={row} locale={locale} />
             ))}
           </div>
         )}

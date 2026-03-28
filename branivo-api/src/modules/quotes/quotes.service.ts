@@ -4,6 +4,10 @@ import { TenantsRepository } from '../tenants/tenants.repository';
 import { QuotesRepository } from './quotes.repository';
 import { ScoringService } from './scoring/scoring.service';
 import {
+  NlpScoringService,
+  type NlpScoringResult,
+} from './scoring/nlp-scoring.service';
+import {
   CircuitBreakerService,
   CircuitOpenException,
 } from './circuit-breaker.service';
@@ -19,6 +23,12 @@ import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialE
 import type { CreateQuoteDto } from './dto/create-quote.dto';
 import type { QuoteResponseDto } from './dto/quote-response.dto';
 import type { QuoteOfferDto } from './dto/quote-offer.dto';
+import type { RankWithPreferenceDto } from './dto/rank-with-preference.dto';
+
+export interface NlpRankResponseDto {
+  offers: QuoteOfferDto[];
+  nlp: NlpScoringResult;
+}
 
 const QUOTE_TIMEOUT_MS = 5000;
 const QUOTE_TTL_HOURS = 48;
@@ -47,6 +57,7 @@ export class QuotesService {
   constructor(
     private readonly quotesRepository: QuotesRepository,
     private readonly scoringService: ScoringService,
+    private readonly nlpScoringService: NlpScoringService,
     private readonly circuitBreakerService: CircuitBreakerService,
     private readonly tenantContext: TenantContext,
     private readonly tenantsRepo: TenantsRepository,
@@ -185,6 +196,66 @@ export class QuotesService {
   async getQuotesBySession(sessionToken: string): Promise<QuoteResponseDto> {
     const quotes = await this.quotesRepository.findBySessionToken(sessionToken);
     return this.buildResponse(sessionToken, quotes);
+  }
+
+  async rankWithPreference(
+    sessionToken: string,
+    dto: RankWithPreferenceDto,
+  ): Promise<NlpRankResponseDto> {
+    const quotes = await this.quotesRepository.findBySessionToken(sessionToken);
+    const nlpResult = this.nlpScoringService.detectIntent(dto.preference);
+
+    const successQuotes = quotes.filter((q) => q.price !== null && q.insurer);
+
+    if (successQuotes.length === 0) {
+      const response = this.buildResponse(sessionToken, quotes);
+      return { offers: response.offers, nlp: nlpResult };
+    }
+
+    const quoteResults = successQuotes.map((q) => ({
+      insurerCode: q.insurer.code,
+      price: q.price!,
+      currency: q.currency,
+      coverDetails: q.coverDetails,
+      extras: q.extras as Record<string, boolean>,
+      rawResponse: q.rawResponse as Record<string, unknown>,
+    }));
+
+    const insurers = successQuotes.map((q) => q.insurer);
+    const scored = this.scoringService.scoreOffers(
+      quoteResults,
+      insurers,
+      nlpResult.appliedWeights,
+    );
+
+    const scoreMap = new Map(scored.map((s) => [s.insurerCode, s]));
+
+    const offers: QuoteOfferDto[] = quotes.map((q) => {
+      const s = scoreMap.get(q.insurer?.code ?? '');
+      const offer: QuoteOfferDto = {
+        id: q.id,
+        insurerCode: q.insurer?.code ?? '',
+        insurerName: q.insurer?.name ?? '',
+        price: q.price,
+        currency: q.currency,
+        score: s?.score ?? q.score,
+        isRecommended: s?.isRecommended ?? false,
+        status: q.status,
+        extras: q.extras,
+      };
+      return offer;
+    });
+
+    const isSuccess = (o: QuoteOfferDto) =>
+      o.status !== QuoteStatus.ERROR && o.status !== QuoteStatus.TIMEOUT;
+    offers.sort((a, b) => {
+      const aOk = isSuccess(a) ? 1 : 0;
+      const bOk = isSuccess(b) ? 1 : 0;
+      if (aOk !== bOk) return bOk - aOk; // failed offers go last
+      return (b.score ?? 0) - (a.score ?? 0);
+    });
+
+    return { offers, nlp: nlpResult };
   }
 
   private buildResponse(

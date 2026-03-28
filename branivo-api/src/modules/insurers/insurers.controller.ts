@@ -2,6 +2,9 @@ import {
   Controller,
   Get,
   HttpCode,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
@@ -51,6 +54,42 @@ export class InsurersController {
     skipped: number;
   }> {
     return this.insurersService.enrichTrustpilotAll();
+  }
+
+  @Get(':id')
+  async getById(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<FscInsurerDto> {
+    const row = await this.insurersService.findById(id);
+    if (!row) throw new NotFoundException(`FSC insurer ${id} not found`);
+    return {
+      id: row.id,
+      categoryKey: row.categoryKey,
+      categoryLabel: row.categoryLabel,
+      name: row.name,
+      eik: row.eik,
+      officeAddress: row.officeAddress,
+      website: row.website,
+      contactDetails: row.contactDetails,
+      contactPhone: row.contactPhone,
+      contactEmails: row.contactEmails ?? [],
+      longDescription: row.longDescription,
+      logoUrl: row.logoUrl,
+      socialLinks: row.socialLinks ?? [],
+      trustpilotUrl: row.trustpilotUrl,
+      trustpilotScore:
+        row.trustpilotScore !== null ? Number(row.trustpilotScore) : null,
+      trustpilotReviewsCount: row.trustpilotReviewsCount,
+      trustpilotEnrichedAt: row.trustpilotEnrichedAt
+        ? row.trustpilotEnrichedAt.toISOString()
+        : null,
+      websiteEnrichedAt: row.websiteEnrichedAt
+        ? row.websiteEnrichedAt.toISOString()
+        : null,
+      sourceUrl: row.sourceUrl,
+      scrapedAt: row.scrapedAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
   }
 
   @Get()

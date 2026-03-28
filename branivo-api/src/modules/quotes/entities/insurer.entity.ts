@@ -50,6 +50,15 @@ export class Insurer {
   @Column({ name: 'disabled_by_admin_id', type: 'uuid', nullable: true })
   disabledByAdminId!: string | null;
 
+  @Column({ name: 'fsc_insurer_id', type: 'uuid', nullable: true })
+  fscInsurerId!: string | null;
+
+  @Column({ name: 'logo_url', type: 'varchar', length: 1000, nullable: true })
+  logoUrl!: string | null;
+
+  @Column({ name: 'description', type: 'text', nullable: true })
+  description!: string | null;
+
   // NEVER return this field in any GET response
   @Column({
     name: 'api_key_enc',

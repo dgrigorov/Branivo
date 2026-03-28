@@ -3,9 +3,10 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { QuoteResult } from '../adapters/insurer-adapter.interface';
 import type { Insurer } from '../entities/insurer.entity';
+import type { ScoringWeights } from './nlp-scoring.service';
 
 // IMMUTABLE — NEVER change weights without product decision (NFR44, КФН compliance)
-const SCORING_WEIGHTS = {
+const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
   price: 0.4,
   rating: 0.3,
   claimSpeed: 0.2,
@@ -22,7 +23,11 @@ export interface ScoredOffer extends QuoteResult {
 export class ScoringService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  scoreOffers(offers: QuoteResult[], insurers: Insurer[]): ScoredOffer[] {
+  scoreOffers(
+    offers: QuoteResult[],
+    insurers: Insurer[],
+    weights: ScoringWeights = DEFAULT_SCORING_WEIGHTS,
+  ): ScoredOffer[] {
     if (offers.length === 0) return [];
 
     const insurerMap = new Map(insurers.map((ins) => [ins.code, ins]));
@@ -46,10 +51,10 @@ export class ScoringService {
         availableExtrasCount > 0 ? activeExtrasCount / availableExtrasCount : 0;
 
       const score =
-        SCORING_WEIGHTS.price * priceScore +
-        SCORING_WEIGHTS.rating * (Number(insurer.rating) / 5) +
-        SCORING_WEIGHTS.claimSpeed * (Number(insurer.claimSpeed) / 10) +
-        SCORING_WEIGHTS.extras * extrasScore;
+        weights.price * priceScore +
+        weights.rating * (Number(insurer.rating) / 5) +
+        weights.claimSpeed * (Number(insurer.claimSpeed) / 10) +
+        weights.extras * extrasScore;
 
       return { ...offer, score, isRecommended: false, insurer };
     });
@@ -81,12 +86,7 @@ export class ScoringService {
         vehicleVin,
         insurerCount: scoredOffers.length,
       },
-      weights: {
-        price: SCORING_WEIGHTS.price,
-        rating: SCORING_WEIGHTS.rating,
-        claimSpeed: SCORING_WEIGHTS.claimSpeed,
-        extras: SCORING_WEIGHTS.extras,
-      },
+      weights: DEFAULT_SCORING_WEIGHTS,
       results: scoredOffers.map((o) => ({
         insurerCode: o.insurerCode,
         price: o.price,
