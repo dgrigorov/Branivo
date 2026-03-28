@@ -49,6 +49,7 @@ export interface Autodata24Modification {
   generationSlug: string;
   modificationName: string;
   modificationUrl: string;
+  modificationImageUrl: string | null;
   yearFrom: number | null;
   yearTo: number | null;
   bodyType: string | null;
@@ -223,7 +224,6 @@ const BODY_TYPE_MAP: Record<string, string> = {
   'седан (5 врати)': 'sedan',
   хечбек: 'hatchback',
   комби: 'station_wagon',
-  'кросоувър': 'crossover',
   кросоувър: 'crossover',
   suv: 'suv',
   'джип/suv': 'suv',
@@ -288,6 +288,13 @@ function parseCharacteristicsTable(html: string): Record<string, string> {
     }
   });
   return specs;
+}
+
+function parseModificationImageUrl(html: string): string | null {
+  const $ = cheerio.load(html);
+  // Main car photo: cdn3.focus.bg/autodata/i/{brand}/{model}/{gen}/large/*.jpg
+  const src = $('img[src*="cdn3.focus.bg/autodata/i/"][src*="/large/"]').first().attr('src');
+  return src ?? null;
 }
 
 function mapRawToStructured(
@@ -427,6 +434,7 @@ async function scrapeModificationPage(
   if (Object.keys(rawData).length === 0) return null;
   const structured = mapRawToStructured(rawData);
   const modificationName = extractModificationName(rawData, modUrl);
+  const modificationImageUrl = parseModificationImageUrl(html);
   return {
     brandName: brand.name,
     brandSlug: brand.slug,
@@ -438,6 +446,7 @@ async function scrapeModificationPage(
     generationSlug: genSlug,
     modificationName,
     modificationUrl: modUrl,
+    modificationImageUrl,
     ...structured,
     rawData,
   };

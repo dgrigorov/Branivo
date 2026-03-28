@@ -528,6 +528,7 @@ export class VehicleModificationDto {
   id!: string;
   modelId!: string;
   name!: string;
+  imageUrl!: string | null;
   yearFrom!: number | null;
   yearTo!: number | null;
   engineType!: string | null;

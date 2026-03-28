@@ -116,6 +116,9 @@ export class VehicleModificationEntity {
   @Column({ name: 'engine_code', type: 'varchar', length: 60, nullable: true })
   engineCode!: string | null;
 
+  @Column({ name: 'image_url', type: 'text', nullable: true })
+  imageUrl!: string | null;
+
   /** All raw scraped key-value pairs from autodata24 for this modification */
   @Column({ name: 'raw_data', type: 'jsonb', nullable: true })
   rawData!: Record<string, string> | null;

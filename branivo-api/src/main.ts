@@ -2,9 +2,35 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { createBullBoard } from '@bull-board/api';
+import { BullAdapter } from '@bull-board/api/bullAdapter';
+import { ExpressAdapter } from '@bull-board/express';
+import { getQueueToken } from '@nestjs/bull';
 import helmet from 'helmet';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import {
+  QUEUE_BILLING,
+  QUEUE_DATA_EXPORT,
+  QUEUE_LOGISTICS,
+  QUEUE_NOTIFICATIONS,
+  QUEUE_OCR_PROCESSING,
+  QUEUE_PDF_GENERATION,
+  QUEUE_VEHICLE_CATALOG_SYNC,
+  QUEUE_WEBHOOK_PROCESSING,
+} from './infrastructure/queues/queue.module';
+import type { Queue } from 'bull';
+
+const ALL_QUEUES = [
+  QUEUE_PDF_GENERATION,
+  QUEUE_NOTIFICATIONS,
+  QUEUE_LOGISTICS,
+  QUEUE_OCR_PROCESSING,
+  QUEUE_WEBHOOK_PROCESSING,
+  QUEUE_BILLING,
+  QUEUE_DATA_EXPORT,
+  QUEUE_VEHICLE_CATALOG_SYNC,
+];
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { rawBody: true });
@@ -57,9 +83,26 @@ async function bootstrap(): Promise<void> {
     SwaggerModule.setup('api/docs', app, document);
   }
 
+  // Bull Board — queue monitor (only in non-production)
+  if (env !== 'production') {
+    const serverAdapter = new ExpressAdapter();
+    serverAdapter.setBasePath('/queue-board');
+
+    const queues = ALL_QUEUES.map(
+      (name) => new BullAdapter(app.get<Queue>(getQueueToken(name))),
+    );
+
+    createBullBoard({ queues, serverAdapter });
+
+    app.use('/queue-board', serverAdapter.getRouter());
+  }
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`Branivo API running on port ${port}`);
+  if (env !== 'production') {
+    console.log(`Bull Board available at http://localhost:${port}/queue-board`);
+  }
 }
 
 bootstrap().catch((err: unknown) => {

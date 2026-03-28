@@ -5,13 +5,16 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  MessageEvent,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
+import type { Observable } from 'rxjs';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -30,12 +33,71 @@ import {
   VehicleModificationQueryDto,
 } from './dto/vehicle-catalog.dto';
 import { VehicleCatalogService } from './vehicle-catalog.service';
+import {
+  SyncRunDto,
+  VehicleCatalogSyncService,
+} from './vehicle-catalog-sync.service';
+import { VehicleCatalogImportService } from './vehicle-catalog-import.service';
 
 @Controller('admin/vehicle-catalog')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('super_admin', 'admin')
 export class AdminVehicleCatalogController {
-  constructor(private readonly vehicleCatalogService: VehicleCatalogService) {}
+  constructor(
+    private readonly vehicleCatalogService: VehicleCatalogService,
+    private readonly syncService: VehicleCatalogSyncService,
+    private readonly importService: VehicleCatalogImportService,
+  ) {}
+
+  // ─── Sync ─────────────────────────────────────────────────────────────────
+
+  @Post('sync/start')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async startSync(): Promise<SyncRunDto> {
+    return this.syncService.startSync();
+  }
+
+  @Get('sync/status')
+  async syncStatus(): Promise<SyncRunDto | null> {
+    return this.syncService.getStatus();
+  }
+
+  /** Import-only: reads existing scraped JSON and bulk-upserts into DB. */
+  @Post('sync/import-only')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async importOnly(): Promise<SyncRunDto> {
+    const run = await this.syncService.startImportOnlyRun();
+    void this.importService
+      .importFromJson(run.id)
+      .then((count) =>
+        this.syncService.updateStatus(run.id, 'done', { totalImported: count }),
+      )
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        void this.syncService.updateStatus(run.id, 'failed', {
+          errorMessage: msg,
+        });
+        void this.syncService.appendLog(run.id, `❌ ${msg}`);
+      });
+    return run;
+  }
+
+  @Sse('sync/progress')
+  syncProgress(@Query('runId') runId: string): Observable<MessageEvent> {
+    return this.syncService.streamProgress(runId);
+  }
+
+  // ─── Makes ────────────────────────────────────────────────────────────────
+
+  @Get('makes')
+  async listMakes(
+    @Query() query: VehicleMakeQueryDto,
+  ): Promise<VehicleMakeDto[]> {
+    return this.vehicleCatalogService.listMakes({
+      ...query,
+      includeInactive: true,
+    });
+  }
 
   // ─── Makes ────────────────────────────────────────────────────────────────
 

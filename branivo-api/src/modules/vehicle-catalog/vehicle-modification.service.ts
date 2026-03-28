@@ -162,6 +162,7 @@ export class VehicleModificationService {
         : null,
       weightKg: row.weightKg,
       engineCode: row.engineCode,
+      imageUrl: row.imageUrl,
       rawData: row.rawData,
       source: row.source,
       isActive: row.isActive,

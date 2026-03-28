@@ -21,7 +21,10 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: {
-    domains: ['branivo-documents-dev.s3.eu-central-1.amazonaws.com'],
+    domains: [
+      'branivo-documents-dev.s3.eu-central-1.amazonaws.com',
+      'cdn3.focus.bg',
+    ],
   },
 };
 

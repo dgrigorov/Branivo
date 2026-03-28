@@ -9,6 +9,7 @@ export const QUEUE_OCR_PROCESSING = 'ocr-processing';
 export const QUEUE_WEBHOOK_PROCESSING = 'webhook-processing';
 export const QUEUE_BILLING = 'billing';
 export const QUEUE_DATA_EXPORT = 'data-export';
+export const QUEUE_VEHICLE_CATALOG_SYNC = 'vehicle-catalog-sync';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ export const QUEUE_DATA_EXPORT = 'data-export';
       { name: QUEUE_WEBHOOK_PROCESSING },
       { name: QUEUE_BILLING },
       { name: QUEUE_DATA_EXPORT },
+      { name: QUEUE_VEHICLE_CATALOG_SYNC },
     ),
   ],
   exports: [BullModule],
