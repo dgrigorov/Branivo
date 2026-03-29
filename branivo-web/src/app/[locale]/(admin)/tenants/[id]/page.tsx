@@ -151,7 +151,7 @@ export default function TenantHealthDetailPage() {
           {error instanceof Error ? error.message : 'Грешка при зареждане'}
         </p>
         <button
-          onClick={() => router.push('/admin/tenants')}
+          onClick={() => router.push('/bg/tenants')}
           className="mt-4 text-sm text-blue-600 hover:underline"
         >
           ← Назад към тенанти
@@ -170,7 +170,7 @@ export default function TenantHealthDetailPage() {
     <div className="p-6">
       <div className="mb-6">
         <button
-          onClick={() => router.push('/admin/tenants')}
+          onClick={() => router.push('/bg/tenants')}
           className="mb-4 text-sm text-blue-600 hover:underline"
         >
           ← Назад

@@ -19,7 +19,7 @@ export async function PUT(
   const body = await request.json() as unknown;
 
   if (!token) {
-    return NextResponse.json({ id: params.id, ...body as object });
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
   const host = request.headers.get('host') ?? '';

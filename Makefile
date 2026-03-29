@@ -130,13 +130,32 @@ migrate: ## Run pending TypeORM migrations
 migrate-revert: ## Revert last TypeORM migration
 	cd branivo-api && npx typeorm migration:revert -d src/infrastructure/database/data-source.ts
 
-seed-reset: ## Force re-seed: removes demo tenant so SeedService re-inserts on next API restart
-	docker exec branivo-postgres psql -U branivo -d branivo_dev \
-	  -c "DELETE FROM users WHERE tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';" \
-	  -c "DELETE FROM tenant_domains WHERE tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';" \
-	  -c "DELETE FROM tenant_configs WHERE tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';" \
-	  -c "DELETE FROM tenants WHERE id = 'aaaaaaaa-0000-0000-0000-000000000001';"
-	@echo "Demo data removed. Restart API to re-seed."
+seed-reset: ## Force re-seed: removes both demo tenants so SeedService re-inserts on next API restart
+	docker exec branivo-postgres psql -U branivo -d branivo_dev -c "DO \$$\
+	DECLARE tids UUID[] := ARRAY['aaaaaaaa-0000-0000-0000-000000000001','cccccccc-0000-0000-0000-000000000003']::UUID[];\
+	BEGIN\
+	  DELETE FROM renewal_notification_log  WHERE tenant_id = ANY(tids);\
+	  DELETE FROM tenant_renewal_config     WHERE tenant_id = ANY(tids);\
+	  DELETE FROM fleet_pdf_exports         WHERE tenant_id = ANY(tids);\
+	  DELETE FROM fleet_vehicles            WHERE tenant_id = ANY(tids);\
+	  DELETE FROM shipments                 WHERE tenant_id = ANY(tids);\
+	  DELETE FROM ocr_jobs                  WHERE tenant_id = ANY(tids);\
+	  DELETE FROM policy_events             WHERE tenant_id = ANY(tids);\
+	  DELETE FROM pending_commission_events WHERE tenant_id = ANY(tids);\
+	  DELETE FROM policies                  WHERE tenant_id = ANY(tids);\
+	  DELETE FROM invoices                  WHERE tenant_id = ANY(tids);\
+	  DELETE FROM payments                  WHERE tenant_id = ANY(tids);\
+	  DELETE FROM quotes                    WHERE tenant_id = ANY(tids);\
+	  DELETE FROM vehicles                  WHERE tenant_id = ANY(tids);\
+	  DELETE FROM end_clients               WHERE tenant_id = ANY(tids);\
+	  DELETE FROM tenant_invitations        WHERE tenant_id = ANY(tids);\
+	  DELETE FROM users                     WHERE tenant_id = ANY(tids);\
+	  DELETE FROM system_notifications;\
+	  DELETE FROM tenant_domains            WHERE tenant_id = ANY(tids);\
+	  DELETE FROM tenant_configs            WHERE tenant_id = ANY(tids);\
+	  DELETE FROM tenants                   WHERE id        = ANY(tids);\
+	END \$$;"
+	@echo "Seed data removed. Restart API to re-seed."
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 

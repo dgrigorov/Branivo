@@ -105,7 +105,6 @@ export class AdminHealthRepository {
         t.name                              AS "tenantName",
         COUNT(DISTINCT u.id) FILTER (
           WHERE u.deleted_at IS NULL
-            AND u.is_active = true
         )::int                              AS "activeUsersCount",
         COALESCE(SUM(p.premium_amount), 0)  AS "totalRevenueBgn",
         COUNT(DISTINCT v.id) FILTER (
@@ -113,14 +112,13 @@ export class AdminHealthRepository {
         )::int                              AS "vehicleCount",
         MAX(p.created_at)                   AS "lastPolicyCreatedAt",
         i.name                              AS "lastPolicyInsurer",
-        tc.feature_flags                    AS "activeFeatureFlags",
+        t.features                          AS "activeFeatureFlags",
         t.plan                              AS "currentPlan",
         t.pending_downgrade                 AS "pendingDowngrade"
       FROM tenants t
       LEFT JOIN users u ON u.tenant_id = t.id
       LEFT JOIN policies p ON p.tenant_id = t.id AND p.deleted_at IS NULL
       LEFT JOIN vehicles v ON v.tenant_id = t.id
-      LEFT JOIN tenant_configs tc ON tc.tenant_id = t.id AND tc.deleted_at IS NULL
       LEFT JOIN insurers i ON i.id = (
         SELECT insurer_id FROM policies
         WHERE tenant_id = t.id AND deleted_at IS NULL
@@ -128,7 +126,7 @@ export class AdminHealthRepository {
       )
       WHERE t.id = $1
         AND t.deleted_at IS NULL
-      GROUP BY t.id, t.name, t.plan, t.pending_downgrade, i.name, tc.feature_flags
+      GROUP BY t.id, t.name, t.plan, t.pending_downgrade, i.name, t.features
       `,
       [tenantId],
     );

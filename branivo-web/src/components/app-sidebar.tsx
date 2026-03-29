@@ -4,12 +4,21 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useCurrentUser, type UserRole } from '@/lib/hooks/use-current-user';
+import { useTenantView } from '@/lib/context/tenant-view-context';
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
 
-function Ico({ d }: { d: string }) {
+function Ico({ d, className }: { d: string; className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="size-5 shrink-0">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className ?? 'size-5 shrink-0'}
+    >
       <path d={d} />
     </svg>
   );
@@ -41,6 +50,7 @@ const ICONS = {
   bell:      'M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0',
   chevronL:  'M15.75 19.5 8.25 12l7.5-7.5',
   chevronR:  'M8.25 4.5l7.5 7.5-7.5 7.5',
+  grid:      'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25zM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25z',
 } as const;
 
 // ─── Nav Structure ───────────────────────────────────────────────────────────
@@ -49,14 +59,13 @@ interface NavItem {
   label: string;
   href: string;
   icon: keyof typeof ICONS;
-  /** Roles allowed to see this item. Undefined = all roles that can see the section. */
   allowedRoles?: UserRole[];
 }
 
 interface NavSection {
   id: string;
+  label?: string;
   items: NavItem[];
-  /** Roles allowed to see this section. Empty array = always visible. */
   allowedRoles: UserRole[];
 }
 
@@ -76,45 +85,95 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    id: 'client',
+    id: 'client-insurance',
+    label: 'ЗАСТРАХОВАНЕ',
     allowedRoles: CLIENT_ROLES,
     items: [
       { label: 'МПС',                href: '/bg/vehicles',                  icon: 'car' },
       { label: 'Оферти',             href: '/bg/quotes',                    icon: 'chart' },
-      { label: 'Плащане',            href: '/bg/quotes/payment',            icon: 'card' },
-      { label: 'Успешно плащане',    href: '/bg/quotes/payment/success',    icon: 'check' },
       { label: 'Портфейл',           href: '/bg/wallet',                    icon: 'wallet' },
     ],
   },
   {
-    id: 'broker',
+    id: 'client-payments',
+    label: 'ПЛАЩАНИЯ',
+    allowedRoles: CLIENT_ROLES,
+    items: [
+      { label: 'Плащане',            href: '/bg/quotes/payment',            icon: 'card' },
+      { label: 'Успешно плащане',    href: '/bg/quotes/payment/success',    icon: 'check' },
+    ],
+  },
+  {
+    id: 'broker-fleet',
+    label: 'ФЛОТ',
     allowedRoles: BROKER_ROLES,
     items: [
-      { label: 'Потребители',        href: '/bg/users',               icon: 'users' },
-      { label: 'Брандиране',         href: '/bg/branding',            icon: 'palette' },
-      { label: 'Домейн',             href: '/bg/settings/domain',     icon: 'globe' },
-      { label: 'Feature Flags',      href: '/bg/settings/features',   icon: 'toggle' },
-      { label: 'Биллинг',            href: '/bg/billing',             icon: 'currency' },
       { label: 'Fleet',              href: '/bg/fleet',               icon: 'truck' },
       { label: 'Fleet Bulk Quotes',  href: '/bg/fleet/bulk-quotes',   icon: 'clipboard' },
       { label: 'Fleet Driver',       href: '/bg/fleet/driver',        icon: 'person' },
     ],
   },
   {
-    id: 'admin',
+    id: 'broker-settings',
+    label: 'НАСТРОЙКИ',
+    allowedRoles: BROKER_ROLES,
+    items: [
+      { label: 'Брандиране',         href: '/bg/branding',            icon: 'palette' },
+      { label: 'Домейн',             href: '/bg/settings/domain',     icon: 'globe' },
+      { label: 'Feature Flags',      href: '/bg/settings/features',   icon: 'toggle' },
+      { label: 'Биллинг',            href: '/bg/billing',             icon: 'currency' },
+    ],
+  },
+  {
+    id: 'admin-platform',
+    label: 'ПЛАТФОРМА',
     allowedRoles: SUPER_ADMIN_ROLES,
     items: [
-      { label: 'Тенанти',            href: '/bg/tenants',        icon: 'building' },
-      { label: 'Застрахователи',     href: '/bg/insurers',       icon: 'shield' },
-      { label: 'API Партньори',       href: '/bg/insurers/partners', icon: 'key', allowedRoles: ['super_admin'] },
-      { label: 'Автомобили',         href: '/bg/vehicle-catalog', icon: 'car' },
-      { label: 'Комисиони',          href: '/bg/commissions',    icon: 'percent',  allowedRoles: ['super_admin'] },
-      { label: 'Billing Runs',       href: '/bg/billing-runs',   icon: 'calendar', allowedRoles: ['super_admin'] },
-      { label: 'OCR Analytics',      href: '/bg/ocr-analytics',  icon: 'search' },
-      { label: 'Известия',           href: '/bg/notifications',  icon: 'bell' },
+      { label: 'Тенанти',            href: '/bg/tenants',             icon: 'building' },
+      { label: 'Потребители',        href: '/bg/users',               icon: 'users',    allowedRoles: ['super_admin'] },
+      { label: 'Застрахователи',     href: '/bg/insurers',            icon: 'shield' },
+      { label: 'API Партньори',      href: '/bg/insurers/partners',   icon: 'key',      allowedRoles: ['super_admin'] },
+    ],
+  },
+  {
+    id: 'admin-catalog',
+    label: 'КАТАЛОГ',
+    allowedRoles: SUPER_ADMIN_ROLES,
+    items: [
+      { label: 'Автомобили',         href: '/bg/vehicle-catalog',     icon: 'car' },
+    ],
+  },
+  {
+    id: 'admin-finance',
+    label: 'ФИНАНСИ',
+    allowedRoles: SUPER_ADMIN_ROLES,
+    items: [
+      { label: 'Комисиони',          href: '/bg/commissions',         icon: 'percent',  allowedRoles: ['super_admin'] },
+      { label: 'Billing Runs',       href: '/bg/billing-runs',        icon: 'calendar', allowedRoles: ['super_admin'] },
+    ],
+  },
+  {
+    id: 'admin-analytics',
+    label: 'АНАЛИТИКА',
+    allowedRoles: SUPER_ADMIN_ROLES,
+    items: [
+      { label: 'OCR Analytics',      href: '/bg/ocr-analytics',       icon: 'search' },
+      { label: 'Известия',           href: '/bg/notifications',       icon: 'bell' },
     ],
   },
 ];
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin:  'Супер Админ',
+  admin:        'Администратор',
+  broker_admin: 'Брокер Админ',
+  broker_agent: 'Брокер Агент',
+  fleet_admin:  'Fleet Админ',
+  fleet_viewer: 'Fleet Viewer',
+  client:       'Клиент',
+  end_client:   'Краен Клиент',
+  driver:       'Шофьор',
+};
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -136,6 +195,8 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { role } = useCurrentUser();
+  const { tenantView, clearTenantView } = useTenantView();
+  const isSuperAdmin = role === 'super_admin' || role === 'admin';
 
   useEffect(() => {
     setMounted(true);
@@ -156,69 +217,185 @@ export function AppSidebar() {
     return pathname === href || pathname.startsWith(href + '/');
   }
 
-  // Avoid hydration mismatch — render collapsed state only after mount
-  const w = mounted ? (collapsed ? 'w-16' : 'w-60') : 'w-60';
+  const w = mounted ? (collapsed ? 'w-16' : 'w-64') : 'w-64';
+  const isCollapsed = mounted && collapsed;
+
+  const visibleSections = SECTIONS.filter((s) => isSectionVisible(s, role));
 
   return (
     <aside
-      className={`${w} flex shrink-0 flex-col border-r border-gray-200 bg-white transition-[width] duration-200`}
+      className={`${w} relative flex shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200`}
       style={{ minHeight: '100dvh' }}
     >
-      {/* Header */}
-      <div className="flex h-14 items-center justify-center border-b border-gray-200 px-3">
-        {!collapsed || !mounted ? (
-          <span className="text-sm font-bold text-gray-800">Branivo</span>
+      {/* Floating toggle button — always on right edge */}
+      <button
+        onClick={toggle}
+        title={isCollapsed ? 'Разгъни' : 'Свий'}
+        className="absolute -right-3 top-[38px] z-10 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm hover:border-slate-300 hover:text-slate-600"
+      >
+        <Ico
+          d={isCollapsed ? ICONS.chevronR : ICONS.chevronL}
+          className="size-3.5"
+        />
+      </button>
+
+      {/* Logo */}
+      <div className="flex h-14 items-center border-b border-slate-200 px-4">
+        {!isCollapsed ? (
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="size-5">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+              </svg>
+            </div>
+            <span className="text-base font-bold text-slate-800 tracking-tight">Branivo</span>
+          </div>
         ) : (
-          <span className="text-sm font-bold text-blue-600">B</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white mx-auto">
+            <span className="text-sm font-bold">B</span>
+          </div>
         )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2">
-        {SECTIONS.filter((s) => isSectionVisible(s, role)).map((section) => (
-          <div key={section.id} className="mb-1">
-            {section.id !== 'auth' && (
-              <div className="mx-3 my-1 border-t border-gray-100" />
-            )}
-
-            {/* Items */}
-            {section.items.filter((item) => isItemVisible(item, role)).map((item) => {
-              const active = isActive(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  title={mounted && collapsed ? item.label : undefined}
-                  className={[
-                    'mx-2 my-0.5 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
-                    active
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                    mounted && collapsed ? 'justify-center' : '',
-                  ].join(' ')}
+      {/* Entity card — role badge / tenant switcher */}
+      {role && (
+        <div className={`border-b border-slate-200 ${isCollapsed ? 'px-2 py-3' : 'p-3'}`}>
+          {isCollapsed ? (
+            <div
+              className={`flex h-8 w-8 items-center justify-center rounded-lg mx-auto ${
+                tenantView && isSuperAdmin ? 'bg-blue-100' : 'bg-slate-100'
+              }`}
+              title={
+                tenantView && isSuperAdmin
+                  ? `Преглед: ${tenantView.tenantName}`
+                  : (ROLE_LABELS[role] ?? role)
+              }
+            >
+              <Ico
+                d={ICONS.building}
+                className={`size-4 ${tenantView && isSuperAdmin ? 'text-blue-600' : 'text-slate-600'}`}
+              />
+            </div>
+          ) : isSuperAdmin ? (
+            <div className="flex items-center gap-1">
+              <Link
+                href="/bg/tenants"
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 transition-colors hover:bg-slate-50"
+                title="Управление на тенанти"
+              >
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    tenantView ? 'bg-blue-100' : 'bg-slate-100'
+                  }`}
                 >
-                  <Ico d={ICONS[item.icon]} />
-                  {(!mounted || !collapsed) && (
-                    <span className="truncate">{item.label}</span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+                  <Ico
+                    d={ICONS.building}
+                    className={`size-5 ${tenantView ? 'text-blue-600' : 'text-slate-600'}`}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-800">
+                    {tenantView ? tenantView.tenantName : 'Branivo Platform'}
+                  </p>
+                  <p
+                    className={`truncate text-xs font-medium ${
+                      tenantView ? 'text-blue-600' : 'text-slate-500'
+                    }`}
+                  >
+                    {tenantView ? 'Преглед като брокер' : (ROLE_LABELS[role] ?? role)}
+                  </p>
+                </div>
+              </Link>
+              {tenantView && (
+                <button
+                  onClick={clearTenantView}
+                  title="Изчисти преглед"
+                  className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-red-500"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-3.5"
+                  >
+                    <path d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                <Ico d={ICONS.building} className="size-5 text-slate-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-800">Branivo Platform</p>
+                <p className="truncate text-xs text-slate-500">{ROLE_LABELS[role] ?? role}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-3">
+        {visibleSections.map((section, sectionIndex) => {
+          const visibleItems = section.items.filter((item) => isItemVisible(item, role));
+          if (visibleItems.length === 0) return null;
+
+          const prevSection = visibleSections[sectionIndex - 1];
+          const showDivider = sectionIndex > 0 && prevSection !== undefined;
+
+          return (
+            <div key={section.id}>
+              {showDivider && !isCollapsed && (
+                <div className="mx-3 my-2 border-t border-slate-100" />
+              )}
+              {showDivider && isCollapsed && (
+                <div className="mx-auto my-2 h-px w-8 bg-slate-100" />
+              )}
+
+              {/* Section label */}
+              {section.label && !isCollapsed && (
+                <p className="mb-1 mt-1 px-4 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                  {section.label}
+                </p>
+              )}
+
+              {/* Items */}
+              {visibleItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={isCollapsed ? item.label : undefined}
+                    className={[
+                      'mx-2 my-0.5 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+                      active
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                      isCollapsed ? 'justify-center' : '',
+                    ].join(' ')}
+                  >
+                    <Ico
+                      d={ICONS[item.icon]}
+                      className={`size-[18px] shrink-0 ${active ? 'text-blue-600' : 'text-slate-400'}`}
+                    />
+                    {!isCollapsed && (
+                      <span className="truncate">{item.label}</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })}
       </nav>
 
-      {/* Collapse toggle */}
-      <div className="border-t border-gray-200 p-2">
-        <button
-          onClick={toggle}
-          className="flex w-full items-center justify-center gap-2 rounded-md px-2 py-2 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-          title={collapsed ? 'Разгъни' : 'Свий'}
-        >
-          <Ico d={mounted && collapsed ? ICONS.chevronR : ICONS.chevronL} />
-          {(!mounted || !collapsed) && <span>Свий</span>}
-        </button>
-      </div>
     </aside>
   );
 }
