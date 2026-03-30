@@ -2,19 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# OpenCV + EasyOCR system dependencies (ARM64 compatible)
+# Tesseract + OpenCV system dependencies (ARM64 compatible, no AVX issues)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
     libgl1 \
     libglib2.0-0 \
-    libgomp1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Pre-download EasyOCR models at build time (~100 MB, ARM-native)
-RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False, verbose=False)"
 
 COPY . .
 

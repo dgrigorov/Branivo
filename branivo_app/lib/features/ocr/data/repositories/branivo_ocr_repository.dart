@@ -25,6 +25,12 @@ class BranivoOcrRepository implements OcrRepository {
         ),
       );
 
+  // Wizard order → OCR API step mapping:
+  //   wizard[0] = step=1 (MRZ / owner page)
+  //   wizard[1] = step=2 (vehicle identity page)
+  //   wizard[2] = step=3 (technical specs page)
+  static const _stepMap = [1, 2, 3];
+
   @override
   Future<OcrScanResponse> scanImages(
     List<XFile> images,
@@ -35,7 +41,7 @@ class BranivoOcrRepository implements OcrRepository {
     int steps = 0;
 
     for (int i = 0; i < images.length && i < 3; i++) {
-      final step = i + 1;
+      final step = _stepMap[i];
       try {
         final result = await _callStep(images[i], step);
         final conf = (result['confidence'] as num? ?? 0).toDouble();
