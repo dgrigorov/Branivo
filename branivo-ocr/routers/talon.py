@@ -10,6 +10,7 @@ All images are processed in-memory. No disk writes.
 
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
@@ -109,7 +110,15 @@ def _step_n(image_bytes: bytes, step: int) -> TalonResponse:
 # ── helpers ────────────────────────────────────────────────────────────────────
 
 def _to_int(value: Optional[str]) -> Optional[int]:
+    """Convert string to int. Handles 'N+1' seat notation (e.g. '4+1' → 5)."""
     if value is None:
         return None
     stripped = str(value).strip()
-    return int(stripped) if stripped.isdigit() else None
+    if stripped.isdigit():
+        return int(stripped)
+    # Handle seat notation like "4+1"
+    parts = re.split(r"[+]", stripped)
+    numeric = [p.strip() for p in parts if p.strip().isdigit()]
+    if numeric:
+        return sum(int(p) for p in numeric)
+    return None
