@@ -37,7 +37,14 @@ class OcrPreviewState extends OcrWizardState {
   final XFile image;
 }
 
-// ─── Camera quality states ────────────────────────────────────────────────────
+/// Shown between steps — animates preprocessing pipeline (grayscale, contrast, etc.)
+class OcrStepProcessingState extends OcrWizardState {
+  OcrStepProcessingState({required this.step, required this.image});
+  final int step;
+  final XFile image;
+}
+
+// ─── Camera quality states (story-24.1) ──────────────────────────────────────
 
 /// Camera is analyzing frames — shows live quality overlay
 class OcrCameraQualityState extends OcrWizardState {
@@ -56,7 +63,7 @@ class OcrVinDetectedState extends OcrWizardState {
 /// Manual assist button should appear (5s timeout)
 class OcrManualAssistState extends OcrWizardState {}
 
-// ─── Enrichment states ────────────────────────────────────────────────────────
+// ─── Enrichment states (story-24.1) ──────────────────────────────────────────
 
 /// Hard block: existing active policy found for this vehicle
 class OcrDuplicatePolicyState extends OcrWizardState {

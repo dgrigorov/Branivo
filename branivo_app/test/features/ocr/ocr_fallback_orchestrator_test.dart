@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:dio/dio.dart';
 import 'package:branivo_app/features/ocr/services/ocr_fallback_orchestrator.dart';
 import 'package:branivo_app/features/ocr/services/ocr_scoring_engine.dart';
 import 'package:branivo_app/features/ocr/data/repositories/ocr_models.dart';

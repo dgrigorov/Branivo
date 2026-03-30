@@ -10,13 +10,22 @@ All images are processed in-memory. No disk writes.
 
 from __future__ import annotations
 
+import json
+import logging
 import re
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
 from models.talon_response import TalonData, TalonResponse
 from services import mrz_parser, ocr_engine, preprocessor, vin_service
+
+logger = logging.getLogger("branivo.ocr")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
+)
 
 router = APIRouter()
 
@@ -64,6 +73,7 @@ async def _step1(image_bytes: bytes) -> TalonResponse:
         engine=vin_decoded.get("engine"),
     )
 
+    _log_step(1, text, blocks, ocr_conf, field_conf, confidence, parsed)
     return TalonResponse(
         success=True,
         step=1,
@@ -98,6 +108,7 @@ def _step_n(image_bytes: bytes, step: int) -> TalonResponse:
         firstRegistration=parsed.get("firstRegistration"),
     )
 
+    _log_step(step, text, blocks, ocr_conf, field_conf, confidence, parsed)
     return TalonResponse(
         success=True,
         step=step,
@@ -108,6 +119,29 @@ def _step_n(image_bytes: bytes, step: int) -> TalonResponse:
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
+
+def _log_step(
+    step: int,
+    raw_text: str,
+    blocks: list,
+    ocr_conf: float,
+    field_conf: float,
+    merged_conf: float,
+    parsed: dict,
+) -> None:
+    """Structured JSON log for every OCR step — use docker logs for analysis."""
+    payload = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "step": step,
+        "ocr_confidence": round(ocr_conf, 3),
+        "field_confidence": round(field_conf, 3),
+        "merged_confidence": round(merged_conf, 3),
+        "blocks_count": len(blocks),
+        "parsed_fields": {k: v for k, v in parsed.items() if v is not None},
+        "raw_text_preview": raw_text[:600].replace("\n", "↵"),
+    }
+    logger.info("OCR_STEP %s", json.dumps(payload, ensure_ascii=False))
+
 
 def _to_int(value: Optional[str]) -> Optional[int]:
     """Convert string to int. Handles 'N+1' seat notation (e.g. '4+1' → 5)."""

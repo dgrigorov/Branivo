@@ -119,7 +119,7 @@ Future<void> _startAnonScan(
           ),
         );
       },
-      onManualEntry: () => context.go(
+      onManualEntry: () => context.push(
         '/vehicles/validate',
         extra: VehicleValidateRouteArgs(
           vin: '',

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import '../data/repositories/ocr_models.dart';
@@ -83,10 +82,16 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
   ) async {
     final nextStep = event.step + 1;
     if (nextStep < _totalSteps) {
-      emit(OcrCapturingState(
-        step: nextStep,
-        capturedImages: List.unmodifiable(_capturedImages),
-      ));
+      // Show preprocessing animation, then advance to next capture step.
+      final image = _capturedImages.last;
+      emit(OcrStepProcessingState(step: event.step, image: image));
+      await Future<void>.delayed(const Duration(milliseconds: 1850));
+      if (!isClosed) {
+        emit(OcrCapturingState(
+          step: nextStep,
+          capturedImages: List.unmodifiable(_capturedImages),
+        ));
+      }
     } else {
       await _executeScan(event.sessionToken, emit);
     }
@@ -203,7 +208,7 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
         // Skip ML Kit extraction — Vision is primary for document OCR.
         // ML Kit is used only for live VIN detection in the viewfinder.
         // Passing mlKitTimedOut: true forces the orchestrator to call Vision immediately.
-        final fallbackResult = await _fallbackOrchestrator!.orchestrate(
+        final fallbackResult = await _fallbackOrchestrator.orchestrate(
           mlKitFields: const {},
           sessionToken: sessionToken,
           mlKitTimedOut: true,
@@ -215,7 +220,7 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
         if (_enrichmentService != null) {
           final regNumber = fields['license_plate']?.value;
           final vin = fields['vin']?.value;
-          final enrichResult = await _enrichmentService!.enrich(
+          final enrichResult = await _enrichmentService.enrich(
             regNumber: regNumber,
             vin: vin,
             sessionToken: sessionToken,
@@ -334,7 +339,7 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
     );
 
     // fire-and-forget — never awaited, never passes BuildContext
-    unawaited(_enrichmentService!.logScan(payload, sessionToken));
+    unawaited(_enrichmentService.logScan(payload, sessionToken));
   }
 
   // ─── Polling ──────────────────────────────────────────────────────────────
