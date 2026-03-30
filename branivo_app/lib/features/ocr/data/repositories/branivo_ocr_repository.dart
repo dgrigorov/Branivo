@@ -21,7 +21,7 @@ class BranivoOcrRepository implements OcrRepository {
         BaseOptions(
           baseUrl: ApiEndpoints.ocrServiceBaseUrl,
           connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 120),
         ),
       );
 
