@@ -665,30 +665,41 @@ class _CaptureView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildTopBar(),
-        _buildProgressBar(),
-        const SizedBox(height: 4),
-        _buildStepHint(),
-        if (step == 0) _buildLegend(_legendStep0),
-        if (step == 1) _buildLegend(_legendStep1),
-        const SizedBox(height: 10),
-        _buildInstructionArea(),
-        if (capturedCount > 0) ...[
-          const SizedBox(height: 8),
-          _buildPartialReveal(step),
-        ],
-        _buildCaptureButton(),
-        Center(
-          child: TextButton(
-            onPressed: onBack,
-            child: const Text('Въведи ръчно', style: TextStyle(color: _kMuted, fontSize: 13)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildTopBar(),
+                  _buildProgressBar(),
+                  const SizedBox(height: 4),
+                  _buildStepHint(),
+                  if (step == 0) _buildLegend(_legendStep0),
+                  if (step == 1) _buildLegend(_legendStep1),
+                  const SizedBox(height: 10),
+                  _buildInstructionArea(),
+                  if (capturedCount > 0) ...[
+                    const SizedBox(height: 8),
+                    _buildPartialReveal(step),
+                  ],
+                  _buildCaptureButton(),
+                  Center(
+                    child: TextButton(
+                      onPressed: onBack,
+                      child: const Text('Въведи ръчно', style: TextStyle(color: _kMuted, fontSize: 13)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-      ],
+        );
+      },
     );
   }
 
@@ -827,7 +838,7 @@ class _CaptureView extends StatelessWidget {
     ),
   );
 
-  Widget _buildInstructionArea() => Expanded(
+  Widget _buildInstructionArea() => Flexible(
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
