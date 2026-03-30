@@ -125,7 +125,9 @@ class _OcrWizardScreenState extends State<OcrWizardScreen> {
   Future<void> _captureImage(int step) async {
     final file = await _picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 100,
+      imageQuality: 85,
+      maxWidth: 1600,
+      maxHeight: 1600,
       preferredCameraDevice: CameraDevice.rear,
     );
     if (file == null || !mounted) return;
