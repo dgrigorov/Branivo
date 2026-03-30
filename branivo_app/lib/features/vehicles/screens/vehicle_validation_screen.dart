@@ -108,7 +108,13 @@ class _VehicleValidationScreenState extends State<VehicleValidationScreen> {
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Colors.white),
               tooltip: 'Назад',
-              onPressed: () => context.pop(),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/');
+                }
+              },
             ),
           ),
           body: Semantics(

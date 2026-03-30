@@ -40,39 +40,76 @@ class OcrCameraView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Live camera preview
-        if (cameraReady && camera != null)
-          LayoutBuilder(
-            builder: (ctx, constraints) => GestureDetector(
-              onScaleStart: onScaleStart,
-              onScaleUpdate: onScaleUpdate,
-              onTapUp: (d) => onTapFocus(
-                d,
-                Size(constraints.maxWidth, constraints.maxHeight),
-              ),
-              child: CameraPreview(camera!),
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final screenSize = Size(constraints.maxWidth, constraints.maxHeight);
+        return Stack(
+          children: [
+            // ── Camera full-screen fill ─────────────────────────────────────
+            // FittedBox(cover) scales the camera to fill the screen while
+            // preserving the native aspect ratio (crops/overflows if needed).
+            // This prevents the "squished" look caused by StackFit.expand
+            // forcing CameraPreview's internal AspectRatio to stretch.
+            Positioned.fill(
+              child: cameraReady && camera != null
+                  ? GestureDetector(
+                      onScaleStart: onScaleStart,
+                      onScaleUpdate: onScaleUpdate,
+                      onTapUp: (d) => onTapFocus(d, screenSize),
+                      child: _CameraFill(camera: camera!),
+                    )
+                  : const ColoredBox(color: Colors.black),
             ),
-          )
-        else
-          const ColoredBox(color: Colors.black),
 
-        // Document frame overlay with corner brackets
-        const CustomPaint(painter: _DocFramePainter()),
+            // ── Document frame overlay ──────────────────────────────────────
+            Positioned.fill(
+              child: CustomPaint(painter: _DocFramePainter(screenSize)),
+            ),
 
-        // Top bar
-        _TopBar(step: step, zoom: zoom, minZoom: minZoom, onBack: onManualEntry),
+            // ── Top bar ─────────────────────────────────────────────────────
+            Positioned(
+              top: 0, left: 0, right: 0,
+              child: _TopBar(step: step, zoom: zoom, minZoom: minZoom, onBack: onManualEntry),
+            ),
 
-        // Bottom info + capture sheet
-        _BottomSheet(
-          step: step,
-          capturedCount: capturedCount,
-          onCapture: onCapture,
-          onManualEntry: onManualEntry,
-        ),
-      ],
+            // ── Bottom sheet ─────────────────────────────────────────────────
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: _BottomSheet(
+                step: step,
+                capturedCount: capturedCount,
+                onCapture: onCapture,
+                onManualEntry: onManualEntry,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─── Camera fill widget ────────────────────────────────────────────────────────
+// Scales the camera preview to cover the full screen without stretching.
+// previewSize is in the camera's native (landscape) orientation, so we swap
+// width↔height to get the portrait display dimensions, then FittedBox.cover
+// scales it up until both screen dimensions are filled.
+
+class _CameraFill extends StatelessWidget {
+  const _CameraFill({required this.camera});
+  final CameraController camera;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = camera.value.previewSize;
+    // previewSize is landscape: width=long side, height=short side.
+    // For portrait display we swap them.
+    final double w = preview?.height ?? 720;
+    final double h = preview?.width ?? 1280;
+    return FittedBox(
+      fit: BoxFit.cover,
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(width: w, height: h, child: CameraPreview(camera)),
     );
   }
 }
@@ -371,14 +408,15 @@ class _LegendChip extends StatelessWidget {
 // ─── Document frame overlay painter ───────────────────────────────────────────
 
 class _DocFramePainter extends CustomPainter {
-  const _DocFramePainter();
+  const _DocFramePainter(this.screenSize);
+  final Size screenSize;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Viewport rect — position between top bar and bottom sheet
+    // Viewport rect — centred vertically between top bar (~15%) and bottom sheet (~42%)
     final rect = Rect.fromLTWH(
       size.width * 0.05,
-      size.height * 0.13,
+      size.height * 0.15,
       size.width * 0.90,
       size.width * 0.90 * 0.64,
     );
@@ -423,5 +461,5 @@ class _DocFramePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  bool shouldRepaint(covariant _DocFramePainter old) => old.screenSize != screenSize;
 }
