@@ -29,14 +29,16 @@ from typing import Dict, List, Optional, Tuple
 # ── compiled patterns ──────────────────────────────────────────────────────────
 
 # Field codes in parentheses: (A), (D.1), (C.2.1.), (S.1)
-# Captures everything until the next field code or end-of-string.
+# Lookahead stops only at real field codes like (A), (D.1) — NOT at (PETROL).
+FIELD_CODE_PAT = r"\([A-Z](?:[.\d]+)*\.?\)"
 FIELD_RE = re.compile(
-    r"\(([A-Z](?:[.\d]+)*\.?)\)\s*(.+?)(?=\s*\([A-Z]|\Z)",
+    r"\(([A-Z](?:[.\d]+)*\.?)\)\s*(.+?)(?=\s*" + FIELD_CODE_PAT + r"|\Z)",
     re.S,
 )
 
 VIN_RE = re.compile(r"([A-HJ-NPR-Z0-9]{17})")
-REG_RE = re.compile(r"\b([A-Z]{1,2}[\s\-]?\d{4}[\s\-]?[A-Z]{2})\b")
+# Trailing (?![A-Z]) instead of \b — handles reg embedded in MRZ without spaces
+REG_RE = re.compile(r"\b([A-Z]{1,2}[\s\-]?\d{4}[\s\-]?[A-Z]{2})(?![A-Z])")
 EGN_RE = re.compile(r"(?<!\d)(\d{10})(?!\d)")
 DATE_RE = re.compile(r"\b(\d{2}[.\/\-]\d{2}[.\/\-]\d{4})\b")
 MRZ_LINE_RE = re.compile(r"^[A-Z0-9<]{20,}$")
@@ -110,9 +112,8 @@ def _parse_mrz_positional(lines: List[str]) -> Dict[str, Optional[str]]:
     if len(lines) >= 3:
         owner_name = _parse_mrz_name(lines[2])
 
-    # reg number comes from line 1 or fallback regex across all lines
-    full_text = "\n".join(lines)
-    reg = _find_reg(full_text)
+    # Reg number: extract from MRZ line 1 fields (split by '<')
+    reg = _find_reg_in_mrz1(lines[0]) or _find_reg("\n".join(lines))
 
     return {
         "vin": vin,
@@ -157,26 +158,59 @@ def _extract_labeled_fields(text: str) -> Dict[str, str]:
     for match in FIELD_RE.finditer(text):
         key = match.group(1).rstrip(".")
         value = match.group(2).strip().rstrip("*").strip()
-        if value and value != "***":
+        # Skip empty / redacted fields and values that are actually the next field
+        if value and value != "***" and not value.startswith("("):
             result[key] = value
     return result
 
 
 # ── field value helpers ────────────────────────────────────────────────────────
 
+_PAREN_LATIN_RE = re.compile(r"\(([A-Z][A-Z\s]+)\)")
+
+
 def _prefer_latin(value: Optional[str]) -> Optional[str]:
-    """For bilingual BG/EN fields, return the Latin (ASCII) line if present."""
+    """For bilingual BG/EN fields, return the Latin (ASCII) version.
+
+    Priority:
+    1. A full line that is pure Latin (e.g. 'MERCEDES S 350' below a BG line)
+    2. Parenthesised Latin word on the same line (e.g. 'БЕНЗИН (PETROL)' → 'PETROL')
+    3. The original value as-is
+    """
     if not value:
         return None
     lines = [line.strip() for line in value.splitlines() if line.strip()]
     latin_lines = [line for line in lines if LATIN_RE.match(line)]
-    return latin_lines[0] if latin_lines else lines[0]
+    if latin_lines:
+        return latin_lines[0]
+    # Fallback: extract parenthesised Latin word (bilingual same-line format)
+    paren = _PAREN_LATIN_RE.search(value)
+    if paren:
+        return paren.group(1).strip()
+    return lines[0] if lines else value
+
+
+def _find_reg_in_mrz1(line1: str) -> Optional[str]:
+    """Extract reg number from MRZ line 1 '<'-delimited fields.
+
+    e.g. 'M<BGR<0000000002<AA0000BB1<2<' → 'AA0000BB'
+    """
+    REG_LOOSE = re.compile(r"^([A-Z]{1,2}\d{4}[A-Z]{2})")
+    for field in line1.split("<"):
+        m = REG_LOOSE.match(field)
+        if m:
+            return m.group(1)
+    return None
 
 
 def _clean_reg(value: Optional[str]) -> Optional[str]:
+    """Extract reg number from raw field value (may include document number)."""
     if not value:
         return None
-    return value.replace(" ", "").replace("-", "").strip()
+    m = REG_RE.search(value)
+    if m:
+        return m.group(1).replace(" ", "").replace("-", "")
+    return value.split()[0] if value else None
 
 
 def _find_vin(text: str) -> Optional[str]:
