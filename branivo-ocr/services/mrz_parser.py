@@ -31,20 +31,25 @@ from typing import Dict, List, Optional, Tuple
 # Field codes in parentheses: (A), (D.1), (C.2.1.), (S.1)
 # Lookahead stops only at real field codes like (A), (D.1) — NOT at (PETROL).
 FIELD_CODE_PAT = r"\([A-Z](?:[.\d]+)*\.?\)"
+# .*? (zero-or-more lazy) allows empty values — empty fields no longer eat
+# the next field's content as their value when .+? required ≥ 1 char.
 FIELD_RE = re.compile(
-    r"\(([A-Z](?:[.\d]+)*\.?)\)\s*(.+?)(?=\s*" + FIELD_CODE_PAT + r"|\Z)",
+    r"\(([A-Z](?:[.\d]+)*\.?)\)\s*(.*?)(?=\s*" + FIELD_CODE_PAT + r"|\Z)",
     re.S,
 )
 
 VIN_RE = re.compile(r"([A-HJ-NPR-Z0-9]{17})")
 # Trailing (?![A-Z]) instead of \b — handles reg embedded in MRZ without spaces
-REG_RE = re.compile(r"\b([A-Z]{1,2}[\s\-]?\d{4}[\s\-]?[A-Z]{2})(?![A-Z])")
+# Also accepts O in digit positions (normalised to 0 before matching)
+REG_RE = re.compile(r"\b([A-Z]{1,2}[\s\-]?[0-9O]{4}[\s\-]?[A-Z]{2})(?![A-Z])")
 EGN_RE = re.compile(r"(?<!\d)(\d{10})(?!\d)")
 DATE_RE = re.compile(r"\b(\d{2}[.\/\-]\d{2}[.\/\-]\d{4})\b")
 MRZ_LINE_RE = re.compile(r"^[A-Z0-9<]{20,}$")
 
-# Matches a pure-Latin-script word (used to prefer the Latin line in bilingual fields)
+# Matches a pure-Latin-script line (digits, letters, basic punctuation)
 LATIN_RE = re.compile(r"^[A-Z0-9\s\-./]+$", re.I)
+# Parenthesised English word — used to extract bilingual label (e.g. БЕНЗИН (PETROL))
+_PAREN_LATIN_RE = re.compile(r"\(([A-Z][A-Z\s]+)\)")
 
 
 # ── public API ─────────────────────────────────────────────────────────────────
@@ -64,11 +69,12 @@ def parse_step1(text: str) -> Tuple[Dict[str, Optional[str]], float]:
 def parse_step2(text: str) -> Tuple[Dict[str, Optional[str]], float]:
     """Extract vehicle identity fields: make, model, registration, VIN."""
     fields = _extract_labeled_fields(text)
+    raw_vin = _first_line(fields.get("E"))
     data: Dict[str, Optional[str]] = {
         "registrationNumber": _clean_reg(fields.get("A")) or _find_reg(text),
         "make": _prefer_latin(fields.get("D.1") or fields.get("D1")),
         "model": _prefer_latin(fields.get("D.3") or fields.get("D3")),
-        "vin": fields.get("E") or _find_vin(text),
+        "vin": _normalize_vin(raw_vin) if raw_vin else _find_vin(text),
         "firstRegistration": fields.get("B") or _find_date(text),
     }
     return data, _confidence_step2(data)
@@ -78,9 +84,9 @@ def parse_step3(text: str) -> Tuple[Dict[str, Optional[str]], float]:
     """Extract technical specification fields: engine, fuel, seats."""
     fields = _extract_labeled_fields(text)
     data: Dict[str, Optional[str]] = {
-        "engine": fields.get("P.1") or fields.get("P1"),
+        "engine": _first_numeric_token(fields.get("P.1") or fields.get("P1")),
         "fuel": _prefer_latin(fields.get("P.3") or fields.get("P3")),
-        "seats": fields.get("S.1") or fields.get("S1"),
+        "seats": _first_line(fields.get("S.1") or fields.get("S1")),
         "firstRegistration": fields.get("B") or _find_date(text),
     }
     return data, _confidence_step3(data)
@@ -158,36 +164,69 @@ def _extract_labeled_fields(text: str) -> Dict[str, str]:
     for match in FIELD_RE.finditer(text):
         key = match.group(1).rstrip(".")
         value = match.group(2).strip().rstrip("*").strip()
-        # Skip empty / redacted fields and values that are actually the next field
-        if value and value != "***" and not value.startswith("("):
+        # Skip empty / redacted / next-field values; keep first valid occurrence
+        if value and value != "***" and not value.startswith("(") and key not in result:
             result[key] = value
     return result
 
 
 # ── field value helpers ────────────────────────────────────────────────────────
 
-_PAREN_LATIN_RE = re.compile(r"\(([A-Z][A-Z\s]+)\)")
-
-
 def _prefer_latin(value: Optional[str]) -> Optional[str]:
     """For bilingual BG/EN fields, return the Latin (ASCII) version.
 
     Priority:
-    1. A full line that is pure Latin (e.g. 'MERCEDES S 350' below a BG line)
-    2. Parenthesised Latin word on the same line (e.g. 'БЕНЗИН (PETROL)' → 'PETROL')
-    3. The original value as-is
+    1. Parenthesised English word — most reliable (e.g. 'БЕНЗИН (PETROL)' → 'PETROL')
+    2. A full line that is pure Latin and longer than 2 chars
+    3. The first line as-is
     """
     if not value:
         return None
-    lines = [line.strip() for line in value.splitlines() if line.strip()]
-    latin_lines = [line for line in lines if LATIN_RE.match(line)]
-    if latin_lines:
-        return latin_lines[0]
-    # Fallback: extract parenthesised Latin word (bilingual same-line format)
+    # Priority 1: parenthesised Latin word (reliable bilingual marker)
     paren = _PAREN_LATIN_RE.search(value)
     if paren:
         return paren.group(1).strip()
+    # Priority 2: first full Latin line of meaningful length
+    lines = [line.strip() for line in value.splitlines() if line.strip()]
+    latin_lines = [l for l in lines if LATIN_RE.match(l) and len(l) > 2]
+    if latin_lines:
+        return latin_lines[0]
     return lines[0] if lines else value
+
+
+def _normalize_vin(raw: str) -> Optional[str]:
+    """Fix common OCR O/0 confusion in VINs and validate 17-char format.
+
+    VIN charset excludes I, O, Q — any such character is an OCR error.
+    """
+    normalized = raw.upper().replace("O", "0").replace("I", "1").replace("Q", "0")
+    # Strip non-VIN characters
+    cleaned = re.sub(r"[^A-HJ-NPR-Z0-9]", "", normalized)
+    if len(cleaned) >= 17 and VIN_RE.fullmatch(cleaned[:17]):
+        return cleaned[:17]
+    return None
+
+
+def _first_line(value: Optional[str]) -> Optional[str]:
+    """Return only the first non-empty line of a multi-line field value."""
+    if not value:
+        return None
+    for line in value.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return None
+
+
+def _first_numeric_token(value: Optional[str]) -> Optional[str]:
+    """Return the first numeric token from a field value (e.g. '3498\\n...' → '3498')."""
+    if not value:
+        return None
+    for token in re.split(r"[\s\n]+", value):
+        token = token.strip()
+        if token.isdigit():
+            return token
+    return None
 
 
 def _find_reg_in_mrz1(line1: str) -> Optional[str]:
@@ -204,13 +243,27 @@ def _find_reg_in_mrz1(line1: str) -> Optional[str]:
 
 
 def _clean_reg(value: Optional[str]) -> Optional[str]:
-    """Extract reg number from raw field value (may include document number)."""
+    """Extract reg number from raw field value. Normalises O→0 in digit positions."""
     if not value:
         return None
-    m = REG_RE.search(value)
+    first = (value.splitlines()[0] if value else value).strip()
+    m = REG_RE.search(first)
     if m:
-        return m.group(1).replace(" ", "").replace("-", "")
-    return value.split()[0] if value else None
+        raw = m.group(1).replace(" ", "").replace("-", "")
+        return _fix_reg_ocr(raw)
+    return None
+
+
+def _fix_reg_ocr(reg: str) -> str:
+    """Normalise OCR errors in Bulgarian reg numbers (AA0000BB format).
+
+    Position layout: [0-1] letters, [2-5] digits, [6-7] letters.
+    O in digit positions → 0.
+    """
+    if len(reg) != 8:
+        return reg
+    digits = reg[2:6].replace("O", "0")
+    return reg[:2] + digits + reg[6:]
 
 
 def _find_vin(text: str) -> Optional[str]:
@@ -220,7 +273,10 @@ def _find_vin(text: str) -> Optional[str]:
 
 def _find_reg(text: str) -> Optional[str]:
     m = REG_RE.search(text)
-    return _clean_reg(m.group(1)) if m else None
+    if not m:
+        return None
+    raw = m.group(1).replace(" ", "").replace("-", "")
+    return _fix_reg_ocr(raw)
 
 
 def _find_egn(text: str) -> Optional[str]:

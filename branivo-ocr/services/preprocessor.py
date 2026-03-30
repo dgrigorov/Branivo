@@ -1,6 +1,12 @@
 """Image preprocessing pipeline for Bulgarian vehicle registration certificates.
 
-Order is critical: bilateral → CLAHE → glare mask → deskew → threshold → closing.
+Two pipelines are provided:
+  - light_preprocess: bilateral → CLAHE → glare mask → deskew (color output)
+    Designed for EasyOCR, which has its own internal binarization and works
+    best on color or lightly processed images.
+  - preprocess: full pipeline ending with adaptive threshold + closing (grayscale)
+    Kept for reference; binarization hurts EasyOCR accuracy significantly.
+
 All operations are in-memory — no disk writes.
 """
 
@@ -10,20 +16,20 @@ import cv2
 import numpy as np
 
 
-def preprocess(image_bytes: bytes) -> np.ndarray:
-    """Full preprocessing pipeline. Returns binarised single-channel image."""
+def light_preprocess(image_bytes: bytes) -> np.ndarray:
+    """Light pipeline for EasyOCR — returns BGR color image.
+
+    bilateral → CLAHE → glare mask → deskew (color output, no binarization).
+    """
     img = _decode(image_bytes)
     img = _bilateral(img)
     img = _clahe(img)
     img = _mask_glare(img)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = _deskew(gray)
-    gray = _threshold(gray)
-    return _close(gray)
+    return _deskew_color(img)
 
 
 def crop_mrz_zone(image_bytes: bytes) -> np.ndarray:
-    """Crop + preprocess the bottom 30 % of the image (MRZ zone)."""
+    """Crop + light-preprocess the bottom 30 % of the image (MRZ zone)."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     h = img.shape[0]
@@ -31,10 +37,7 @@ def crop_mrz_zone(image_bytes: bytes) -> np.ndarray:
     mrz = _bilateral(mrz)
     mrz = _clahe(mrz)
     mrz = _mask_glare(mrz)
-    gray = cv2.cvtColor(mrz, cv2.COLOR_BGR2GRAY)
-    gray = _deskew(gray)
-    gray = _threshold(gray)
-    return _close(gray)
+    return _deskew_color(mrz)
 
 
 # ── private helpers ────────────────────────────────────────────────────────────
@@ -65,26 +68,17 @@ def _mask_glare(img: np.ndarray) -> np.ndarray:
     return img
 
 
-def _deskew(gray: np.ndarray) -> np.ndarray:
+def _deskew_color(img: np.ndarray) -> np.ndarray:
+    """Correct skew on a BGR color image."""
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     coords = np.column_stack(np.where(gray < 128))
     if len(coords) < 10:
-        return gray
+        return img
     angle = cv2.minAreaRect(coords)[-1]
     if angle < -45:
         angle = 90.0 + angle
     if abs(angle) < 0.5:
-        return gray
-    h, w = gray.shape
+        return img
+    h, w = img.shape[:2]
     M = cv2.getRotationMatrix2D((w // 2, h // 2), angle, 1.0)
-    return cv2.warpAffine(gray, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-
-
-def _threshold(gray: np.ndarray) -> np.ndarray:
-    return cv2.adaptiveThreshold(
-        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-    )
-
-
-def _close(binary: np.ndarray) -> np.ndarray:
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    return cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    return cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)

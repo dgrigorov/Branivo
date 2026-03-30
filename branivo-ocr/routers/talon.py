@@ -74,7 +74,7 @@ async def _step1(image_bytes: bytes) -> TalonResponse:
 
 
 def _step_n(image_bytes: bytes, step: int) -> TalonResponse:
-    img = preprocessor.preprocess(image_bytes)
+    img = preprocessor.light_preprocess(image_bytes)
     blocks = ocr_engine.extract_blocks(img)
     text = ocr_engine.blocks_to_text(blocks)
     ocr_conf = ocr_engine.avg_confidence(blocks)
