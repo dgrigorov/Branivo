@@ -95,8 +95,16 @@ def parse_step3(text: str) -> Tuple[Dict[str, Optional[str]], float]:
 # ── MRZ positional parser ──────────────────────────────────────────────────────
 
 def _detect_mrz_lines(text: str) -> List[str]:
-    """Return lines that look like MRZ (uppercase + digits + '<', ≥ 20 chars)."""
-    return [line.strip() for line in text.splitlines() if MRZ_LINE_RE.match(line.strip())]
+    """Return lines that look like MRZ (uppercase + digits + '<', ≥ 20 chars).
+
+    Normalises each line before matching: uppercase + strip OCR-inserted spaces.
+    """
+    result = []
+    for line in text.splitlines():
+        normalised = line.strip().upper().replace(" ", "")
+        if MRZ_LINE_RE.match(normalised):
+            result.append(normalised)
+    return result
 
 
 def _parse_mrz_positional(lines: List[str]) -> Dict[str, Optional[str]]:
@@ -110,7 +118,8 @@ def _parse_mrz_positional(lines: List[str]) -> Dict[str, Optional[str]]:
     raw_vin = line2[0:17] if len(line2) >= 17 else None
     raw_egn = line2[17:27] if len(line2) >= 27 else None
 
-    vin = raw_vin if raw_vin and VIN_RE.fullmatch(raw_vin) else _find_vin(line2)
+    # Normalise O→0 / I→1 before VIN_RE fullmatch (OCR confuses O and 0)
+    vin = _normalize_vin(raw_vin) if raw_vin else _find_vin(line2)
     egn = raw_egn if raw_egn and raw_egn.isdigit() else None
 
     # line 3 → owner name
@@ -233,12 +242,13 @@ def _find_reg_in_mrz1(line1: str) -> Optional[str]:
     """Extract reg number from MRZ line 1 '<'-delimited fields.
 
     e.g. 'M<BGR<0000000002<AA0000BB1<2<' → 'AA0000BB'
+    Uppercases each field before matching (OCR may produce lowercase).
     """
     REG_LOOSE = re.compile(r"^([A-Z]{1,2}\d{4}[A-Z]{2})")
     for field in line1.split("<"):
-        m = REG_LOOSE.match(field)
+        m = REG_LOOSE.match(field.upper())
         if m:
-            return m.group(1)
+            return m.group(1).upper()
     return None
 
 

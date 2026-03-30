@@ -7,7 +7,13 @@ class ApiEndpoints {
     defaultValue: 'http://192.168.100.185:3000',
   );
 
+  static const String _ocrServiceUrl = String.fromEnvironment(
+    'OCR_SERVICE_URL',
+    defaultValue: 'http://192.168.100.185:8888',
+  );
+
   static String get baseUrl => _baseUrl;
+  static String get ocrServiceBaseUrl => _ocrServiceUrl;
 
   // Auth
   static String get login => '$_baseUrl/api/v1/auth/login';
@@ -32,7 +38,7 @@ class ApiEndpoints {
   static String get policies => '$_baseUrl/api/v1/policies';
   static String policyById(String id) => '$_baseUrl/api/v1/policies/$id';
 
-  // OCR
+  // OCR (NestJS backend)
   static String get ocrScan => '$_baseUrl/api/v1/ocr/scan';
   static String get ocrReportMlKit => '$_baseUrl/api/v1/ocr/report-mlkit-scan';
   static String get ocrVisionScan => '$_baseUrl/api/v1/ocr/vision-scan';
@@ -40,6 +46,9 @@ class ApiEndpoints {
 
   // Vehicle enrichment
   static String get vehicleEnrich => '$_baseUrl/api/v1/vehicles/enrich';
+
+  // branivo-ocr Python microservice
+  static String ocrTalon(int step) => '$_ocrServiceUrl/ocr/talon?step=$step';
 
   // Health
   static String get health => '$_baseUrl/health';

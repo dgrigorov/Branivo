@@ -1,6 +1,6 @@
 enum OcrJobStatus { pending, processing, completed, failed }
 
-enum OcrProvider { googleVision, awsTextract, mlKit }
+enum OcrProvider { googleVision, awsTextract, mlKit, branivoOcr }
 
 enum ScoreBucketDto { auto, top3, manual }
 

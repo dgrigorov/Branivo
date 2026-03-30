@@ -76,6 +76,8 @@ services:
     restart: unless-stopped
     ports:
       - '8888:8000'
+    mem_limit: 3g
+    memswap_limit: 3g
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
       interval: 30s
