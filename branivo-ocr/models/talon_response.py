@@ -26,3 +26,6 @@ class TalonResponse(BaseModel):
     data: TalonData
     complete: bool
     error: Optional[str] = None
+    # Debug only — base64 JPEG of the preprocessed image sent to Tesseract.
+    # Returned only when the request includes debug=true query param.
+    preview_b64: Optional[str] = None

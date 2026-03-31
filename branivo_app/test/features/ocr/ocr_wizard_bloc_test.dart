@@ -57,7 +57,7 @@ void main() {
       );
     });
 
-    test('OcrPreviewConfirmedEvent → OcrCapturingState(step: 1)', () async {
+    test('OcrPreviewConfirmedEvent → OcrCropState(step: 0)', () async {
       final bloc = buildBloc();
       bloc.add(OcrStartCaptureEvent());
       await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
@@ -68,7 +68,32 @@ void main() {
       bloc.add(OcrPreviewConfirmedEvent(step: 0, sessionToken: sessionToken));
       await expectLater(
         bloc.stream,
-        emits(isA<OcrCapturingState>().having((s) => s.step, 'step', 1)),
+        emits(isA<OcrCropState>().having((s) => s.step, 'step', 0)),
+      );
+    });
+
+    test('OcrCropConfirmedEvent → OcrStepProcessingState then OcrCapturingState(step: 1)', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent());
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrPreviewState>()));
+
+      bloc.add(OcrPreviewConfirmedEvent(step: 0, sessionToken: sessionToken));
+      await expectLater(bloc.stream, emits(isA<OcrCropState>()));
+
+      bloc.add(OcrCropConfirmedEvent(
+        step: 0,
+        corners: const [Offset(0, 0), Offset(1, 0), Offset(1, 1), Offset(0, 1)],
+        sessionToken: sessionToken,
+      ));
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          isA<OcrStepProcessingState>().having((s) => s.step, 'step', 0),
+          isA<OcrCapturingState>().having((s) => s.step, 'step', 1),
+        ]),
       );
     });
 

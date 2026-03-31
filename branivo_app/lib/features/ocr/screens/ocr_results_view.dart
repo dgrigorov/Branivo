@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/repositories/ocr_models.dart';
@@ -10,12 +11,15 @@ class OcrResultsView extends StatefulWidget {
     required this.onProceed,
     required this.onManualEntry,
     this.rawText,
+    this.debugImages,
   });
 
   final Map<String, OcrField> fields;
   final void Function(Map<String, OcrField>) onProceed;
   final VoidCallback onManualEntry;
   final String? rawText;
+  /// Base64 JPEG previews of what Tesseract actually processed, one per step.
+  final List<String>? debugImages;
 
   @override
   State<OcrResultsView> createState() => _OcrResultsViewState();
@@ -68,6 +72,7 @@ class _OcrResultsViewState extends State<OcrResultsView> {
                     _DebugSection(
                       fields: widget.fields,
                       rawText: widget.rawText,
+                      debugImages: widget.debugImages,
                     ),
                     const SizedBox(height: 16),
                     const Divider(color: Colors.white12),
@@ -277,9 +282,10 @@ class _FieldCard extends StatelessWidget {
 // ─── Debug section ─────────────────────────────────────────────────────────────
 
 class _DebugSection extends StatelessWidget {
-  const _DebugSection({required this.fields, this.rawText});
+  const _DebugSection({required this.fields, this.rawText, this.debugImages});
   final Map<String, OcrField> fields;
   final String? rawText;
+  final List<String>? debugImages;
 
   static const _legendCodes = <String, String>{
     'A': '(A) Регистрационен номер',
@@ -332,6 +338,65 @@ class _DebugSection extends StatelessWidget {
       }
     }
     return buf.toString().trimRight();
+  }
+
+  bool get _hasDebugImages =>
+      debugImages != null && debugImages!.any((s) => s.isNotEmpty);
+
+  Widget _buildDebugImagesSection() {
+    final images = debugImages!;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kOcrBlue.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '🔬 Tesseract input (preprocessed)',
+            style: TextStyle(
+              color: kOcrBlue,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (int i = 0; i < images.length; i++)
+                if (images[i].isNotEmpty)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: i < images.length - 1 ? 8 : 0),
+                      child: Column(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.memory(
+                              base64Decode(images[i]),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Стъпка ${i + 1}',
+                            style: const TextStyle(
+                              color: kOcrMuted,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _copy(BuildContext context, String text, String label) async {
@@ -473,6 +538,10 @@ class _DebugSection extends StatelessWidget {
             ],
           ),
         ),
+        if (_hasDebugImages) ...[
+          const SizedBox(height: 12),
+          _buildDebugImagesSection(),
+        ],
       ],
     );
   }

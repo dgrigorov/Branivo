@@ -32,6 +32,7 @@ class OcrScanResponse {
     this.fields,
     this.avgConfidence,
     this.rawText,
+    this.debugImages,
   });
 
   factory OcrScanResponse.fromJson(Map<String, dynamic> json) {
@@ -65,6 +66,9 @@ class OcrScanResponse {
   final double? avgConfidence;
   /// Raw text as recognized by ML Kit (debug only — not sent to server).
   final String? rawText;
+  /// Base64 JPEG previews of what Tesseract actually processed, one per step.
+  /// Only populated when debug=true was sent to the OCR API.
+  final List<String>? debugImages;
 }
 
 // ─── Enrichment models ────────────────────────────────────────────────────────

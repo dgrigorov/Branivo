@@ -19,6 +19,35 @@ import numpy as np
 MAX_DIM = 2048  # cap longest side to avoid OOM on high-res photos
 
 
+def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
+    """Apply 4-point perspective correction and return JPEG bytes.
+
+    points: [[x0,y0],[x1,y1],[x2,y2],[x3,y3]] — normalized 0..1 in image space.
+    Order: top-left, top-right, bottom-right, bottom-left.
+    Scales to pixel coords, computes homography, warps to axis-aligned output.
+    Returns the corrected image as JPEG bytes (max MAX_DIM on longest side).
+    """
+    img = _decode(image_bytes)
+    img = _resize(img)
+    h, w = img.shape[:2]
+
+    src = np.float32([[p[0] * w, p[1] * h] for p in points])
+    tl, tr, br, bl = src
+
+    out_w = int(max(np.linalg.norm(tr - tl), np.linalg.norm(br - bl)))
+    out_h = int(max(np.linalg.norm(bl - tl), np.linalg.norm(br - tr)))
+    if out_w < 4 or out_h < 4:
+        # Degenerate quad — return original resized image
+        _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        return buf.tobytes()
+
+    dst = np.float32([[0, 0], [out_w - 1, 0], [out_w - 1, out_h - 1], [0, out_h - 1]])
+    M = cv2.getPerspectiveTransform(src, dst)
+    warped = cv2.warpPerspective(img, M, (out_w, out_h))
+    _, buf = cv2.imencode(".jpg", warped, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    return buf.tobytes()
+
+
 def light_preprocess(image_bytes: bytes) -> np.ndarray:
     """Light pipeline for EasyOCR — returns BGR color image.
 

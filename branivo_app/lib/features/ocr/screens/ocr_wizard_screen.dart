@@ -8,6 +8,7 @@ import '../data/repositories/ocr_models.dart';
 import '../services/camera_quality_analyzer.dart';
 import 'ocr_camera_view.dart';
 import 'ocr_wizard_constants.dart';
+import 'ocr_crop_editor_view.dart';
 import 'ocr_processing_view.dart';
 import 'ocr_results_view.dart';
 
@@ -161,6 +162,7 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
       return OcrResultsView(
         fields: state.fields,
         rawText: state.rawText,
+        debugImages: state.debugImages,
         onProceed: widget.onComplete,
         onManualEntry: widget.onManualEntry,
       );
@@ -170,6 +172,14 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
     }
     if (state is OcrStepProcessingState) {
       return OcrStepProcessingView(step: state.step, image: state.image);
+    }
+    if (state is OcrCropState) {
+      return OcrCropEditorView(
+        step: state.step,
+        image: state.image,
+        initialCorners: state.corners,
+        sessionToken: state.sessionToken,
+      );
     }
     if (state is OcrPreviewState) {
       return OcrPreviewView(

@@ -16,11 +16,18 @@ class OcrProcessingState extends OcrWizardState {
 }
 
 class OcrCompletedState extends OcrWizardState {
-  OcrCompletedState({required this.fields, required this.jobId, this.rawText});
+  OcrCompletedState({
+    required this.fields,
+    required this.jobId,
+    this.rawText,
+    this.debugImages,
+  });
   final Map<String, OcrField> fields;
   final String jobId;
   /// Raw text recognized by ML Kit — used for debug overlay.
   final String? rawText;
+  /// Base64 JPEG previews of what Tesseract actually processed, one per step.
+  final List<String>? debugImages;
 }
 
 class OcrFailedState extends OcrWizardState {
@@ -84,3 +91,17 @@ class OcrGfHitState extends OcrWizardState {
 
 /// ГФ API timed out — show non-blocking warning
 class OcrGfWarningState extends OcrWizardState {}
+/// Shown after preview confirm — user drags 4 corner handles to crop the document.
+class OcrCropState extends OcrWizardState {
+  OcrCropState({
+    required this.step,
+    required this.image,
+    required this.corners,
+    required this.sessionToken,
+  });
+  final int step;
+  final XFile image;
+  /// Normalized 0..1 corner points: TL, TR, BR, BL.
+  final List<Offset> corners;
+  final String sessionToken;
+}

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 const Color kOcrBg = Color(0xFF0A0A0A);
 const Color kOcrSurface = Color(0xFF1A1A2E);
 const Color kOcrIndigo = Color(0xFF6366F1);
+const Color kOcrBlue = Color(0xFF60A5FA);
 const Color kOcrGreen = Color(0xFF10B981);
 const Color kOcrMuted = Color(0xFF64748B);
 const Color kOcrTextSub = Color(0xFF94A3B8);

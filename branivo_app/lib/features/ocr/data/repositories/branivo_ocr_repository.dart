@@ -1,17 +1,24 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/painting.dart' show Offset;
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/api/endpoints.dart';
 import 'ocr_models.dart';
 import 'ocr_repository.dart';
 
-/// OCR via the branivo-ocr Python microservice (FastAPI + EasyOCR).
+/// OCR via the branivo-ocr Python microservice (FastAPI + Tesseract).
 ///
-/// The wizard captures 3 images in order:
+/// Wizard step order:
 ///   images[0] → step=1 (MRZ / owner page)
 ///   images[1] → step=2 (vehicle identity page)
 ///   images[2] → step=3 (technical specs page)
 ///
-/// Results from all available steps are merged (first non-null value wins).
+/// Each image may optionally have 4 perspective-crop corner points (TL,TR,BR,BL,
+/// normalized 0..1). When provided, the Python service applies
+/// cv2.warpPerspective BEFORE the normal preprocessing pipeline.
+///
+/// When debug=true (default), the response includes preview_b64 — a base64
+/// JPEG of the image that Tesseract actually processed, for in-app debug view.
 class BranivoOcrRepository implements OcrRepository {
   BranivoOcrRepository() : _dio = _buildDio();
 
@@ -25,25 +32,24 @@ class BranivoOcrRepository implements OcrRepository {
         ),
       );
 
-  // Wizard order → OCR API step mapping:
-  //   wizard[0] = step=1 (MRZ / owner page)
-  //   wizard[1] = step=2 (vehicle identity page)
-  //   wizard[2] = step=3 (technical specs page)
   static const _stepMap = [1, 2, 3];
 
   @override
   Future<OcrScanResponse> scanImages(
     List<XFile> images,
-    String sessionToken,
-  ) async {
+    String sessionToken, {
+    List<List<Offset>?>? corners,
+  }) async {
     final merged = <String, dynamic>{};
     double totalConf = 0;
     int steps = 0;
+    final debugImages = <String>[];
 
     for (int i = 0; i < images.length && i < 3; i++) {
       final step = _stepMap[i];
+      final pts = corners != null && i < corners.length ? corners[i] : null;
       try {
-        final result = await _callStep(images[i], step);
+        final result = await _callStep(images[i], step, corners: pts);
         final conf = (result['confidence'] as num? ?? 0).toDouble();
         final data = result['data'] as Map<String, dynamic>? ?? {};
         totalConf += conf;
@@ -52,8 +58,11 @@ class BranivoOcrRepository implements OcrRepository {
         data.forEach((k, v) {
           if (v != null && merged[k] == null) merged[k] = v;
         });
+        // Collect debug preview if returned
+        final preview = result['preview_b64'] as String?;
+        debugImages.add(preview ?? '');
       } catch (_) {
-        // A failing step doesn't abort the whole scan
+        debugImages.add('');
       }
     }
 
@@ -64,22 +73,40 @@ class BranivoOcrRepository implements OcrRepository {
       provider: OcrProvider.branivoOcr,
       fields: _toFields(merged, avgConf),
       avgConfidence: avgConf,
+      debugImages: debugImages.any((s) => s.isNotEmpty) ? debugImages : null,
     );
   }
 
-  Future<Map<String, dynamic>> _callStep(XFile image, int step) async {
+  Future<Map<String, dynamic>> _callStep(
+    XFile image,
+    int step, {
+    List<Offset>? corners,
+  }) async {
     final bytes = await image.readAsBytes();
-    final formData = FormData.fromMap({
+    final fields = <String, dynamic>{
       'file': MultipartFile.fromBytes(
         bytes,
         filename: image.name.isNotEmpty ? image.name : 'talon.jpg',
         contentType: DioMediaType('image', 'jpeg'),
       ),
-    });
+    };
+
+    if (corners != null && corners.length == 4) {
+      // Serialize as [[x,y], [x,y], [x,y], [x,y]] — Python parses this JSON.
+      fields['points'] = jsonEncode(
+        corners
+            .map((o) => [
+                  double.parse(o.dx.toStringAsFixed(4)),
+                  double.parse(o.dy.toStringAsFixed(4)),
+                ])
+            .toList(),
+      );
+    }
+
     final response = await _dio.post<Map<String, dynamic>>(
       '/ocr/talon',
-      queryParameters: {'step': step},
-      data: formData,
+      queryParameters: {'step': step, 'debug': true},
+      data: FormData.fromMap(fields),
     );
     return response.data!;
   }
