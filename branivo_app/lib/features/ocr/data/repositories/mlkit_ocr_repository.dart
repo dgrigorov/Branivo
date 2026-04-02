@@ -21,6 +21,16 @@ class MlKitOcrRepository implements OcrRepository {
     List<XFile> images,
     String sessionToken,
   ) async {
+    if (images.isEmpty) {
+      return OcrScanResponse(
+        jobId: 'local-empty',
+        status: OcrJobStatus.completed,
+        provider: OcrProvider.mlKit,
+        fields: const {},
+        rawText: null,
+      );
+    }
+
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
     final buffer = StringBuffer();
 
@@ -74,8 +84,14 @@ class MlKitOcrRepository implements OcrRepository {
           if (rawText.isNotEmpty) 'raw_text': rawText,
         },
       );
-    } catch (_) {
-      // Analytics reporting is best-effort — never fail the scan flow
+    } catch (e) {
+      // Analytics reporting is best-effort — never fail the scan flow.
+      // Log so persistent failures (e.g. wrong endpoint) are visible in debug.
+      assert(() {
+        // ignore: avoid_print
+        print('[MlKitOcrRepository] reportToBackend failed: $e');
+        return true;
+      }());
     }
   }
 

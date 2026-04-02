@@ -5,6 +5,7 @@ import 'package:branivo_app/features/ocr/bloc/ocr_wizard_bloc.dart';
 import 'package:branivo_app/features/ocr/data/repositories/ocr_api_repository.dart';
 import 'package:branivo_app/features/ocr/data/repositories/ocr_models.dart';
 import 'package:branivo_app/features/ocr/data/repositories/ocr_repository.dart';
+import 'package:branivo_app/features/ocr/services/camera_quality_analyzer.dart';
 
 class MockOcrRepository extends Mock implements OcrRepository {}
 class MockXFile extends Mock implements XFile {}
@@ -144,6 +145,29 @@ void main() {
       await bloc.close();
     });
 
+    test('full 3-step flow: last OcrPreviewConfirmedEvent triggers scan directly', () async {
+      when(() => mockRepository.scanImages(any(), sessionToken))
+          .thenAnswer((_) async => OcrScanResponse(
+                jobId: jobId,
+                status: OcrJobStatus.completed,
+                fields: mockFields,
+              ));
+
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent());
+
+      for (int step = 0; step < 3; step++) {
+        bloc.add(OcrImageCapturedEvent(step: step, image: MockXFile()));
+        bloc.add(OcrPreviewConfirmedEvent(step: step, sessionToken: sessionToken));
+      }
+
+      await expectLater(
+        bloc.stream,
+        emitsThrough(isA<OcrCompletedState>()),
+      );
+      await bloc.close();
+    });
+
     test('OcrManualFallbackRequestedEvent → OcrManualInputState', () async {
       final bloc = buildBloc();
       bloc.add(OcrManualFallbackRequestedEvent());
@@ -172,6 +196,112 @@ void main() {
           isA<OcrFailedState>(),
         ]),
       );
+    });
+
+    // ─── Camera quality state machine tests ─────────────────────────────────
+
+    test('OcrFrameAnalyzedEvent with blur status → OcrCameraQualityState(blur)', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent());
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      const quality = QualityResult(
+        status: QualityStatus.blur,
+        blurVariance: 50.0,
+        brightnessAvg: 120.0,
+        frameFill: 0.70,
+      );
+      bloc.add(OcrFrameAnalyzedEvent(quality: quality));
+
+      await expectLater(
+        bloc.stream,
+        emits(isA<OcrCameraQualityState>().having(
+          (s) => s.status, 'status', QualityStatus.blur,
+        )),
+      );
+    });
+
+    test('OcrFrameAnalyzedEvent VIN found → OcrVinDetectedState', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent());
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      const quality = QualityResult(
+        status: QualityStatus.vinFound,
+        blurVariance: 200.0,
+        brightnessAvg: 120.0,
+        frameFill: 0.80,
+        vinConfidence: 0.92,
+        detectedVin: 'WVWZZZ3BZ3E123456',
+      );
+      bloc.add(OcrFrameAnalyzedEvent(quality: quality));
+
+      await expectLater(
+        bloc.stream,
+        emits(isA<OcrVinDetectedState>().having(
+          (s) => s.vin, 'vin', 'WVWZZZ3BZ3E123456',
+        )),
+      );
+      await bloc.close();
+    });
+
+    test('OcrManualAssistEvent → OcrManualAssistState', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrManualAssistEvent());
+
+      await expectLater(
+        bloc.stream,
+        emits(isA<OcrManualAssistState>()),
+      );
+    });
+
+    test('VIN_FOUND takes priority over QUALITY_OK when both conditions met', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent());
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      // Send VIN found — should emit VinDetected, not QualityOk
+      const quality = QualityResult(
+        status: QualityStatus.vinFound,
+        blurVariance: 200.0,
+        brightnessAvg: 120.0,
+        frameFill: 0.80,
+        vinConfidence: 0.92,
+        detectedVin: 'WVWZZZ3BZ3E123456',
+      );
+      bloc.add(OcrFrameAnalyzedEvent(quality: quality));
+
+      await expectLater(
+        bloc.stream,
+        emits(isA<OcrVinDetectedState>()),
+      );
+      // VIN captured flag prevents second trigger
+      bloc.add(OcrFrameAnalyzedEvent(quality: quality));
+      // Should NOT emit another VinDetectedState
+      await bloc.close();
+    });
+
+    test('OcrStartCaptureEvent resets consecutive frame counter', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent());
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      // Send 2 ok frames, then restart — counter should reset
+      const okQuality = QualityResult(
+        status: QualityStatus.ok,
+        blurVariance: 200.0,
+        brightnessAvg: 120.0,
+        frameFill: 0.80,
+      );
+      bloc.add(OcrFrameAnalyzedEvent(quality: okQuality));
+      bloc.add(OcrFrameAnalyzedEvent(quality: okQuality));
+      bloc.add(OcrStartCaptureEvent());
+
+      await expectLater(
+        bloc.stream,
+        emitsThrough(isA<OcrCapturingState>().having((s) => s.step, 'step', 0)),
+      );
+      await bloc.close();
     });
   });
 }

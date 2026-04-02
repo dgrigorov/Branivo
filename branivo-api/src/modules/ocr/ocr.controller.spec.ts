@@ -21,6 +21,9 @@ const VALID_SESSION_TOKEN = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const mockOcrService = {
   scan: jest.fn(),
   getStatus: jest.fn(),
+  logScan: jest.fn().mockResolvedValue(undefined),
+  reportMlKitScan: jest.fn(),
+  visionScan: jest.fn(),
 };
 
 const mockVisionResult = {
@@ -42,7 +45,9 @@ describe('OcrController (integration)', () => {
     }).compile();
 
     app = module.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
+    );
     await app.init();
   });
 
@@ -145,6 +150,66 @@ describe('OcrController (integration)', () => {
           filename: 'p2.jpg',
           contentType: 'image/jpeg',
         });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // ─── POST /api/v1/ocr/log ────────────────────────────────────────────────────
+
+  describe('POST /api/v1/ocr/log', () => {
+    it('returns 201 with no body on valid log payload', async () => {
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/ocr/log')
+        .send({
+          blur_variance: 180.5,
+          brightness_avg: 115.0,
+          frame_fill_pct: 0.72,
+          photo_count: 2,
+          final_score: 0.87,
+          score_bucket: 'auto',
+          vin_found: true,
+        });
+
+      expect(res.status).toBe(201);
+      expect(mockOcrService.logScan).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects raw_text field with 400 Bad Request', async () => {
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/ocr/log')
+        .send({
+          final_score: 0.8,
+          raw_text: 'WVWZZZ3BZ3E123456 sensitive text here',
+        });
+
+      expect(res.status).toBe(400);
+      expect(mockOcrService.logScan).not.toHaveBeenCalled();
+    });
+
+    it('rejects unknown fields with 400 Bad Request', async () => {
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/ocr/log')
+        .send({
+          final_score: 0.8,
+          unknown_field: 'should not be allowed',
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('accepts empty payload (all fields optional)', async () => {
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/ocr/log')
+        .send({});
+
+      expect(res.status).toBe(201);
+    });
+
+    it('rejects invalid score_bucket value', async () => {
+      const res = await request(app.getHttpServer() as import('http').Server)
+        .post('/ocr/log')
+        .send({ score_bucket: 'invalid_bucket' });
 
       expect(res.status).toBe(400);
     });

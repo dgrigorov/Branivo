@@ -34,3 +34,24 @@ class OcrPreviewRetakeEvent extends OcrWizardEvent {
   OcrPreviewRetakeEvent({required this.step});
   final int step;
 }
+
+// ─── Camera quality events ────────────────────────────────────────────────────
+
+/// A camera frame has been analyzed — emitted every ~200ms by camera preview
+class OcrFrameAnalyzedEvent extends OcrWizardEvent {
+  OcrFrameAnalyzedEvent({required this.quality});
+  final QualityResult quality;
+}
+
+/// ML Kit detected a VIN with sufficient confidence
+class OcrVinDetectedEvent extends OcrWizardEvent {
+  OcrVinDetectedEvent({required this.vin, required this.confidence});
+  final String vin;
+  final double confidence;
+}
+
+/// 3 consecutive stable frames accumulated — ready for auto-capture
+class OcrQualityOkEvent extends OcrWizardEvent {}
+
+/// 5-second timeout expired without quality OK
+class OcrManualAssistEvent extends OcrWizardEvent {}

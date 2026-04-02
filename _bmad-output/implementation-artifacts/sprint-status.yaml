@@ -160,6 +160,16 @@ development_status:
   epic-23-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────
+  # Epic 24: OCR Enhancement & Vehicle Intelligence
+  # Camera Quality Pipeline + Fallback Chain + Enrichment Pipeline + ocr_scans logging
+  # Решенията са взети в party mode дискусия (2026-03-29)
+  # FR15, FR16, FR17, FR18, FR19, FR20 — задълбочена имплементация
+  # ─────────────────────────────────────────────────────────────
+  epic-24: in-progress
+  24-1-ocr-camera-quality-fallback-enrichment-pipeline: in-progress
+  epic-24-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
   # Epic 11: Compliance, GDPR & Legal Pages
   # Разширен от 3 на 17 stories след party-mode дискусия (2026-03-22)
   # Оригиналните 3 stories са преструктурирани и разширени.

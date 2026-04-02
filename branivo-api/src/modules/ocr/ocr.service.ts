@@ -10,6 +10,7 @@ import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../infrastructure/redis/redis.module';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
 import { OcrJobRepository } from './ocr-job.repository';
+import { OcrScanRepository } from './ocr-scan.repository';
 import {
   GoogleVisionService,
   GoogleVisionTimeoutError,
@@ -25,10 +26,22 @@ import {
 } from './entities/ocr-job.entity';
 import { OcrScanResponseDto, ReportMlKitScanDto } from './dto/ocr-scan.dto';
 import { OcrStatusResponseDto } from './dto/ocr-status.dto';
+import { CreateOcrLogDto } from './dto/create-ocr-log.dto';
 
 const OCR_RATE_LIMIT = 10;
 const OCR_RATE_WINDOW_SECONDS = 60;
 const SESSION_TTL_SECONDS = 172800; // 48 hours
+
+// Atomically increment a counter and set TTL only on first increment.
+// Prevents a key from persisting without expiry if the process crashes
+// between INCR and EXPIRE.
+const RATE_LIMIT_LUA = `
+  local count = redis.call('INCR', KEYS[1])
+  if count == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+  end
+  return count
+`;
 
 @Injectable()
 export class OcrService {
@@ -38,6 +51,7 @@ export class OcrService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly tenantContext: TenantContext,
     private readonly ocrJobRepository: OcrJobRepository,
+    private readonly ocrScanRepository: OcrScanRepository,
     private readonly googleVisionService: GoogleVisionService,
     private readonly awsTextractService: AwsTextractService,
     private readonly ocrQueueProducer: OcrQueueProducer,
@@ -91,42 +105,52 @@ export class OcrService {
         this.logger.error(`Google Vision error for job ${job.id}`, err);
       }
 
-      return this.enqueueTextractFallback(job, images, sessionToken, tenantId);
+      return this.enqueueTextractFallback(job, images, sessionToken);
     }
   }
 
-  async reportMlKitScan(dto: ReportMlKitScanDto): Promise<OcrScanResponseDto> {
+  async reportMlKitScan(
+    dto: ReportMlKitScanDto,
+    clientIp: string,
+  ): Promise<OcrScanResponseDto> {
     const tenantId = this.tenantContext.getTenantId();
 
-    const job = await this.ocrJobRepository.createJob({
-      tenantId,
-      sessionToken: dto.session_token,
-      imagesCount: dto.images_count,
-    });
+    await this.enforceRateLimit(tenantId, clientIp);
 
-    const avgConfidence = this.calcAvgConfidence(dto.fields);
+    try {
+      const job = await this.ocrJobRepository.createJob({
+        tenantId,
+        sessionToken: dto.session_token,
+        imagesCount: dto.images_count,
+      });
 
-    await this.ocrJobRepository.updateStatus(job.id, OcrJobStatus.COMPLETED, {
-      result: dto.fields,
-      confidenceScores: this.extractConfidenceScores(dto.fields),
-      provider: OcrProvider.ML_KIT,
-      rawText: dto.raw_text,
-    });
+      const avgConfidence = this.calcAvgConfidence(dto.fields);
 
-    await this.updateAnonymousSession(
-      dto.session_token,
-      tenantId,
-      dto.fields,
-      job.id,
-    );
+      await this.ocrJobRepository.updateStatus(job.id, OcrJobStatus.COMPLETED, {
+        result: dto.fields,
+        confidenceScores: this.extractConfidenceScores(dto.fields),
+        provider: OcrProvider.ML_KIT,
+        rawText: dto.raw_text,
+      });
 
-    return {
-      jobId: job.id,
-      status: OcrJobStatus.COMPLETED,
-      provider: OcrProvider.ML_KIT,
-      fields: dto.fields,
-      avgConfidence,
-    };
+      await this.updateAnonymousSession(
+        dto.session_token,
+        tenantId,
+        dto.fields,
+        job.id,
+      );
+
+      return {
+        jobId: job.id,
+        status: OcrJobStatus.COMPLETED,
+        provider: OcrProvider.ML_KIT,
+        fields: dto.fields,
+        avgConfidence,
+      };
+    } catch (err) {
+      this.logger.error('Failed to record ML Kit scan', err);
+      throw err;
+    }
   }
 
   async getStatus(jobId: string): Promise<OcrStatusResponseDto> {
@@ -144,7 +168,62 @@ export class OcrService {
     };
   }
 
-  async updateAnonymousSession(
+  /**
+   * POST /api/v1/ocr/log — fire-and-forget analytics logging.
+   * raw_text is rejected at the DTO level — never stored.
+   */
+  async logScan(dto: CreateOcrLogDto): Promise<void> {
+    try {
+      await this.ocrScanRepository.createScan(dto);
+    } catch (err) {
+      // Log but don't fail the endpoint — analytics must not break UX
+      this.logger.error('Failed to save OCR scan log', err);
+    }
+  }
+
+  /**
+   * POST /api/v1/ocr/vision-scan — server-side Google Vision fallback.
+   * Accepts full-res JPEG images; returns structured OCR fields.
+   */
+  async visionScan(
+    images: Buffer[],
+    sessionToken: string,
+  ): Promise<OcrScanResponseDto> {
+    const tenantId = this.tenantContext.getTenantId();
+
+    const job = await this.ocrJobRepository.createJob({
+      tenantId,
+      sessionToken,
+      imagesCount: images.length,
+    });
+
+    try {
+      const visionResult = await this.googleVisionService.analyzeImages(images);
+      const avgConfidence = this.calcAvgConfidence(visionResult);
+
+      await this.ocrJobRepository.updateStatus(job.id, OcrJobStatus.COMPLETED, {
+        result: visionResult,
+        confidenceScores: this.extractConfidenceScores(visionResult),
+        provider: OcrProvider.GOOGLE_VISION,
+      });
+
+      return {
+        jobId: job.id,
+        status: OcrJobStatus.COMPLETED,
+        provider: OcrProvider.GOOGLE_VISION,
+        fields: visionResult,
+        avgConfidence,
+      };
+    } catch (err) {
+      this.logger.error(`Vision scan error for job ${job.id}`, err);
+      await this.ocrJobRepository.updateStatus(job.id, OcrJobStatus.FAILED, {
+        errorMessage: 'Google Vision unavailable',
+      });
+      return { jobId: job.id, status: OcrJobStatus.FAILED };
+    }
+  }
+
+  private async updateAnonymousSession(
     sessionToken: string,
     tenantId: string,
     ocrResult: OcrFieldResult,
@@ -180,14 +259,18 @@ export class OcrService {
     clientIp: string,
   ): Promise<void> {
     const key = `ocr_rate:${tenantId}:${clientIp}`;
-    const count = await this.redis.incr(key);
-    if (count === 1) await this.redis.expire(key, OCR_RATE_WINDOW_SECONDS);
+    const count = (await this.redis.eval(
+      RATE_LIMIT_LUA,
+      1,
+      key,
+      String(OCR_RATE_WINDOW_SECONDS),
+    )) as number;
     if (count > OCR_RATE_LIMIT) {
       throw new HttpException(
-        JSON.stringify({
+        {
           message: 'Твърде много заявки. Опитайте след малко.',
           retry_after: OCR_RATE_WINDOW_SECONDS,
-        }),
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -197,27 +280,36 @@ export class OcrService {
     job: OcrJobEntity,
     images: Buffer[],
     sessionToken: string,
-    tenantId: string,
   ): Promise<OcrScanResponseDto> {
+    const tenantId = this.tenantContext.getTenantId();
     try {
       const { bucket, keys } = await this.awsTextractService.uploadImagesToS3(
         images,
         tenantId,
         job.id,
       );
-      const textractJobId = await this.awsTextractService.startAnalysis(
-        bucket,
-        keys[0],
-      );
 
-      await this.ocrQueueProducer.enqueueTextractJob({
-        jobId: job.id,
-        tenantId,
-        textractJobId,
-        sessionToken,
-        s3Bucket: bucket,
-        s3Keys: keys,
-      });
+      // Enqueue a separate Textract analysis job for each uploaded image so
+      // that all pages of a multi-page document are analysed.
+      // The queue worker updates this ocr_job record on completion; the last
+      // image to finish wins (acceptable for single-page talons — merge logic
+      // can be added to the worker in a future iteration).
+      await Promise.all(
+        keys.map(async (key) => {
+          const textractJobId = await this.awsTextractService.startAnalysis(
+            bucket,
+            key,
+          );
+          await this.ocrQueueProducer.enqueueTextractJob({
+            jobId: job.id,
+            tenantId,
+            textractJobId,
+            sessionToken,
+            s3Bucket: bucket,
+            s3Keys: [key],
+          });
+        }),
+      );
 
       return { jobId: job.id, status: OcrJobStatus.PROCESSING };
     } catch (err) {

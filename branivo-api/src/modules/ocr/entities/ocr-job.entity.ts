@@ -37,6 +37,7 @@ export interface OcrFieldResult {
   year?: OcrField;
   color?: OcrField;
   engine_volume?: OcrField;
+  power_kw?: OcrField;
   fuel_type?: OcrField;
   first_registration_date?: OcrField;
   owner_name?: OcrField;

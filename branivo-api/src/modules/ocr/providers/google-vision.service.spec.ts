@@ -102,6 +102,19 @@ describe('GoogleVisionService.parseVehicleRegistration', () => {
     });
   });
 
+  describe('power_kw', () => {
+    it('extracts power in kW from (P.2)', () => {
+      const result = service.parseVehicleRegistration(fullText);
+      expect(result.power_kw?.value).toBe('200');
+      expect(result.power_kw?.auto_filled).toBe(true);
+    });
+
+    it('returns null power_kw when (P.2) is absent', () => {
+      const result = service.parseVehicleRegistration(sampleFrontSide);
+      expect(result.power_kw?.value).toBeNull();
+    });
+  });
+
   describe('fuel_type', () => {
     it('normalizes БЕНЗИН to Бензин', () => {
       const result = service.parseVehicleRegistration(fullText);

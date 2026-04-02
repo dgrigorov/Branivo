@@ -5,6 +5,7 @@ import { OcrJobStatus, OcrProvider } from './entities/ocr-job.entity';
 import { GoogleVisionTimeoutError } from './providers/google-vision.service';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
 import { OcrJobRepository } from './ocr-job.repository';
+import { OcrScanRepository } from './ocr-scan.repository';
 import { GoogleVisionService } from './providers/google-vision.service';
 import { AwsTextractService } from './providers/aws-textract.service';
 import { OcrQueueProducer } from './ocr-queue.producer';
@@ -31,8 +32,7 @@ const mockVisionResult = {
 };
 
 const mockRedis = {
-  incr: jest.fn().mockResolvedValue(1),
-  expire: jest.fn().mockResolvedValue(1),
+  eval: jest.fn().mockResolvedValue(1),
   get: jest.fn(),
   setex: jest.fn().mockResolvedValue('OK'),
 };
@@ -50,15 +50,20 @@ const mockGoogleVision = {
 };
 
 const mockAwsTextract = {
-  uploadImagesToS3: jest
-    .fn()
-    .mockResolvedValue(['bucket/ocr-temp/tid/jid/image-0.jpg']),
+  uploadImagesToS3: jest.fn().mockResolvedValue({
+    bucket: 'my-bucket',
+    keys: ['ocr-temp/tid/jid/image-0.jpg', 'ocr-temp/tid/jid/image-1.jpg'],
+  }),
   startAnalysis: jest.fn().mockResolvedValue('textract-job-id'),
   getResults: jest.fn(),
 };
 
 const mockOcrQueue = {
   enqueueTextractJob: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockOcrScanRepo = {
+  createScan: jest.fn().mockResolvedValue({ id: 'scan-uuid' }),
 };
 
 const mockTenantContext = {
@@ -72,11 +77,12 @@ describe('OcrService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRedis.incr.mockResolvedValue(1);
+    mockRedis.eval.mockResolvedValue(1);
     service = new OcrService(
       mockRedis as unknown as Redis,
       mockTenantContext as unknown as TenantContext,
       mockOcrJobRepo as unknown as OcrJobRepository,
+      mockOcrScanRepo as unknown as OcrScanRepository,
       mockGoogleVision as unknown as GoogleVisionService,
       mockAwsTextract as unknown as AwsTextractService,
       mockOcrQueue as unknown as OcrQueueProducer,
@@ -101,7 +107,7 @@ describe('OcrService', () => {
   });
 
   describe('scan — Google Vision timeout → Textract fallback', () => {
-    it('enqueues textract job and returns processing status', async () => {
+    it('enqueues a textract job per uploaded image and returns processing status', async () => {
       mockGoogleVision.analyzeImages.mockRejectedValue(
         new GoogleVisionTimeoutError(),
       );
@@ -110,6 +116,8 @@ describe('OcrService', () => {
 
       expect(result.status).toBe(OcrJobStatus.PROCESSING);
       expect(result.jobId).toBe(JOB_ID);
+      // One queue job is enqueued per S3 key (2 keys for 2 images).
+      expect(mockOcrQueue.enqueueTextractJob).toHaveBeenCalledTimes(2);
       expect(mockOcrQueue.enqueueTextractJob).toHaveBeenCalledWith(
         expect.objectContaining({ jobId: JOB_ID, tenantId: TENANT_ID }),
       );
@@ -131,7 +139,7 @@ describe('OcrService', () => {
 
   describe('scan — rate limit exceeded', () => {
     it('throws HttpException with 429 on 11th request', async () => {
-      mockRedis.incr.mockResolvedValue(11);
+      mockRedis.eval.mockResolvedValue(11);
 
       const caught = await service
         .scan(images, SESSION_TOKEN, CLIENT_IP)
@@ -160,6 +168,31 @@ describe('OcrService', () => {
         OcrJobStatus.FAILED,
         expect.objectContaining({ errorMessage: 'OCR service unavailable' }),
       );
+    });
+  });
+
+  describe('scan — anonymous session update', () => {
+    it('enriches Redis session with OCR data when session exists', async () => {
+      const sessionData = { session_id: SESSION_TOKEN, tenant_id: TENANT_ID };
+      mockRedis.get.mockResolvedValue(JSON.stringify(sessionData));
+      mockGoogleVision.analyzeImages.mockResolvedValue(mockVisionResult);
+
+      await service.scan(images, SESSION_TOKEN, CLIENT_IP);
+
+      expect(mockRedis.setex).toHaveBeenCalledWith(
+        `anon:${SESSION_TOKEN}:session`,
+        172800,
+        expect.stringContaining('ocr_job_id'),
+      );
+    });
+
+    it('skips session update when session does not exist', async () => {
+      mockRedis.get.mockResolvedValue(null);
+      mockGoogleVision.analyzeImages.mockResolvedValue(mockVisionResult);
+
+      await service.scan(images, SESSION_TOKEN, CLIENT_IP);
+
+      expect(mockRedis.setex).not.toHaveBeenCalled();
     });
   });
 
@@ -201,36 +234,72 @@ describe('OcrService', () => {
     });
   });
 
-  describe('updateAnonymousSession', () => {
-    it('updates Redis session with OCR vehicle data', async () => {
-      const sessionData = { session_id: SESSION_TOKEN, tenant_id: TENANT_ID };
-      mockRedis.get.mockResolvedValue(JSON.stringify(sessionData));
+  describe('reportMlKitScan', () => {
+    const dto = {
+      session_token: SESSION_TOKEN,
+      images_count: 2,
+      fields: mockVisionResult,
+      raw_text: 'raw ocr text',
+    };
 
-      await service.updateAnonymousSession(
-        SESSION_TOKEN,
-        TENANT_ID,
-        mockVisionResult,
+    it('records ML Kit scan and returns completed status', async () => {
+      const result = await service.reportMlKitScan(dto, CLIENT_IP);
+
+      expect(result.status).toBe(OcrJobStatus.COMPLETED);
+      expect(result.provider).toBe(OcrProvider.ML_KIT);
+      expect(mockOcrJobRepo.createJob).toHaveBeenCalled();
+      expect(mockOcrJobRepo.updateStatus).toHaveBeenCalledWith(
         JOB_ID,
-      );
-
-      expect(mockRedis.setex).toHaveBeenCalledWith(
-        `anon:${SESSION_TOKEN}:session`,
-        172800,
-        expect.stringContaining('ocr_job_id'),
+        OcrJobStatus.COMPLETED,
+        expect.objectContaining({ provider: OcrProvider.ML_KIT }),
       );
     });
 
-    it('skips update when session does not exist', async () => {
-      mockRedis.get.mockResolvedValue(null);
+    it('enforces rate limit for ML Kit reports', async () => {
+      mockRedis.eval.mockResolvedValue(11);
 
-      await service.updateAnonymousSession(
-        SESSION_TOKEN,
-        TENANT_ID,
-        mockVisionResult,
-        JOB_ID,
+      const caught = await service
+        .reportMlKitScan(dto, CLIENT_IP)
+        .catch((e: unknown) => e);
+
+      expect(caught).toBeInstanceOf(HttpException);
+      expect((caught as HttpException).getStatus()).toBe(
+        HttpStatus.TOO_MANY_REQUESTS,
       );
+      expect(mockOcrJobRepo.createJob).not.toHaveBeenCalled();
+    });
 
-      expect(mockRedis.setex).not.toHaveBeenCalled();
+    it('propagates DB errors with logging', async () => {
+      mockOcrJobRepo.createJob.mockRejectedValue(new Error('DB unavailable'));
+
+      await expect(service.reportMlKitScan(dto, CLIENT_IP)).rejects.toThrow(
+        'DB unavailable',
+      );
+    });
+  });
+
+  describe('logScan', () => {
+    it('creates an ocr_scan record', async () => {
+      await service.logScan({
+        blur_variance: 180.0,
+        final_score: 0.87,
+        score_bucket: 'auto',
+        vin_found: true,
+      });
+
+      expect(mockOcrScanRepo.createScan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blur_variance: 180.0,
+          score_bucket: 'auto',
+          vin_found: true,
+        }),
+      );
+    });
+
+    it('does not throw when createScan fails (analytics best-effort)', async () => {
+      mockOcrScanRepo.createScan.mockRejectedValue(new Error('DB error'));
+
+      await expect(service.logScan({})).resolves.toBeUndefined();
     });
   });
 });

@@ -8,22 +8,26 @@ import { VehiclesRepository } from './vehicles.repository';
 import { KatApiAdapter } from './adapters/kat-api.adapter';
 import { GarantsionenFondAdapter } from './adapters/garantsionen-fond.adapter';
 import { Vehicle } from './entities/vehicle.entity';
+import { VehicleEnrichmentController } from './vehicle-enrichment.controller';
+import { VehicleEnrichmentService } from './vehicle-enrichment.service';
+import { Policy } from '../policies/entities/policy.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Vehicle]),
+    TypeOrmModule.forFeature([Vehicle, Policy]),
     HttpModule.register({
       timeout: 5000,
       maxRedirects: 2,
     }),
     TenantContextModule,
   ],
-  controllers: [VehiclesController],
+  controllers: [VehiclesController, VehicleEnrichmentController],
   providers: [
     VehiclesService,
     VehiclesRepository,
     KatApiAdapter,
     GarantsionenFondAdapter,
+    VehicleEnrichmentService,
   ],
   exports: [VehiclesService, VehiclesRepository],
 })

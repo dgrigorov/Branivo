@@ -163,6 +163,10 @@ export class GoogleVisionService {
     const p1Raw = this.extractByCode(lines, 'P.1');
     const engineVol = p1Raw.value?.match(/\d+/)?.[0] ?? null;
 
+    // ── (P.2) Power (kW) — often no space: `(P.2)200` ────────────────────────
+    const p2Raw = this.extractByCode(lines, 'P.2');
+    const powerKw = p2Raw.value?.match(/\d+/)?.[0] ?? null;
+
     // ── (P.3) Fuel type ───────────────────────────────────────────────────────
     const p3Raw = this.extractByCode(lines, 'P.3');
     const fuelValue = this.normalizeFuel(p3Raw.value);
@@ -209,6 +213,7 @@ export class GoogleVisionService {
       year: this.buildField(yearValue),
       color: this.buildField(colorValue),
       engine_volume: this.buildField(engineVol),
+      power_kw: this.buildField(powerKw),
       fuel_type: this.buildField(fuelValue),
       first_registration_date: this.buildField(firstRegDate),
       owner_name: this.buildField(ownerName),
