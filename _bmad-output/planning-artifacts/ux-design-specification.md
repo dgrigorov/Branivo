@@ -7,6 +7,9 @@ revisions:
   - date: 2026-03-25
     section: "Onboarding Experience"
     description: "Added full mobile onboarding spec: Splash, Value Proposition Slides, Quick Interest Selector, Entry Gate, Login, Reset Password (3-step), Register, Anonymous Entry"
+  - date: 2026-04-02
+    section: "GO Quote Wizard Web Portal"
+    description: "Added 5-step GO wizard flow for web portal: vehicle data, additional details, offers with streaming + social proof sidebar, start date calendar, owner details"
 ---
 
 # UX Design Specification Branivo
@@ -1942,4 +1945,395 @@ lib/core/widgets/
 - [ ] Reset Password: `aria-live="polite"` за countdown timer; `aria-live="assertive"` за OTP error
 - [ ] PasswordStrengthIndicator: `Semantics(label: 'Силата на паролата: {слаба|средна|добра|силна}')` + `liveRegion: true`
 - [ ] Anonymous Prompt BottomSheet: `aria-modal: false` — фонът остава достъпен
+
+---
+
+## GO Quote Wizard — Web Portal Flow
+
+> **Revision:** 2026-04-02 — Нова секция: 5-стъпков wizard за уеб портала, вдъхновен от Boleron workflow анализ.
+
+### Обзор
+
+Текущата `/quotes` страница е flat form — няма стъпки, няма прогрес, няма streaming. Новият wizard заменя цялата страница с guided multi-step experience, идентичен по логика с мобилния app flow.
+
+**Маршрут:** `/[locale]/quotes/go` → 5 стъпки → `/[locale]/quotes/go/payment`
+
+**URL структура (query-based, без отделни route сегменти):**
+```
+/quotes/go?step=vehicle        ← Стъпка 1
+/quotes/go?step=details        ← Стъпка 2
+/quotes/go?step=offers         ← Стъпка 3
+/quotes/go?step=dates          ← Стъпка 4
+/quotes/go?step=owner          ← Стъпка 5
+```
+
+State се пази в `sessionStorage` (анонимна сесия) — при презареждане wizard се връща на последната попълнена стъпка.
+
+---
+
+### Layout Shell (всички стъпки)
+
+```
+┌────────────────────────────────────────────────────────┐
+│  ← НАЗАД    ГРАЖДАНСКА ОТГОВОРНОСТ          ≡ МЕНЮ     │  ← Header (gradient bg: primary → accent)
+├────────────────────────────────────────────────────────┤
+│                                                        │
+│   ╔══════════════════════════════╗  ╔════════════╗    │
+│   ║                              ║  ║  Sidebar   ║    │  ← Sidebar само на стъпка 3 (Оферти)
+│   ║    White card (shadow-lg)    ║  ║  (reviews) ║    │
+│   ║                              ║  ╚════════════╝    │
+│   ╚══════════════════════════════╝                     │
+└────────────────────────────────────────────────────────┘
+```
+
+**Header:**
+- Gradient background: `from-[var(--color-primary)] to-[var(--color-accent)]`
+- Бял текст, bold, letter-spacing
+- "← НАЗАД" — навигира към предишната стъпка (или излиза от wizard при стъпка 1)
+- "ГРАЖДАНСКА ОТГОВОРНОСТ" — центриран заглавен текст
+- "≡ МЕНЮ" — хамбургер (tenant брандинг)
+
+**White card:**
+- `bg-white rounded-2xl shadow-lg p-8 mx-auto max-w-xl`
+- Centered на страницата вертикално и хоризонтално
+- На мобилно: full-width с `mx-4`
+
+**Step progress indicator (не е видим при Boleron, но Branivo го добавя):**
+- 5 точки, горе вдясно в card-а, само активната е запълнена с primary color
+
+---
+
+### Стъпка 1 — ДАННИ ЗА АВТОМОБИЛ
+
+**URL:** `?step=vehicle`
+
+```
+┌─────────────────────────────────┐
+│  ДАННИ ЗА АВТОМОБИЛ             │  ← bold, primary color, center
+│  Използваме тези данни само...  │  ← subtitle, gray, center
+│                                 │
+│  Регистриран ли е в КАТ?        │
+│  ┌──────────────┐ ┌──────────┐  │
+│  │ ✓  Да       │ │    Не    │  │  ← Pill toggle: selected = primary border + bg-primary/10
+│  └──────────────┘ └──────────┘  │
+│                                 │
+│  Регистрационен номер:          │
+│  ┌───────────────────────────┐  │
+│  │  CA1234AB                 │  │  ← rounded-full border input
+│  └───────────────────────────┘  │
+│                                 │
+│  Номер на малък талон:  ⓘ       │  ← tooltip: "8-цифрен номер от талона"
+│  ┌───────────────────────────┐  │
+│  │  000000002                │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │        ПРОДЪЛЖИ           │  │  ← FilledButton, primary, rounded-full, w-full
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+```
+
+**Pill Toggle компонент:**
+- Две опции едно до друго, 50/50 ширина
+- Селектирано: `border-2 border-primary bg-primary/10 text-primary font-semibold` + checkmark icon
+- Неселектирано: `border border-gray-300 text-gray-500`
+- `border-radius: 9999px` (pill форма)
+
+**Поведение:**
+- Ако КАТ = "Не" → скрива полето за рег. номер и талон, показва ръчен VIN + марка/модел/година
+- Ако КАТ = "Да" → регистрационен номер е задължителен; талон е препоръчителен (не блокира)
+- Валидация: рег. номер pattern `[А-Я]{1,2}\d{4}[А-Я]{2}` (кирилица)
+
+**Subtitle:** "Използваме тези данни само за изчисляване на оферта и ги споделяме единствено със застрахователите"
+
+---
+
+### Стъпка 2 — ДОПЪЛНИТЕЛНИ ДАННИ
+
+**URL:** `?step=details`
+
+```
+┌─────────────────────────────────┐
+│  ДОПЪЛНИТЕЛНИ ДАННИ             │
+│                                 │
+│  Шофьорски стаж:                │
+│  ┌─────────────────────────▼─┐  │
+│  │  3-5 години               │  │  ← Select dropdown
+│  └───────────────────────────┘  │
+│                                 │
+│  Автомобилът се използва за:    │
+│  ┌─────────────────────────▼─┐  │
+│  │  Лични нужди              │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  Автомобилът с ляв волан ли е?  │
+│  ┌──────────────┐ ┌──────────┐  │
+│  │ ✓  Да       │ │    Не    │  │  ← Pill Toggle (same component)
+│  └──────────────┘ └──────────┘  │
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │        ПРОДЪЛЖИ           │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+```
+
+**Dropdown опции:**
+
+*Шофьорски стаж:*
+- "До 1 година", "1-3 години", "3-5 години", "5-10 години", "Над 10 години"
+
+*Автомобилът се използва за:*
+- "Лични нужди", "Работа/Бизнес", "Таксиметров превоз", "Отдаване под наем"
+
+**Поведение:**
+- Всички полета са задължителни
+- Default: стаж = "3-5 години", употреба = "Лични нужди", ляв волан = "Да"
+- При submit: извиква `POST /quotes/sessions/{token}/request` и минава на стъпка 3
+
+---
+
+### Стъпка 3 — ОФЕРТИ
+
+**URL:** `?step=offers`
+
+**Layout на тази стъпка е двуколонен (desktop):**
+
+```
+┌─────────────────────────────────┐  ┌──────────────────┐
+│  ОФЕРТИ                         │  │ ⭐ 4.9 Google     │
+│  Сравнете и изберете най-доброто│  │ 50 000+ клиента  │
+│                                 │  ├──────────────────┤
+│  [ЕДНОКРАТНО] [2 ВНОСКИ] [4...]│  │ 👤 Nikolay N.    │
+│                                 │  │ ★★★★★           │
+│  ┌──────────────────────────┐   │  │ "Страхотни и..." │
+│  │ [logo] Булинс  182.53€   │   │  ├──────────────────┤
+│  │         357.00 лв.  ИЗБЕРИ│  │  │ 👤 Иван Б.       │
+│  ├──────────────────────────┤   │  │ ★★★★★           │
+│  │ [logo] Euroins 198.94€   │   │  │ "Склонихме комб..│
+│  │         389.09 лв.  ИЗБЕРИ│  │  └──────────────────┘
+│  ├──────────────────────────┤   │
+│  │ [logo] Allianz            │   │
+│  │         ⟳ Зареждане...   │   │  ← Spinner докато тече polling
+│  └──────────────────────────┘   │
+└─────────────────────────────────┘
+```
+
+**Tab Switcher (ЕДНОКРАТНО / 2 ВНОСКИ / 4 ВНОСКИ):**
+- Pill-shaped container, `bg-gray-100 rounded-full`
+- Активен tab: `bg-primary text-white rounded-full`
+- При смяна → офертите се рендерират с новите суми (без нова заявка)
+
+**Offer Row (при ЕДНОКРАТНО):**
+```
+[Insurer Logo]    182.53 € / 357.00 лв.    [ИЗБЕРИ]
+```
+
+**Offer Row (при 2 ВНОСКИ):**
+```
+[Insurer Logo]    1-ва: 95.26 € / 186.31 лв.
+                  2-ра: 86.76 € / 169.69 лв.
+                  182.02 € / 356.00 лв. общо    [ИЗБЕРИ]
+```
+
+**Loading state per row:**
+- Лого на застрахователя е видимо веднага
+- Вместо цена: `⟳ Зареждане на цени` (сив текст + spinner)
+- При получаване на цена: плавна fade-in анимация на числата
+- Polling interval: 1.5 сек към `GET /quotes/sessions/{token}/offers`
+
+**Препоръчана оферта:**
+- `border-2 border-primary` на целия row
+- Badge "⭐ Препоръчано" горе вдясно в primary color
+
+**Недостъпна оферта:**
+- Сив, `opacity-50`, иконка ℹ + "Временно недостъпен"
+
+**Social Proof Sidebar (само desktop, само на тази стъпка):**
+- Sticky sidebar вдясно, `max-w-xs`
+- Google rating card: 4.9 ⭐, "50 000+ клиенти"
+- 2-3 Google review карти с аватар, 5 звезди, цитат
+- Отзивите са tenant-configurable (от брокерския dashboard)
+- На мобилно: сайдбарът се скрива (`hidden md:block`)
+
+---
+
+### Стъпка 4 — НАЧАЛО НА ЗАСТРАХОВКАТА
+
+**URL:** `?step=dates`
+
+```
+┌─────────────────────────────────┐
+│  НАЧАЛО НА ЗАСТРАХОВКАТА        │
+│  Избери начална дата:           │
+│                                 │
+│  ┌─────────────────────────┐   │
+│  │ Назад  Април 2026  Напред│   │
+│  │ Пн  Вт  Ср  Чт  Пт  Сб  Нд│  │
+│  │ 30  31   1  [2]  3   4   5│  │  ← Днешна дата е selected by default
+│  │  6   7   8   9  10  11  12│  │
+│  │ ...                      │  │
+│  └─────────────────────────┘   │
+│                                 │
+│  ┌────────────────────────────┐ │
+│  │ ℹ  Застраховката ще бъде   │ │  ← Info box, bg-blue-50
+│  │    валидна след 2 часа.     │ │
+│  └────────────────────────────┘ │
+│                                 │
+│  📅 Валидна от:   02.04.2026    │  ← Read-only display rows
+│  📅 Валидна до:   01.04.2027    │
+│  ✓  Срок:         12 месеца     │
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │        ПРОДЪЛЖИ           │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+```
+
+**Calendar поведение:**
+- Default: днешна дата (highlight с primary color pill)
+- Минимум: днес; максимум: +30 дни
+- "Валидна до" = избрана дата + 12 месеца - 1 ден (автоматично)
+- Weekends: червен текст (само визуален hint, не блокира избора)
+
+**Timezone:** Всички дати в EET/EEST (Europe/Sofia)
+
+---
+
+### Стъпка 5 — СОБСТВЕНИК НА АВТОМОБИЛА
+
+**URL:** `?step=owner`
+
+```
+┌─────────────────────────────────┐
+│  СОБСТВЕНИК НА АВТОМОБИЛА       │
+│                                 │
+│  Собственик:                    │
+│  ┌─────────────────────────▼─┐  │
+│  │  Физическо лице           │  │  ← "Физическо лице" | "Юридическо лице"
+│  └───────────────────────────┘  │
+│                                 │
+│  Име:                           │
+│  ┌───────────────────────────┐  │
+│  │  Използвай кирилица       │  │  ← placeholder
+│  └───────────────────────────┘  │
+│                                 │
+│  Презиме:                       │
+│  ┌───────────────────────────┐  │
+│  │  Използвай кирилица       │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  Фамилия:                       │
+│  ┌───────────────────────────┐  │
+│  │  Използвай кирилица       │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  ЕГН/ЛНЧ:                       │
+│  ┌───────────────────────────┐  │
+│  │  7703041122               │  │  ← 10 цифри, Luhn-style валидация
+│  └───────────────────────────┘  │
+│                                 │
+│  ☑  Собственикът на автомобила  │  ← Checkbox, checked by default
+│     е застраховащ               │
+│  (застраховащ е лицето,         │  ← caption, gray
+│   сключващо договора)           │
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │        ПРОДЪЛЖИ           │  │  → навигира към /payment
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+```
+
+**Поведение при "Юридическо лице":**
+- Скрива "Презиме" и "ЕГН/ЛНЧ"
+- Показва "Наименование на фирма" + "ЕИК" + "МОЛ"
+
+**Кирилица валидация:**
+- Pattern: `/^[А-яЁё\s\-]+$/` (позволява тире и интервал)
+- Inline error: "Моля, използвай кирилица"
+
+**Checkbox "Собственикът е застраховащ":**
+- Checked by default
+- Когато е unchecked → появява се втора форма "ЗАСТРАХОВАЩ" (идентична по полета)
+
+---
+
+### Wizard State Machine
+
+```
+vehicle → details → [API call: create quote request]
+                         ↓
+                      offers (polling until all loaded)
+                         ↓
+                    [user clicks ИЗБЕРИ]
+                         ↓
+                       dates
+                         ↓
+                       owner
+                         ↓
+                    [API call: finalize quote]
+                         ↓
+                      /payment
+```
+
+**State persistence:** `sessionStorage['go-wizard']` — JSON с всички попълнени полета + избрана оферта + стъпка
+
+**Back navigation:** При "← НАЗАД" — само UI state се pop-ва; API заявки не се повтарят
+
+---
+
+### Responsive breakpoints
+
+| Breakpoint | Layout |
+|------------|--------|
+| `< 768px` | Single column, card = full-width, без sidebar |
+| `768px–1024px` | Single column, card = max-w-xl centered, без sidebar |
+| `> 1024px` | Two column (card + sidebar), само на стъпка 3 |
+
+---
+
+### Typography & Colors (наследява tenant theme)
+
+| Елемент | Клас |
+|---------|------|
+| Card title | `text-xl font-bold text-[var(--color-primary)] text-center tracking-wider uppercase` |
+| Card subtitle | `text-sm text-gray-500 text-center` |
+| Label | `text-sm font-medium text-gray-700` |
+| Primary button | `bg-[var(--color-primary)] text-white rounded-full py-3 font-bold tracking-wide w-full` |
+| Input | `border border-gray-300 rounded-full px-4 py-2.5 w-full focus:border-[var(--color-primary)]` |
+| Select | `border border-gray-300 rounded-lg px-4 py-2.5 w-full` |
+
+---
+
+### Файлова структура (Next.js)
+
+```
+src/app/[locale]/(client)/quotes/go/
+├── layout.tsx                     ← WizardShell (header + gradient bg)
+├── page.tsx                       ← redirect → ?step=vehicle
+├── components/
+│   ├── wizard-shell.tsx           ← Header + card wrapper
+│   ├── pill-toggle.tsx            ← Да/Не компонент
+│   ├── step-vehicle.tsx           ← Стъпка 1
+│   ├── step-details.tsx           ← Стъпка 2
+│   ├── step-offers.tsx            ← Стъпка 3 + polling
+│   ├── step-dates.tsx             ← Стъпка 4 + calendar
+│   ├── step-owner.tsx             ← Стъпка 5
+│   ├── offer-row.tsx              ← Single offer row (extracted from step-offers)
+│   ├── social-proof-sidebar.tsx   ← Google reviews sidebar
+│   └── mini-calendar.tsx          ← Calendar компонент (без external lib)
+└── hooks/
+    ├── use-wizard-state.ts        ← sessionStorage state management
+    └── use-offers-polling.ts      ← Polling hook за streaming offers
+```
+
+---
+
+### Accessibility
+
+- [ ] Всяка стъпка: `<h1>` за заглавието в card-а
+- [ ] Pill toggle: `role="radiogroup"` + `role="radio"` + `aria-checked`
+- [ ] Calendar: `role="grid"`, дните са `role="gridcell"`, избраната дата `aria-selected="true"`
+- [ ] Offer rows: `role="list"` + `role="listitem"`, loading state `aria-busy="true"`
+- [ ] ПРОДЪЛЖИ button: `aria-disabled` при невалидна форма (не `disabled` — запазва focus)
+- [ ] Step progress dots: `aria-label="Стъпка {n} от 5"` + `aria-current="step"` за активната
 - [ ] Loyalty toggle: `aria-checked` + `aria-label="Използвай 120 loyalty точки за 12 лв. отстъпка"`

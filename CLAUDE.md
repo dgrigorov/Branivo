@@ -66,6 +66,21 @@ _bmad-output/planning-artifacts/prd.md Финален PRD — source of truth з
 docs/                                  Оригинални входни документи
 ```
 
+## Управление на npm зависимости — задължително
+
+**НИКОГА** не ъпгрейдвай npm пакет без изрично одобрение от потребителя.
+
+Конкретно забранени команди без одобрение:
+- `npm update` / `npm upgrade`
+- `npm install <pkg>@latest` или с нова версия
+- промяна на версия в `package.json`
+
+Причина: supply chain атаки (axios 1.8.2, event-stream, node-ipc и др.) влизат именно
+като patch/minor bump. `branivo-api/.npmrc` и `branivo-web/.npmrc` вече имат
+`save-exact=true` — при `npm install <pkg>` се записва точна версия без `^` или `~`.
+
+При нужда от нов пакет: предложи точна версия и изчакай потвърждение.
+
 ## Абсолютни правила (никога не нарушавай)
 
 - **НИКОГА** не правиш DB заявка без `tenant_id` scope (освен Super Admin контекст)

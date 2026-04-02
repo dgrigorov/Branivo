@@ -1,0 +1,182 @@
+{
+  "info": {
+    "name": "Branivo OCR — Talon Testing",
+    "description": "Test the branivo-ocr microservice endpoints at http://localhost:8888.\n\nEndpoints:\n- POST /ocr/talon?step=1|2|3  — OCR a talon image (multipart)\n- POST /ocr/preview?step=1|2|3 — See the preprocessed image Tesseract receives\n- GET  /health                  — Service health check\n\nUsage:\n1. Set the 'file' field to your .jpg/.png photo of the Bulgarian registration certificate\n2. Add optional 'points' field for perspective crop (JSON array of 4 [x,y] pairs, normalized 0..1)\n3. Add ?debug=true to get per-block breakdown and preprocessed image\n\nResponse always includes 'raw_text' — full Tesseract output, no truncation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8888",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health",
+        "description": "Verify the OCR service is running"
+      }
+    },
+    {
+      "name": "OCR — Step 1: Owner / MRZ zone",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/ocr/talon?step=1&debug=true",
+          "host": ["{{base_url}}"],
+          "path": ["ocr", "talon"],
+          "query": [
+            { "key": "step", "value": "1" },
+            { "key": "debug", "value": "true", "description": "Returns debug_info (per-block confidence) and preview_b64 (preprocessed image)" }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "",
+              "description": "Photo of the OWNER page (C.2.1 Фамилия, C.2.2 Собствено, C.2.3 Адрес, ЕГН/ЛНЧ)"
+            },
+            {
+              "key": "points",
+              "type": "text",
+              "value": "",
+              "description": "OPTIONAL: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]] normalized 0..1 — top-left, top-right, bottom-right, bottom-left. Leave empty to skip perspective crop."
+            }
+          ]
+        },
+        "description": "Step 1: Scan the owner data page (MRZ zone, EGN, address).\n\nFields extracted: ownerName, egn, registrationNumber, vin\n\nResponse includes:\n- data: parsed field values\n- confidence: merged score (ocr * 0.6 + field * 0.4)\n- complete: true if confidence >= 0.90\n- raw_text: full Tesseract output (no truncation)\n- debug_info: per-block breakdown (requires debug=true)\n- preview_b64: preprocessed image base64 (requires debug=true)"
+      }
+    },
+    {
+      "name": "OCR — Step 2: Vehicle identity (front)",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/ocr/talon?step=2&debug=true",
+          "host": ["{{base_url}}"],
+          "path": ["ocr", "talon"],
+          "query": [
+            { "key": "step", "value": "2" },
+            { "key": "debug", "value": "true" }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "",
+              "description": "Photo of the FRONT page (A рег. номер, E рама/VIN, D.1 марка, R цвят, No талон)"
+            },
+            {
+              "key": "points",
+              "type": "text",
+              "value": "",
+              "description": "OPTIONAL: perspective crop corners [[x1,y1],[x2,y2],[x3,y3],[x4,y4]] normalized 0..1"
+            }
+          ]
+        },
+        "description": "Step 2: Scan the vehicle identity page.\n\nFields extracted: registrationNumber, vin, make, model, year"
+      }
+    },
+    {
+      "name": "OCR — Step 3: Technical specs (back)",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/ocr/talon?step=3&debug=true",
+          "host": ["{{base_url}}"],
+          "path": ["ocr", "talon"],
+          "query": [
+            { "key": "step", "value": "3" },
+            { "key": "debug", "value": "true" }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "",
+              "description": "Photo of the BACK page (J категория, B 1-ва рег., P.1 обем, P.2 мощност, P.3 гориво, S.1 места, V.9 EURO)"
+            },
+            {
+              "key": "points",
+              "type": "text",
+              "value": "",
+              "description": "OPTIONAL: perspective crop corners [[x1,y1],[x2,y2],[x3,y3],[x4,y4]] normalized 0..1"
+            }
+          ]
+        },
+        "description": "Step 3: Scan the technical specs page.\n\nFields extracted: fuel, engine, seats, firstRegistration"
+      }
+    },
+    {
+      "name": "Debug Preview — See what Tesseract sees",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/ocr/preview?step=1",
+          "host": ["{{base_url}}"],
+          "path": ["ocr", "preview"],
+          "query": [
+            { "key": "step", "value": "1", "description": "1, 2, or 3" }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "",
+              "description": "The same image you'd send to /ocr/talon"
+            },
+            {
+              "key": "points",
+              "type": "text",
+              "value": "",
+              "description": "OPTIONAL: same crop points as /ocr/talon — so you see the exact same input"
+            }
+          ]
+        },
+        "description": "Returns the preprocessed image that Tesseract actually receives (as base64 JPEG).\n\nUse this to diagnose OCR failures — copy the image_b64 from the response and decode it to see if the image quality/contrast is good enough.\n\nQuick decode in browser console:\n  const img = document.createElement('img');\n  img.src = 'data:image/jpeg;base64,' + response.image_b64;\n  document.body.appendChild(img);"
+      }
+    },
+    {
+      "name": "OCR Step 1 — No crop (raw photo)",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/ocr/talon?step=1&debug=true",
+          "host": ["{{base_url}}"],
+          "path": ["ocr", "talon"],
+          "query": [
+            { "key": "step", "value": "1" },
+            { "key": "debug", "value": "true" }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "",
+              "description": "Raw photo without perspective crop — use to compare vs cropped result"
+            }
+          ]
+        },
+        "description": "Same as Step 1 but WITHOUT the points field — no perspective crop applied.\nUseful for comparing OCR quality with vs without crop."
+      }
+    }
+  ]
+}
