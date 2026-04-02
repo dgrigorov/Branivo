@@ -121,6 +121,8 @@ async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
         confidence=confidence,
         data=data,
         complete=confidence >= COMPLETE_THRESHOLD,
+        raw_text=text,
+        debug_info=_build_debug_info(blocks, ocr_conf, field_conf, parsed) if debug else None,
         preview_b64=_encode_preview(mrz_img) if debug else None,
     )
 
@@ -157,6 +159,8 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
         confidence=confidence,
         data=data,
         complete=False,
+        raw_text=text,
+        debug_info=_build_debug_info(blocks, ocr_conf, field_conf, parsed) if debug else None,
         preview_b64=_encode_preview(img) if debug else None,
     )
 
@@ -203,9 +207,25 @@ def _log_step(
         "merged_confidence": round(merged_conf, 3),
         "blocks_count": len(blocks),
         "parsed_fields": {k: v for k, v in parsed.items() if v is not None},
-        "raw_text_preview": raw_text[:600].replace("\n", "↵"),
+        "raw_text": raw_text.replace("\n", "↵"),
     }
     logger.info("OCR_STEP %s", json.dumps(payload, ensure_ascii=False))
+
+
+def _build_debug_info(
+    blocks: list,
+    ocr_conf: float,
+    field_conf: float,
+    parsed: dict,
+) -> dict:
+    """Full debug payload returned when debug=true."""
+    return {
+        "ocr_confidence": round(ocr_conf, 3),
+        "field_confidence": round(field_conf, 3),
+        "blocks_count": len(blocks),
+        "blocks": [{"text": t, "conf": round(c, 3)} for t, c in blocks],
+        "parsed_fields": {k: v for k, v in parsed.items() if v is not None},
+    }
 
 
 def _to_int(value: Optional[str]) -> Optional[int]:

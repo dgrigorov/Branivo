@@ -26,6 +26,9 @@ class TalonResponse(BaseModel):
     data: TalonData
     complete: bool
     error: Optional[str] = None
+    # Always included — full raw OCR text from Tesseract (no truncation).
+    raw_text: Optional[str] = None
+    # Debug only — populated when debug=true query param is set.
+    debug_info: Optional[dict] = None
     # Debug only — base64 JPEG of the preprocessed image sent to Tesseract.
-    # Returned only when the request includes debug=true query param.
     preview_b64: Optional[str] = None

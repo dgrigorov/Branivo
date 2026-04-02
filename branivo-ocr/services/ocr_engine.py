@@ -23,6 +23,9 @@ from pytesseract import Output
 #  11 = Sparse text — find as much text as possible  (fallback)
 _PSM_FULL = "--psm 6 --oem 3"
 _PSM_SPARSE = "--psm 11 --oem 3"
+# Bulgarian vehicle registration certificates have Cyrillic owner data
+# and Latin-character field codes (A, E, D.1, C.2.1, etc.)
+_LANG = "bul+eng"
 
 
 def extract_blocks(image: np.ndarray) -> List[Tuple[str, float]]:
@@ -33,7 +36,7 @@ def extract_blocks(image: np.ndarray) -> List[Tuple[str, float]]:
     gray = _to_gray(image)
     data = pytesseract.image_to_data(
         gray,
-        lang="eng",
+        lang=_LANG,
         config=_PSM_FULL,
         output_type=Output.DICT,
     )
@@ -49,7 +52,7 @@ def extract_blocks(image: np.ndarray) -> List[Tuple[str, float]]:
     if len(blocks) < 5:
         data2 = pytesseract.image_to_data(
             gray,
-            lang="eng",
+            lang=_LANG,
             config=_PSM_SPARSE,
             output_type=Output.DICT,
         )
@@ -68,7 +71,7 @@ def extract_blocks(image: np.ndarray) -> List[Tuple[str, float]]:
 def full_text(image: np.ndarray) -> str:
     """Return the full OCR output as a single string preserving layout."""
     gray = _to_gray(image)
-    return pytesseract.image_to_string(gray, lang="eng", config=_PSM_FULL)
+    return pytesseract.image_to_string(gray, lang=_LANG, config=_PSM_FULL)
 
 
 def blocks_to_text(blocks: List[Tuple[str, float]]) -> str:
