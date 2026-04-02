@@ -231,8 +231,17 @@ export class SeedService implements OnApplicationBootstrap {
         rating: 4.2,
         claimSpeed: 7.8,
       },
-      { code: 'dsk', name: 'ДЗИ (DSK)', rating: 4.0, claimSpeed: 7.0 },
+      { code: 'dzi', name: 'ДЗИ', rating: 4.0, claimSpeed: 7.0 },
       { code: 'bulstrad', name: 'Булстрад', rating: 3.8, claimSpeed: 6.5 },
+      { code: 'uniqa', name: 'UNIQA Bulgaria', rating: 4.1, claimSpeed: 7.5 },
+      {
+        code: 'euroins',
+        name: 'Euroins Bulgaria',
+        rating: 3.9,
+        claimSpeed: 6.8,
+      },
+      { code: 'ozk', name: 'ОЗК Застраховане', rating: 3.7, claimSpeed: 6.2 },
+      { code: 'bulins', name: 'Булинс', rating: 3.6, claimSpeed: 6.0 },
     ];
     for (const ins of insurers) {
       await this.dataSource.query(
@@ -259,14 +268,14 @@ export class SeedService implements OnApplicationBootstrap {
     const insurers = await this.dataSource.query<
       { id: string; code: string }[]
     >(
-      `SELECT id, code FROM insurers WHERE code IN ('allianz', 'generali', 'dsk', 'bulstrad')`,
+      `SELECT id, code FROM insurers WHERE code IN ('allianz', 'generali', 'dzi', 'bulstrad')`,
     );
 
     for (const ins of insurers) {
       let ratePct: number;
       if (ins.code === 'allianz') ratePct = 0.05;
       else if (ins.code === 'generali') ratePct = 0.045;
-      else if (ins.code === 'dsk') ratePct = 0.05;
+      else if (ins.code === 'dzi') ratePct = 0.05;
       else ratePct = 0.055; // bulstrad
 
       await this.dataSource.query(
@@ -908,13 +917,13 @@ export class SeedService implements OnApplicationBootstrap {
     const insurers = await this.dataSource.query<
       { id: string; code: string }[]
     >(
-      `SELECT id, code FROM insurers WHERE code IN ('generali', 'dsk', 'bulstrad') AND deleted_at IS NULL`,
+      `SELECT id, code FROM insurers WHERE code IN ('generali', 'dzi', 'bulstrad') AND deleted_at IS NULL`,
     );
     if (insurers.length === 0) return;
 
     const byCode = Object.fromEntries(insurers.map((i) => [i.code, i.id]));
     const generaliId = byCode['generali'] ?? insurers[0].id;
-    const dskId = byCode['dsk'] ?? insurers[0].id;
+    const dskId = byCode['dzi'] ?? insurers[0].id;
     const bulstradId = byCode['bulstrad'] ?? insurers[0].id;
 
     const policies: {

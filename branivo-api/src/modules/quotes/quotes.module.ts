@@ -29,10 +29,14 @@ import { MockInsurerAdapter } from './adapters/mock-insurer.adapter';
     {
       provide: INSURER_ADAPTERS,
       useFactory: () => [
-        new MockInsurerAdapter('allianz', 450),
-        new MockInsurerAdapter('generali', 420),
-        new MockInsurerAdapter('dsk', 380),
-        new MockInsurerAdapter('bulstrad', 400),
+        new MockInsurerAdapter('allianz'),
+        new MockInsurerAdapter('generali'),
+        new MockInsurerAdapter('euroins'),
+        new MockInsurerAdapter('uniqa'),
+        new MockInsurerAdapter('ozk'),
+        new MockInsurerAdapter('dzi'),
+        new MockInsurerAdapter('bulstrad'),
+        new MockInsurerAdapter('bulins'),
       ],
     },
   ],
