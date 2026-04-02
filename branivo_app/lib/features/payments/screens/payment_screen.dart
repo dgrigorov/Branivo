@@ -13,12 +13,14 @@ class PaymentRouteArgs {
   final String insurerName;
   final double amount;
   final String currency;
+  final int installmentCount;
 
   const PaymentRouteArgs({
     required this.quoteId,
     required this.insurerName,
     required this.amount,
     required this.currency,
+    this.installmentCount = 1,
   });
 }
 

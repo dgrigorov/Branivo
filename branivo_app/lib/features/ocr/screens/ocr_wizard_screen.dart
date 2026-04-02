@@ -39,17 +39,32 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
   double _maxZoom = 8.0;
   double _baseZoom = 1.0;
 
+  // Flash & auto-capture state
+  bool _flashEnabled = false;
+  bool _autoCaptureEnabled = false;
+  bool _isDocumentDetected = false;
+  bool _autoCaptureLock = false;
+  bool _disposed = false;
+
+  // Frame analysis state (image stream)
+  List<int>? _prevSamples;
+  int _stableFrames = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initCamera();
-    context.read<OcrWizardBloc>().add(OcrStartCaptureEvent());
+    context.read<OcrWizardBloc>().add(
+      OcrStartCaptureEvent(sessionToken: widget.sessionToken),
+    );
   }
 
   @override
   void dispose() {
+    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
+    _stopStream();
     _camera?.dispose();
     super.dispose();
   }
@@ -57,6 +72,7 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive) {
+      _stopStream();
       _camera?.dispose();
       _camera = null;
       if (mounted) setState(() => _cameraReady = false);
@@ -73,7 +89,6 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
         cams.first,
         ResolutionPreset.high,
         enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.jpeg,
       );
       await ctrl.initialize();
       await ctrl.setFocusMode(FocusMode.auto);
@@ -91,10 +106,149 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
         _maxZoom = maxZ;
         _zoom = minZ;
       });
+      // Restore flash state
+      await ctrl.setFlashMode(_flashEnabled ? FlashMode.torch : FlashMode.off);
     } catch (_) {
       // Camera unavailable — fallback placeholder shown
     }
   }
+
+  // ─── Flash ──────────────────────────────────────────────────────────────────
+
+  Future<void> _toggleFlash() async {
+    final ctrl = _camera;
+    if (ctrl == null || !_cameraReady) return;
+    final next = !_flashEnabled;
+    await ctrl.setFlashMode(next ? FlashMode.torch : FlashMode.off);
+    if (mounted) setState(() => _flashEnabled = next);
+  }
+
+  // ─── Auto-capture toggle ────────────────────────────────────────────────────
+
+  void _toggleAutoCapture() {
+    final next = !_autoCaptureEnabled;
+    setState(() {
+      _autoCaptureEnabled = next;
+      _isDocumentDetected = false;
+      _stableFrames = 0;
+      _autoCaptureLock = false;
+    });
+
+    final bloc = context.read<OcrWizardBloc>();
+    final state = bloc.state;
+    final step = state is OcrCapturingState ? state.step : 0;
+
+    if (next) {
+      _startStream(step);
+    } else {
+      _stopStream();
+    }
+  }
+
+  // ─── Image stream ───────────────────────────────────────────────────────────
+
+  void _startStream(int step) {
+    final ctrl = _camera;
+    if (ctrl == null || !_cameraReady || ctrl.value.isStreamingImages) return;
+    _stableFrames = 0;
+    _prevSamples = null;
+    _autoCaptureLock = false;
+    ctrl.startImageStream((img) => _analyzeFrame(img, step));
+  }
+
+  void _stopStream() {
+    try {
+      final ctrl = _camera;
+      if (ctrl != null && ctrl.value.isInitialized && ctrl.value.isStreamingImages) {
+        ctrl.stopImageStream();
+      }
+    } catch (_) {}
+    if (!_disposed && mounted) {
+      setState(() {
+        _isDocumentDetected = false;
+        _stableFrames = 0;
+      });
+    }
+  }
+
+  /// Lightweight frame analysis: sample 64 luma values, detect motion/brightness.
+  ///
+  /// Triggers auto-capture when stable for ~20 frames (≈2s at 10 analyzed fps).
+  void _analyzeFrame(CameraImage img, int step) {
+    // Sample Y plane (Android YUV) or first channel (iOS BGRA)
+    final plane = img.planes[0].bytes;
+    final stride = img.planes[0].bytesPerRow;
+    final pixelStride = img.planes[0].bytesPerPixel ?? 1;
+    final h = img.height;
+    final w = img.width;
+
+    final samples = <int>[];
+    for (int row = 0; row < 8; row++) {
+      for (int col = 0; col < 8; col++) {
+        final py = (h * row ~/ 8);
+        final px = (w * col ~/ 8);
+        final idx = py * stride + px * pixelStride;
+        if (idx < plane.length) samples.add(plane[idx]);
+      }
+    }
+
+    if (samples.isEmpty) return;
+
+    final avg = samples.fold(0, (a, b) => a + b) / samples.length;
+    // Reject under- or over-exposed frames
+    if (avg < 40 || avg > 235) {
+      _stableFrames = (_stableFrames - 2).clamp(0, 50);
+      _prevSamples = samples;
+      _updateDetected(false);
+      return;
+    }
+
+    // Motion detection via frame diff
+    final prev = _prevSamples;
+    if (prev != null && prev.length == samples.length) {
+      var diff = 0;
+      for (int i = 0; i < samples.length; i++) {
+        diff += (samples[i] - prev[i]).abs();
+      }
+      if (diff / samples.length < 8) {
+        _stableFrames = (_stableFrames + 1).clamp(0, 50);
+      } else {
+        _stableFrames = (_stableFrames - 3).clamp(0, 50);
+      }
+    }
+    _prevSamples = samples;
+
+    _updateDetected(_stableFrames >= 10);
+
+    // Auto-fire after ~2s stable
+    if (_stableFrames >= 20 && !_autoCaptureLock) {
+      _autoCaptureLock = true;
+      _stableFrames = 0;
+      _triggerAutoCapture(step);
+    }
+  }
+
+  void _updateDetected(bool detected) {
+    if (!_disposed && detected != _isDocumentDetected && mounted) {
+      setState(() => _isDocumentDetected = detected);
+    }
+  }
+
+  Future<void> _triggerAutoCapture(int step) async {
+    final ctrl = _camera;
+    if (ctrl == null || !ctrl.value.isInitialized) {
+      _autoCaptureLock = false;
+      return;
+    }
+    // Must stop stream before takePicture
+    if (ctrl.value.isStreamingImages) {
+      await ctrl.stopImageStream();
+    }
+    await _takePhoto(step);
+    // Stream restart is handled in _onState when OcrCapturingState is emitted
+  }
+
+  // ─── Photo capture ──────────────────────────────────────────────────────────
 
   Future<void> _takePhoto(int step) async {
     final ctrl = _camera;
@@ -107,6 +261,8 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
       );
     } catch (_) {}
   }
+
+  // ─── Zoom & focus ───────────────────────────────────────────────────────────
 
   void _onScaleStart(ScaleStartDetails d) => _baseZoom = _zoom;
 
@@ -127,6 +283,8 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
     await ctrl.setExposurePoint(Offset(x, y));
   }
 
+  // ─── Build ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -143,11 +301,26 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
 
   void _onState(BuildContext ctx, OcrWizardState state) {
     if (state is OcrManualInputState) widget.onManualEntry();
-    if (state is OcrCapturingState && !_cameraReady) _initCamera();
+
+    if (state is OcrCapturingState) {
+      // Returning to camera after a retake or first launch
+      if (!_cameraReady) _initCamera();
+      _autoCaptureLock = false;
+      _stableFrames = 0;
+      if (mounted) setState(() => _isDocumentDetected = false);
+      if (_autoCaptureEnabled) _startStream(state.step);
+    }
+
     // VIN auto-capture: haptic feedback (story-24.1)
     if (state is OcrVinDetectedState) {
       final disableAnimations = MediaQuery.of(context).disableAnimations;
       if (!disableAnimations) HapticFeedback.mediumImpact();
+    }
+
+    if (state is OcrCropState ||
+        state is OcrStepProcessingState ||
+        state is OcrProcessingState) {
+      _stopStream();
     }
   }
 
@@ -175,6 +348,7 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
     }
     if (state is OcrCropState) {
       return OcrCropEditorView(
+        key: ValueKey('crop-${state.step}'),
         step: state.step,
         image: state.image,
         initialCorners: state.corners,
@@ -220,27 +394,39 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
       return _GfHitView(
         insurer: state.insurer,
         validUntil: state.validUntil,
-        onContinue: () => context.read<OcrWizardBloc>().add(OcrStartCaptureEvent()),
+        onContinue: () => context.read<OcrWizardBloc>().add(
+          OcrStartCaptureEvent(sessionToken: widget.sessionToken),
+        ),
         onBack: widget.onManualEntry,
       );
     }
     if (state is OcrGfWarningState) {
       return _GfWarningView(
-        onContinue: () => context.read<OcrWizardBloc>().add(OcrStartCaptureEvent()),
+        onContinue: () => context.read<OcrWizardBloc>().add(
+          OcrStartCaptureEvent(sessionToken: widget.sessionToken),
+        ),
       );
     }
     final step = state is OcrCapturingState ? state.step : 0;
-    final captured = state is OcrCapturingState ? state.capturedImages.length : 0;
+    final captured = state is OcrCapturingState
+        ? state.capturedImages.map((f) => f.path).toList()
+        : <String>[];
+
     return OcrCameraView(
       step: step,
-      capturedCount: captured,
+      capturedImages: captured,
       camera: _camera,
       cameraReady: _cameraReady,
       zoom: _zoom,
       minZoom: _minZoom,
       maxZoom: _maxZoom,
+      flashEnabled: _flashEnabled,
+      autoCaptureEnabled: _autoCaptureEnabled,
+      isDocumentDetected: _isDocumentDetected,
       onCapture: () => _takePhoto(step),
       onManualEntry: widget.onManualEntry,
+      onFlashToggle: _toggleFlash,
+      onAutoCaptureToggle: _toggleAutoCapture,
       onScaleStart: _onScaleStart,
       onScaleUpdate: _onScaleUpdate,
       onTapFocus: _onTapFocus,

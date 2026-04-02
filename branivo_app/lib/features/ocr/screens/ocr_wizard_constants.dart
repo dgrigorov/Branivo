@@ -10,6 +10,9 @@ const Color kOcrMuted = Color(0xFF64748B);
 const Color kOcrTextSub = Color(0xFF94A3B8);
 const int kTotalSteps = 3;
 
+// ─── Document type label ────────────────────────────────────────────────────────
+const String kDocumentTypeLabel = 'Малък талон за МПС';
+
 // ─── Step metadata — ORDER: 0=MRZ/owner, 1=vehicle identity, 2=tech specs ─────
 const List<String> kStepTitles = [
   'Лични данни',
@@ -25,12 +28,10 @@ const List<String> kStepSubs = [
 
 // ─── Talon field legends per step ──────────────────────────────────────────────
 const List<(String, String)> kLegendStep0 = [
-  ('E', 'VIN / Рамен №'),
-  ('A', 'Рег. номер'),
   ('C.2.1', 'Фамилия'),
   ('C.2.2', 'Собствено'),
   ('C.2.3', 'Адрес'),
-  ('EGN', 'ЕГН / ЛНЧ'),
+  ('ЕГН', 'ЕГН / ЛНЧ'),
 ];
 
 const List<(String, String)> kLegendStep1 = [

@@ -307,7 +307,7 @@ class OcrPreviewView extends StatelessWidget {
                   label: Text(
                     step == kTotalSteps - 1
                         ? 'Анализирай данните'
-                        : 'Продължи към снимка ${step + 2}',
+                        : 'Кадрирай снимката',
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,

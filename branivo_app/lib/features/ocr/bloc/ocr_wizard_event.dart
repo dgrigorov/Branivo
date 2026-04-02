@@ -2,7 +2,10 @@ part of 'ocr_wizard_bloc.dart';
 
 abstract class OcrWizardEvent {}
 
-class OcrStartCaptureEvent extends OcrWizardEvent {}
+class OcrStartCaptureEvent extends OcrWizardEvent {
+  OcrStartCaptureEvent({required this.sessionToken});
+  final String sessionToken;
+}
 
 class OcrImageCapturedEvent extends OcrWizardEvent {
   OcrImageCapturedEvent({required this.step, required this.image});

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,7 +10,12 @@ import 'ocr_wizard_constants.dart';
 ///
 /// Shows the captured image with 4 draggable corner handles.
 /// The user adjusts the quad to match the document edges, then confirms.
-/// The quad overlay darkens the area outside the selected region.
+///
+/// Key: corner handles are stored in *screen-space* (0..1 relative to device
+/// screen) for smooth dragging, but are converted to *image-space* (0..1
+/// relative to the image's displayed rect) before dispatching the confirm
+/// event. This ensures the Python service's cv2.warpPerspective receives
+/// coordinates relative to the actual image, not the screen letterbox.
 class OcrCropEditorView extends StatefulWidget {
   const OcrCropEditorView({
     super.key,
@@ -29,26 +35,96 @@ class OcrCropEditorView extends StatefulWidget {
 }
 
 class _OcrCropEditorViewState extends State<OcrCropEditorView> {
-  late List<Offset> _corners;
+  late List<Offset> _corners; // screen-space 0..1
+  List<Offset>? _defaultCorners; // reset target (screen-space)
+
+  // Image display geometry — needed to convert screen→image coords.
+  double _imgLeft = 0;
+  double _imgTop = 0;
+  double _displayW = 0;
+  double _displayH = 0;
+
   Uint8List? _imageBytes;
 
-  static const List<Offset> _resetCorners = [
-    Offset(0.02, 0.02),
-    Offset(0.98, 0.02),
-    Offset(0.98, 0.98),
-    Offset(0.02, 0.98),
+  static const List<Offset> _fallbackCorners = [
+    Offset(0.10, 0.35),
+    Offset(0.90, 0.35),
+    Offset(0.90, 0.65),
+    Offset(0.10, 0.65),
   ];
 
   @override
   void initState() {
     super.initState();
-    _corners = List.from(widget.initialCorners);
+    _corners = widget.initialCorners.isNotEmpty
+        ? List.from(widget.initialCorners)
+        : List.from(_fallbackCorners);
     _loadImage();
   }
 
   Future<void> _loadImage() async {
     final bytes = await widget.image.readAsBytes();
-    if (mounted) setState(() => _imageBytes = bytes);
+    if (!mounted) return;
+
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final naturalW = frame.image.width.toDouble();
+    final naturalH = frame.image.height.toDouble();
+    frame.image.dispose();
+    codec.dispose();
+
+    if (!mounted) return;
+
+    final screenSize = MediaQuery.of(context).size;
+    final (corners, left, top, dw, dh) = _computeLayout(
+      naturalW: naturalW,
+      naturalH: naturalH,
+      screenSize: screenSize,
+    );
+
+    setState(() {
+      _imageBytes = bytes;
+      _imgLeft = left;
+      _imgTop = top;
+      _displayW = dw;
+      _displayH = dh;
+      _defaultCorners = corners;
+      _corners = corners;
+    });
+  }
+
+  /// Returns initial corner positions (screen-space 0..1, 10% inset from image
+  /// rect) and the image's display geometry within the screen.
+  (List<Offset>, double, double, double, double) _computeLayout({
+    required double naturalW,
+    required double naturalH,
+    required Size screenSize,
+  }) {
+    final imgAspect = naturalW / naturalH;
+    final screenAspect = screenSize.width / screenSize.height;
+
+    double dw, dh;
+    if (imgAspect > screenAspect) {
+      dw = screenSize.width;
+      dh = screenSize.width / imgAspect;
+    } else {
+      dh = screenSize.height;
+      dw = screenSize.height * imgAspect;
+    }
+
+    final left = (screenSize.width - dw) / 2;
+    final top = (screenSize.height - dh) / 2;
+
+    const inset = 0.10;
+    final tlX = (left + dw * inset) / screenSize.width;
+    final tlY = (top + dh * inset) / screenSize.height;
+    final brX = (left + dw * (1 - inset)) / screenSize.width;
+    final brY = (top + dh * (1 - inset)) / screenSize.height;
+
+    return (
+      [Offset(tlX, tlY), Offset(brX, tlY), Offset(brX, brY), Offset(tlX, brY)],
+      left, top, dw, dh,
+    );
   }
 
   void _moveCorner(int index, DragUpdateDetails d, Size size) {
@@ -59,11 +135,29 @@ class _OcrCropEditorViewState extends State<OcrCropEditorView> {
     });
   }
 
+  /// Convert screen-space corners (0..1 relative to screen) to image-space
+  /// corners (0..1 relative to the image's display rect).
+  ///
+  /// The Python service multiplies these by the image's pixel dimensions to get
+  /// the src quad for cv2.warpPerspective.
+  List<Offset> _toImageCorners(Size screenSize) {
+    if (_displayW == 0 || _displayH == 0) return _corners;
+    return _corners.map((c) {
+      final sx = c.dx * screenSize.width;
+      final sy = c.dy * screenSize.height;
+      final ix = ((sx - _imgLeft) / _displayW).clamp(0.0, 1.0);
+      final iy = ((sy - _imgTop) / _displayH).clamp(0.0, 1.0);
+      return Offset(ix, iy);
+    }).toList();
+  }
+
   void _confirm() {
+    final screenSize = MediaQuery.of(context).size;
+    final imageCorners = _toImageCorners(screenSize);
     context.read<OcrWizardBloc>().add(
       OcrCropConfirmedEvent(
         step: widget.step,
-        corners: List.from(_corners),
+        corners: imageCorners,
         sessionToken: widget.sessionToken,
       ),
     );
@@ -79,7 +173,7 @@ class _OcrCropEditorViewState extends State<OcrCropEditorView> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          _buildImageLayer(),
+          Positioned.fill(child: _buildImageLayer()),
           _buildTopBar(),
           _buildBottomBar(),
         ],
@@ -97,17 +191,12 @@ class _OcrCropEditorViewState extends State<OcrCropEditorView> {
         final size = constraints.biggest;
         return Stack(
           children: [
-            // Image fills full area
             Positioned.fill(
               child: Image.memory(bytes, fit: BoxFit.contain),
             ),
-            // Crop overlay
             Positioned.fill(
-              child: CustomPaint(
-                painter: _CropOverlayPainter(_corners),
-              ),
+              child: CustomPaint(painter: _CropOverlayPainter(_corners)),
             ),
-            // Corner handles
             for (int i = 0; i < 4; i++) _buildHandle(i, size),
           ],
         );
@@ -119,10 +208,12 @@ class _OcrCropEditorViewState extends State<OcrCropEditorView> {
     const handleRadius = 22.0;
     final screenX = _corners[index].dx * size.width;
     final screenY = _corners[index].dy * size.height;
+    final left = (screenX - handleRadius).clamp(0.0, size.width - handleRadius * 2);
+    final top = (screenY - handleRadius).clamp(0.0, size.height - handleRadius * 2);
 
     return Positioned(
-      left: screenX - handleRadius,
-      top: screenY - handleRadius,
+      left: left,
+      top: top,
       child: GestureDetector(
         onPanUpdate: (d) => _moveCorner(index, d, size),
         child: Container(
@@ -141,9 +232,7 @@ class _OcrCropEditorViewState extends State<OcrCropEditorView> {
 
   Widget _buildTopBar() {
     return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
+      top: 0, left: 0, right: 0,
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -153,17 +242,34 @@ class _OcrCropEditorViewState extends State<OcrCropEditorView> {
               const Icon(Icons.crop_free_rounded, color: kOcrBlue, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Избери ъглите на документа',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'СНИМКА ${widget.step + 1} ОТ $kTotalSteps',
+                      style: const TextStyle(
+                        color: kOcrIndigo,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const Text(
+                      'Избери ъглите на документа',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               TextButton.icon(
-                onPressed: () => setState(() => _corners = List.from(_resetCorners)),
+                onPressed: () => setState(() {
+                  _corners = List.from(_defaultCorners ?? _fallbackCorners);
+                }),
                 icon: const Icon(Icons.restart_alt_rounded, size: 16, color: kOcrMuted),
                 label: const Text(
                   'Нулирай',
@@ -179,9 +285,7 @@ class _OcrCropEditorViewState extends State<OcrCropEditorView> {
 
   Widget _buildBottomBar() {
     return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
+      bottom: 0, left: 0, right: 0,
       child: SafeArea(
         top: false,
         child: Container(
@@ -206,7 +310,7 @@ class _OcrCropEditorViewState extends State<OcrCropEditorView> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Повтори снимката'),
+                  child: const Text('Снимай отново'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -223,9 +327,11 @@ class _OcrCropEditorViewState extends State<OcrCropEditorView> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Запази и продължи',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                  child: Text(
+                    widget.step < kTotalSteps - 1
+                        ? 'Следваща снимка'
+                        : 'Запази и анализирай',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -245,11 +351,13 @@ class _CropOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (corners.length < 4) return;
+
     final pts = corners
         .map((c) => Offset(c.dx * size.width, c.dy * size.height))
         .toList();
 
-    // Dark scrim outside the selected quad (even-odd fill rule cuts the hole)
+    // Dark scrim outside the selected quad
     final scrimPath = Path()
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
       ..moveTo(pts[0].dx, pts[0].dy)

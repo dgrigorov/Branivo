@@ -1,39 +1,52 @@
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'ocr_wizard_constants.dart';
 
-/// Full-screen live camera preview with document corner-bracket overlay.
+/// Full-screen live camera preview.
 ///
-/// Supports:
-///  - pinch-to-zoom (up to device max zoom)
-///  - tap-to-focus / tap-to-expose
-///  - corner bracket guide overlay
+/// Features:
+///  - Pinch-to-zoom / tap-to-focus
+///  - Flash toggle (off ↔ torch)
+///  - Auto capture toggle with document-detection green overlay
+///  - Captured photo thumbnails in the bottom-right corner
+///  - Collapsible legend (drag sheet down to hide; ⓘ button to restore)
 class OcrCameraView extends StatelessWidget {
   const OcrCameraView({
     super.key,
     required this.step,
-    required this.capturedCount,
+    required this.capturedImages,
     required this.camera,
     required this.cameraReady,
     required this.zoom,
     required this.minZoom,
     required this.maxZoom,
+    required this.flashEnabled,
+    required this.autoCaptureEnabled,
+    required this.isDocumentDetected,
     required this.onCapture,
     required this.onManualEntry,
+    required this.onFlashToggle,
+    required this.onAutoCaptureToggle,
     required this.onScaleStart,
     required this.onScaleUpdate,
     required this.onTapFocus,
   });
 
   final int step;
-  final int capturedCount;
+  final List<String> capturedImages;
   final CameraController? camera;
   final bool cameraReady;
   final double zoom;
   final double minZoom;
   final double maxZoom;
+  final bool flashEnabled;
+  final bool autoCaptureEnabled;
+  final bool isDocumentDetected;
   final VoidCallback onCapture;
   final VoidCallback onManualEntry;
+  final VoidCallback onFlashToggle;
+  final VoidCallback onAutoCaptureToggle;
   final void Function(ScaleStartDetails) onScaleStart;
   final Future<void> Function(ScaleUpdateDetails) onScaleUpdate;
   final Future<void> Function(TapUpDetails, Size) onTapFocus;
@@ -44,12 +57,9 @@ class OcrCameraView extends StatelessWidget {
       builder: (ctx, constraints) {
         final screenSize = Size(constraints.maxWidth, constraints.maxHeight);
         return Stack(
+          fit: StackFit.expand,
           children: [
-            // ── Camera full-screen fill ─────────────────────────────────────
-            // FittedBox(cover) scales the camera to fill the screen while
-            // preserving the native aspect ratio (crops/overflows if needed).
-            // This prevents the "squished" look caused by StackFit.expand
-            // forcing CameraPreview's internal AspectRatio to stretch.
+            // ── Camera full-screen fill ───────────────────────────────────────
             Positioned.fill(
               child: cameraReady && camera != null
                   ? GestureDetector(
@@ -61,23 +71,49 @@ class OcrCameraView extends StatelessWidget {
                   : const ColoredBox(color: Colors.black),
             ),
 
-            // ── Document frame overlay ──────────────────────────────────────
-            Positioned.fill(
-              child: CustomPaint(painter: _DocFramePainter(screenSize)),
-            ),
+            // ── Green edge flash when document detected (auto capture only) ──
+            if (isDocumentDetected && autoCaptureEnabled)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: kOcrGreen, width: 3),
+                    ),
+                  ),
+                ),
+              ),
 
-            // ── Top bar ─────────────────────────────────────────────────────
+            // ── Top bar ───────────────────────────────────────────────────────
             Positioned(
               top: 0, left: 0, right: 0,
-              child: _TopBar(step: step, zoom: zoom, minZoom: minZoom, onBack: onManualEntry),
+              child: _TopBar(
+                step: step,
+                zoom: zoom,
+                minZoom: minZoom,
+                flashEnabled: flashEnabled,
+                autoCaptureEnabled: autoCaptureEnabled,
+                isDocumentDetected: isDocumentDetected,
+                onBack: onManualEntry,
+                onFlashToggle: onFlashToggle,
+                onAutoCaptureToggle: onAutoCaptureToggle,
+              ),
             ),
 
-            // ── Bottom sheet ─────────────────────────────────────────────────
+            // ── Captured thumbnails — bottom right ────────────────────────────
+            if (capturedImages.isNotEmpty)
+              Positioned(
+                right: 16,
+                bottom: _kBottomSheetCollapsedHeight + 72,
+                child: _ThumbnailStack(paths: capturedImages),
+              ),
+
+            // ── Bottom sheet (stateful — collapsible legend) ──────────────────
             Positioned(
               bottom: 0, left: 0, right: 0,
-              child: _BottomSheet(
+              child: _BottomSheetWidget(
                 step: step,
-                capturedCount: capturedCount,
+                autoCaptureEnabled: autoCaptureEnabled,
+                isDocumentDetected: isDocumentDetected,
                 onCapture: onCapture,
                 onManualEntry: onManualEntry,
               ),
@@ -89,11 +125,10 @@ class OcrCameraView extends StatelessWidget {
   }
 }
 
-// ─── Camera fill widget ────────────────────────────────────────────────────────
-// Scales the camera preview to cover the full screen without stretching.
-// previewSize is in the camera's native (landscape) orientation, so we swap
-// width↔height to get the portrait display dimensions, then FittedBox.cover
-// scales it up until both screen dimensions are filled.
+/// Estimated height of the collapsed bottom sheet (step title + capture btn).
+const double _kBottomSheetCollapsedHeight = 130;
+
+// ─── Camera fill ──────────────────────────────────────────────────────────────
 
 class _CameraFill extends StatelessWidget {
   const _CameraFill({required this.camera});
@@ -102,8 +137,6 @@ class _CameraFill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final preview = camera.value.previewSize;
-    // previewSize is landscape: width=long side, height=short side.
-    // For portrait display we swap them.
     final double w = preview?.height ?? 720;
     final double h = preview?.width ?? 1280;
     return FittedBox(
@@ -114,19 +147,86 @@ class _CameraFill extends StatelessWidget {
   }
 }
 
-// ─── Top transparent bar ───────────────────────────────────────────────────────
+// ─── Thumbnails ───────────────────────────────────────────────────────────────
+
+class _ThumbnailStack extends StatelessWidget {
+  const _ThumbnailStack({required this.paths});
+  final List<String> paths;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: paths.asMap().entries.map((e) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Container(
+            width: 60,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: kOcrGreen, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(120),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.file(File(e.value), fit: BoxFit.cover),
+                  Positioned(
+                    bottom: 2, right: 4,
+                    child: Text(
+                      '${e.key + 1}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ─── Top bar ──────────────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.step,
     required this.zoom,
     required this.minZoom,
+    required this.flashEnabled,
+    required this.autoCaptureEnabled,
+    required this.isDocumentDetected,
     required this.onBack,
+    required this.onFlashToggle,
+    required this.onAutoCaptureToggle,
   });
+
   final int step;
   final double zoom;
   final double minZoom;
+  final bool flashEnabled;
+  final bool autoCaptureEnabled;
+  final bool isDocumentDetected;
   final VoidCallback onBack;
+  final VoidCallback onFlashToggle;
+  final VoidCallback onAutoCaptureToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -135,44 +235,97 @@ class _TopBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: Row(
           children: [
-            GestureDetector(
-              onTap: onBack,
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(130),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 14,
-                  color: Colors.white,
-                ),
+            _IconBtn(icon: Icons.arrow_back_ios_new_rounded, onTap: onBack, size: 14),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.black.withAlpha(130),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: const Text(
+                kDocumentTypeLabel,
+                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
               ),
             ),
             const Spacer(),
             _StepPills(step: step),
             const Spacer(),
-            if (zoom > minZoom + 0.15)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(130),
-                  borderRadius: BorderRadius.circular(20),
+            _IconBtn(
+              icon: flashEnabled ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+              onTap: onFlashToggle,
+              active: flashEnabled,
+            ),
+            const SizedBox(width: 8),
+            _AutoCaptureBtn(
+              enabled: autoCaptureEnabled,
+              detected: isDocumentDetected,
+              onTap: onAutoCaptureToggle,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IconBtn extends StatelessWidget {
+  const _IconBtn({required this.icon, required this.onTap, this.active = false, this.size = 18});
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool active;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38, height: 38,
+        decoration: BoxDecoration(
+          color: active ? kOcrIndigo.withAlpha(180) : Colors.black.withAlpha(130),
+          shape: BoxShape.circle,
+          border: Border.all(color: active ? kOcrIndigo : Colors.white24),
+        ),
+        child: Icon(icon, size: size, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _AutoCaptureBtn extends StatelessWidget {
+  const _AutoCaptureBtn({required this.enabled, required this.detected, required this.onTap});
+  final bool enabled;
+  final bool detected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled ? (detected ? kOcrGreen : kOcrIndigo) : Colors.white54;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38, height: 38,
+        decoration: BoxDecoration(
+          color: enabled ? color.withAlpha(detected ? 60 : 40) : Colors.black.withAlpha(130),
+          shape: BoxShape.circle,
+          border: Border.all(color: enabled ? color : Colors.white24, width: enabled && detected ? 2 : 1),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(Icons.camera_alt_rounded, size: 18, color: color),
+            Positioned(
+              right: 6, bottom: 6,
+              child: Container(
+                width: 13, height: 13,
+                decoration: BoxDecoration(color: enabled ? color : Colors.black54, shape: BoxShape.circle),
+                child: const Center(
+                  child: Text('А', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900)),
                 ),
-                child: Text(
-                  '${zoom.toStringAsFixed(1)}×',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              )
-            else
-              const SizedBox(width: 38),
+              ),
+            ),
           ],
         ),
       ),
@@ -204,11 +357,7 @@ class _StepPills extends StatelessWidget {
             height: 8,
             margin: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
-              color: done
-                  ? kOcrGreen
-                  : active
-                      ? kOcrIndigo
-                      : Colors.white30,
+              color: done ? kOcrGreen : active ? kOcrIndigo : Colors.white30,
               borderRadius: BorderRadius.circular(4),
             ),
           );
@@ -218,112 +367,186 @@ class _StepPills extends StatelessWidget {
   }
 }
 
-// ─── Bottom info + capture sheet ───────────────────────────────────────────────
+// ─── Bottom sheet — stateful (collapsible legend) ─────────────────────────────
 
-class _BottomSheet extends StatelessWidget {
-  const _BottomSheet({
+class _BottomSheetWidget extends StatefulWidget {
+  const _BottomSheetWidget({
     required this.step,
-    required this.capturedCount,
+    required this.autoCaptureEnabled,
+    required this.isDocumentDetected,
     required this.onCapture,
     required this.onManualEntry,
   });
+
   final int step;
-  final int capturedCount;
+  final bool autoCaptureEnabled;
+  final bool isDocumentDetected;
   final VoidCallback onCapture;
   final VoidCallback onManualEntry;
 
   @override
+  State<_BottomSheetWidget> createState() => _BottomSheetWidgetState();
+}
+
+class _BottomSheetWidgetState extends State<_BottomSheetWidget> {
+  bool _legendVisible = true;
+
+  @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
+    return GestureDetector(
+      // Drag down anywhere on the sheet → collapse legend
+      onVerticalDragEnd: (d) {
+        if (d.primaryVelocity != null && d.primaryVelocity! > 200 && _legendVisible) {
+          setState(() => _legendVisible = false);
+        } else if (d.primaryVelocity != null && d.primaryVelocity! < -200 && !_legendVisible) {
+          setState(() => _legendVisible = true);
+        }
+      },
       child: Container(
         decoration: const BoxDecoration(
           color: Color(0xF2111827),
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
         child: SafeArea(
           top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 36, height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
+              // ── Drag handle row ───────────────────────────────────────────
               Row(
                 children: [
-                  _Chip(
-                    label: 'СТЪПКА ${step + 1} / $kTotalSteps',
-                    color: kOcrIndigo,
-                  ),
-                  if (capturedCount > 0) ...[
-                    const SizedBox(width: 6),
-                    _Chip(
-                      label: '✓ $capturedCount взета',
-                      color: kOcrGreen,
+                  Expanded(
+                    child: Center(
+                      child: Container(
+                        width: 36, height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                  ],
+                  ),
+                  // ⓘ icon to restore legend when hidden
+                  if (!_legendVisible)
+                    GestureDetector(
+                      onTap: () => setState(() => _legendVisible = true),
+                      child: Container(
+                        width: 32, height: 32,
+                        decoration: BoxDecoration(
+                          color: kOcrIndigo.withAlpha(30),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: kOcrIndigo.withAlpha(60)),
+                        ),
+                        child: Icon(Icons.info_outline_rounded, size: 16, color: kOcrIndigo),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // ── Step label ────────────────────────────────────────────────
+              Row(
+                children: [
+                  _Chip(label: 'СНИМКА ${widget.step + 1} / $kTotalSteps', color: kOcrIndigo),
                 ],
               ),
               const SizedBox(height: 6),
               Text(
-                kStepTitles[step],
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
+                kStepTitles[widget.step],
+                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 2),
               Text(
-                kStepSubs[step],
-                style: const TextStyle(
-                  color: kOcrTextSub,
+                widget.autoCaptureEnabled && widget.isDocumentDetected
+                    ? 'Документ засечен — задръжте неподвижно…'
+                    : widget.autoCaptureEnabled
+                        ? 'Насочете камерата към документа…'
+                        : kStepSubs[widget.step],
+                style: TextStyle(
+                  color: widget.autoCaptureEnabled && widget.isDocumentDetected ? kOcrGreen : kOcrTextSub,
                   fontSize: 12,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 10),
-              _LegendChips(legend: kLegendFor(step)),
+
+              // ── Collapsible legend ────────────────────────────────────────
+              AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeInOut,
+                child: _legendVisible
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: _LegendChips(legend: kLegendFor(widget.step)),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+
               const SizedBox(height: 14),
-              SizedBox(
-                height: 54,
-                child: ElevatedButton.icon(
-                  onPressed: onCapture,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kOcrIndigo,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+
+              // ── Action row: manual entry icon · capture btn · (spacer) ───
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Manual entry icon
+                  _SheetIconBtn(
+                    icon: Icons.keyboard_rounded,
+                    onTap: widget.onManualEntry,
+                    tooltip: 'Въведи ръчно',
+                  ),
+                  const SizedBox(width: 24),
+                  // Capture — large circle button
+                  GestureDetector(
+                    onTap: widget.onCapture,
+                    child: Container(
+                      width: 72, height: 72,
+                      decoration: BoxDecoration(
+                        color: kOcrIndigo,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: kOcrIndigo.withAlpha(80),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 30),
                     ),
                   ),
-                  icon: const Icon(Icons.camera_alt_rounded, size: 22),
-                  label: const Text(
-                    'Снимай',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                ),
+                  const SizedBox(width: 24),
+                  // Placeholder for symmetry
+                  const SizedBox(width: 44),
+                ],
               ),
-              TextButton(
-                onPressed: onManualEntry,
-                child: const Text(
-                  'Въведи ръчно',
-                  style: TextStyle(color: kOcrMuted, fontSize: 13),
-                ),
-              ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 16),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SheetIconBtn extends StatelessWidget {
+  const _SheetIconBtn({required this.icon, required this.onTap, required this.tooltip});
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44, height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Icon(icon, color: kOcrMuted, size: 20),
       ),
     );
   }
@@ -344,12 +567,7 @@ class _Chip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-        ),
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5),
       ),
     );
   }
@@ -362,8 +580,7 @@ class _LegendChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 6,
-      runSpacing: 4,
+      spacing: 6, runSpacing: 4,
       children: legend.map((item) => _LegendChip(code: item.$1, label: item.$2)).toList(),
     );
   }
@@ -386,80 +603,12 @@ class _LegendChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            code,
-            style: const TextStyle(
-              color: kOcrIndigo,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text(code, style: const TextStyle(color: kOcrIndigo, fontSize: 10, fontWeight: FontWeight.w700)),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(color: kOcrTextSub, fontSize: 10),
-          ),
+          Text(label, style: const TextStyle(color: kOcrTextSub, fontSize: 10)),
         ],
       ),
     );
   }
 }
 
-// ─── Document frame overlay painter ───────────────────────────────────────────
-
-class _DocFramePainter extends CustomPainter {
-  const _DocFramePainter(this.screenSize);
-  final Size screenSize;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Viewport rect — centred vertically between top bar (~15%) and bottom sheet (~42%)
-    final rect = Rect.fromLTWH(
-      size.width * 0.05,
-      size.height * 0.15,
-      size.width * 0.90,
-      size.width * 0.90 * 0.64,
-    );
-
-    // Semi-dark scrim outside the doc area
-    canvas.drawPath(
-      Path.combine(
-        PathOperation.difference,
-        Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)),
-        Path()..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(10))),
-      ),
-      Paint()..color = Colors.black54,
-    );
-
-    // Corner brackets
-    final paint = Paint()
-      ..color = kOcrIndigo
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    const armLen = 26.0;
-    const corner = 10.0;
-
-    _drawCorner(canvas, paint, rect.topLeft, 1, 1, armLen, corner);
-    _drawCorner(canvas, paint, rect.topRight, -1, 1, armLen, corner);
-    _drawCorner(canvas, paint, rect.bottomLeft, 1, -1, armLen, corner);
-    _drawCorner(canvas, paint, rect.bottomRight, -1, -1, armLen, corner);
-  }
-
-  void _drawCorner(
-    Canvas c,
-    Paint p,
-    Offset pt,
-    double dx,
-    double dy,
-    double len,
-    double r,
-  ) {
-    c.drawLine(Offset(pt.dx + dx * r, pt.dy), Offset(pt.dx + dx * (r + len), pt.dy), p);
-    c.drawLine(Offset(pt.dx, pt.dy + dy * r), Offset(pt.dx, pt.dy + dy * (r + len)), p);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DocFramePainter old) => old.screenSize != screenSize;
-}

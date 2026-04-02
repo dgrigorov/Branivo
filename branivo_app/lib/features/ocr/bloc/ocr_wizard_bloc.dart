@@ -9,20 +9,19 @@ import '../services/camera_quality_analyzer.dart';
 part 'ocr_wizard_event.dart';
 part 'ocr_wizard_state.dart';
 
-const int _totalSteps = 3;
+const int _totalSteps = 3; // small vehicle registration card: owner + front + back
 const Duration _pollInterval = Duration(seconds: 2);
 const Duration _maxPollDuration = Duration(seconds: 35);
 const int _kConsecutiveStableRequired = 3;
 const Duration _kManualAssistTimeout = Duration(seconds: 5);
 
-/// Default initial corners — slight inset so handles are clearly visible.
-const List<Offset> _defaultCorners = [
-  Offset(0.02, 0.02), // TL
-  Offset(0.98, 0.02), // TR
-  Offset(0.98, 0.98), // BR
-  Offset(0.02, 0.98), // BL
-];
-
+/// OCR Wizard flow:
+///  Phase 1 — Capture: user photographs all [_totalSteps] sides.
+///            OcrCapturingState advances step until all images are taken.
+///  Phase 2 — Crop: user edits each image one by one (OcrCropState per step).
+///  Phase 3 — Process: OcrScanSubmittedEvent → API → OcrCompletedState.
+///
+/// Retake: clears ALL captured data and returns to step 0 (simplest UX).
 class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
   OcrWizardBloc({
     required OcrRepository repository,
@@ -45,7 +44,8 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
   final OcrRepository _repository;
 
   final List<XFile> _capturedImages = [];
-  final List<List<Offset>?> _capturedCorners = [];
+  final List<List<Offset>> _capturedCorners = [];
+  String _sessionToken = '';
   Timer? _pollTimer;
   DateTime? _pollStartTime;
   Timer? _manualAssistTimer;
@@ -56,6 +56,7 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
     OcrStartCaptureEvent event,
     Emitter<OcrWizardState> emit,
   ) {
+    _sessionToken = event.sessionToken;
     _capturedImages.clear();
     _capturedCorners.clear();
     _vinCaptured = false;
@@ -68,31 +69,46 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
     Emitter<OcrWizardState> emit,
   ) {
     _capturedImages.add(event.image);
-    emit(OcrPreviewState(step: event.step, image: event.image));
+    final nextStep = event.step + 1;
+
+    if (nextStep < _totalSteps) {
+      // Still more sides to photograph — stay in capture phase.
+      emit(OcrCapturingState(
+        step: nextStep,
+        capturedImages: List.unmodifiable(_capturedImages),
+      ));
+    } else {
+      // All sides captured — move to crop phase, start with first image.
+      emit(OcrCropState(
+        step: 0,
+        image: _capturedImages[0],
+        corners: const [],
+        sessionToken: _sessionToken,
+      ));
+    }
   }
 
+  // Kept for backwards compatibility — not reached in normal flow.
   void _onPreviewConfirmed(
     OcrPreviewConfirmedEvent event,
     Emitter<OcrWizardState> emit,
   ) {
-    final image = _capturedImages.last;
     emit(OcrCropState(
       step: event.step,
-      image: image,
-      corners: List.from(_defaultCorners),
-      sessionToken: event.sessionToken,
+      image: _capturedImages[event.step],
+      corners: const [],
+      sessionToken: _sessionToken,
     ));
   }
 
+  /// Clears all captured data and returns to step 0.
   void _onPreviewRetake(
     OcrPreviewRetakeEvent event,
     Emitter<OcrWizardState> emit,
   ) {
-    if (_capturedImages.isNotEmpty) _capturedImages.removeLast();
-    emit(OcrCapturingState(
-      step: event.step,
-      capturedImages: List.unmodifiable(_capturedImages),
-    ));
+    _capturedImages.clear();
+    _capturedCorners.clear();
+    emit(OcrCapturingState(step: 0));
   }
 
   Future<void> _onCropConfirmed(
@@ -100,17 +116,18 @@ class OcrWizardBloc extends Bloc<OcrWizardEvent, OcrWizardState> {
     Emitter<OcrWizardState> emit,
   ) async {
     _capturedCorners.add(event.corners);
-    final nextStep = event.step + 1;
-    final image = _capturedImages.last;
-    emit(OcrStepProcessingState(step: event.step, image: image));
-    await Future<void>.delayed(const Duration(milliseconds: 1850));
-    if (isClosed) return;
-    if (nextStep < _totalSteps) {
-      emit(OcrCapturingState(
-        step: nextStep,
-        capturedImages: List.unmodifiable(_capturedImages),
+    final nextCropStep = event.step + 1;
+
+    if (nextCropStep < _capturedImages.length) {
+      // More images still need to be cropped.
+      emit(OcrCropState(
+        step: nextCropStep,
+        image: _capturedImages[nextCropStep],
+        corners: const [],
+        sessionToken: _sessionToken,
       ));
     } else {
+      // All images cropped — go directly to scan (no intermediate animation).
       add(OcrScanSubmittedEvent(sessionToken: event.sessionToken));
     }
   }

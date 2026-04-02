@@ -28,14 +28,14 @@ void main() {
     'vin': OcrField(value: 'WVWZZZ3BZ3E123456', confidence: 0.92, autoFilled: true),
   };
 
-  group('OcrWizardBloc', () {
+  group('OcrWizardBloc — capture-all-then-crop flow', () {
     test('initial state is OcrInitialState', () {
       expect(buildBloc().state, isA<OcrInitialState>());
     });
 
     test('OcrStartCaptureEvent → OcrCapturingState(step: 0)', () async {
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
 
       await expectLater(
         bloc.stream,
@@ -43,44 +43,53 @@ void main() {
       );
     });
 
-    test('OcrImageCapturedEvent → OcrPreviewState for that step', () async {
+    // ── Capture phase ────────────────────────────────────────────────────────
+
+    test('capture step 0 → OcrCapturingState(step: 1) — stays in capture phase', () async {
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
-      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
-
-      final image = MockXFile();
-      bloc.add(OcrImageCapturedEvent(step: 0, image: image));
-
-      await expectLater(
-        bloc.stream,
-        emits(isA<OcrPreviewState>().having((s) => s.step, 'step', 0)),
-      );
-    });
-
-    test('OcrPreviewConfirmedEvent → OcrCropState(step: 0)', () async {
-      final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
       await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
 
       bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
-      await expectLater(bloc.stream, emits(isA<OcrPreviewState>()));
 
-      bloc.add(OcrPreviewConfirmedEvent(step: 0, sessionToken: sessionToken));
+      await expectLater(
+        bloc.stream,
+        emits(isA<OcrCapturingState>()
+            .having((s) => s.step, 'step', 1)
+            .having((s) => s.capturedImages.length, 'capturedImages.length', 1)),
+      );
+    });
+
+    test('capture step 2 (all 3 captured) → OcrCropState(step: 0)', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+      bloc.add(OcrImageCapturedEvent(step: 1, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      bloc.add(OcrImageCapturedEvent(step: 2, image: MockXFile()));
+
       await expectLater(
         bloc.stream,
         emits(isA<OcrCropState>().having((s) => s.step, 'step', 0)),
       );
     });
 
-    test('OcrCropConfirmedEvent → OcrStepProcessingState then OcrCapturingState(step: 1)', () async {
+    // ── Crop phase ───────────────────────────────────────────────────────────
+
+    test('OcrCropConfirmedEvent step 0 → OcrCropState(step: 1)', () async {
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
       await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
 
       bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
-      await expectLater(bloc.stream, emits(isA<OcrPreviewState>()));
-
-      bloc.add(OcrPreviewConfirmedEvent(step: 0, sessionToken: sessionToken));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+      bloc.add(OcrImageCapturedEvent(step: 1, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+      bloc.add(OcrImageCapturedEvent(step: 2, image: MockXFile()));
       await expectLater(bloc.stream, emits(isA<OcrCropState>()));
 
       bloc.add(OcrCropConfirmedEvent(
@@ -88,32 +97,15 @@ void main() {
         corners: const [Offset(0, 0), Offset(1, 0), Offset(1, 1), Offset(0, 1)],
         sessionToken: sessionToken,
       ));
+
       await expectLater(
         bloc.stream,
-        emitsInOrder([
-          isA<OcrStepProcessingState>().having((s) => s.step, 'step', 0),
-          isA<OcrCapturingState>().having((s) => s.step, 'step', 1),
-        ]),
+        emits(isA<OcrCropState>().having((s) => s.step, 'step', 1)),
       );
     });
 
-    test('OcrPreviewRetakeEvent → OcrCapturingState(same step)', () async {
-      final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
-      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
-
-      bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
-      await expectLater(bloc.stream, emits(isA<OcrPreviewState>()));
-
-      bloc.add(OcrPreviewRetakeEvent(step: 0));
-      await expectLater(
-        bloc.stream,
-        emits(isA<OcrCapturingState>().having((s) => s.step, 'step', 0)),
-      );
-    });
-
-    test('OcrScanSubmittedEvent → OcrCompletedState on vision success', () async {
-      when(() => mockRepository.scanImages(any(), sessionToken))
+    test('OcrCropConfirmedEvent step 2 (last) → OcrStepProcessingState then scan', () async {
+      when(() => mockRepository.scanImages(any(), sessionToken, corners: any(named: 'corners')))
           .thenAnswer((_) async => OcrScanResponse(
                 jobId: jobId,
                 status: OcrJobStatus.completed,
@@ -121,16 +113,40 @@ void main() {
               ));
 
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
-      bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
-      bloc.add(OcrScanSubmittedEvent(sessionToken: sessionToken));
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
 
+      bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+      bloc.add(OcrImageCapturedEvent(step: 1, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+      bloc.add(OcrImageCapturedEvent(step: 2, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrCropState>()));
+
+      bloc.add(OcrCropConfirmedEvent(
+        step: 0,
+        corners: const [Offset(0, 0), Offset(1, 0), Offset(1, 1), Offset(0, 1)],
+        sessionToken: sessionToken,
+      ));
+      await expectLater(bloc.stream, emits(isA<OcrCropState>()));
+
+      bloc.add(OcrCropConfirmedEvent(
+        step: 1,
+        corners: const [Offset(0, 0), Offset(1, 0), Offset(1, 1), Offset(0, 1)],
+        sessionToken: sessionToken,
+      ));
+      await expectLater(bloc.stream, emits(isA<OcrCropState>()));
+
+      bloc.add(OcrCropConfirmedEvent(
+        step: 2,
+        corners: const [Offset(0, 0), Offset(1, 0), Offset(1, 1), Offset(0, 1)],
+        sessionToken: sessionToken,
+      ));
+
+      // After last crop, goes directly to scan (no step processing animation).
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          isA<OcrCapturingState>(),
-          isA<OcrPreviewState>(),
-          // Emitted immediately before await to give UI a loading indicator.
           isA<OcrProcessingState>(),
           isA<OcrCompletedState>().having(
             (s) => s.fields['license_plate']?.value,
@@ -141,7 +157,61 @@ void main() {
       );
     });
 
-    test('OcrScanSubmittedEvent → OcrProcessingState on textract fallback', () async {
+    // ── Retake ───────────────────────────────────────────────────────────────
+
+    test('OcrPreviewRetakeEvent → OcrCapturingState(step: 0) clears all', () async {
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+
+      bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+      bloc.add(OcrImageCapturedEvent(step: 1, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
+      bloc.add(OcrImageCapturedEvent(step: 2, image: MockXFile()));
+      await expectLater(bloc.stream, emits(isA<OcrCropState>()));
+
+      bloc.add(OcrPreviewRetakeEvent(step: 0));
+      await expectLater(
+        bloc.stream,
+        emits(isA<OcrCapturingState>()
+            .having((s) => s.step, 'step', 0)
+            .having((s) => s.capturedImages.length, 'capturedImages.length', 0)),
+      );
+    });
+
+    // ── API success ──────────────────────────────────────────────────────────
+
+    test('OcrScanSubmittedEvent → OcrCompletedState on success', () async {
+      when(() => mockRepository.scanImages(any(), sessionToken))
+          .thenAnswer((_) async => OcrScanResponse(
+                jobId: jobId,
+                status: OcrJobStatus.completed,
+                fields: mockFields,
+              ));
+
+      final bloc = buildBloc();
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
+      bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
+      bloc.add(OcrScanSubmittedEvent(sessionToken: sessionToken));
+
+      // step 0 captured → OcrCapturingState(step:1); then scan submitted directly
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          isA<OcrCapturingState>(), // start
+          isA<OcrCapturingState>(), // after capture step 0
+          isA<OcrProcessingState>(),
+          isA<OcrCompletedState>().having(
+            (s) => s.fields['license_plate']?.value,
+            'license_plate.value',
+            'СА1234АА',
+          ),
+        ]),
+      );
+    });
+
+    test('OcrScanSubmittedEvent → OcrProcessingState on async fallback', () async {
       when(() => mockRepository.scanImages(any(), sessionToken))
           .thenAnswer((_) async => OcrScanResponse(
                 jobId: jobId,
@@ -149,7 +219,7 @@ void main() {
               ));
 
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
       bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
       bloc.add(OcrScanSubmittedEvent(sessionToken: sessionToken));
 
@@ -157,12 +227,8 @@ void main() {
         bloc.stream,
         emitsInOrder([
           isA<OcrCapturingState>(),
-          isA<OcrPreviewState>(),
-          // Immediate local-scanning indicator before the cloud response.
-          isA<OcrProcessingState>().having(
-            (s) => s.jobId, 'jobId', 'local-scanning',
-          ),
-          // Cloud response confirms async processing with the real job id.
+          isA<OcrCapturingState>(),
+          isA<OcrProcessingState>().having((s) => s.jobId, 'jobId', 'local-scanning'),
           isA<OcrProcessingState>().having((s) => s.jobId, 'jobId', jobId),
         ]),
       );
@@ -179,7 +245,7 @@ void main() {
               ));
 
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
 
       for (int step = 0; step < 3; step++) {
         bloc.add(OcrImageCapturedEvent(step: step, image: MockXFile()));
@@ -208,15 +274,15 @@ void main() {
           .thenThrow(OcrApiException('Server error'));
 
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
       bloc.add(OcrImageCapturedEvent(step: 0, image: MockXFile()));
       bloc.add(OcrScanSubmittedEvent(sessionToken: sessionToken));
 
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          isA<OcrCapturingState>(),
-          isA<OcrPreviewState>(),
+          isA<OcrCapturingState>(), // start
+          isA<OcrCapturingState>(), // after capture step 0
           isA<OcrProcessingState>(),
           isA<OcrFailedState>(),
         ]),
@@ -227,7 +293,7 @@ void main() {
 
     test('OcrFrameAnalyzedEvent with blur status → OcrCameraQualityState(blur)', () async {
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
       await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
 
       const quality = QualityResult(
@@ -248,7 +314,7 @@ void main() {
 
     test('OcrFrameAnalyzedEvent VIN found → OcrVinDetectedState', () async {
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
       await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
 
       const quality = QualityResult(
@@ -282,7 +348,7 @@ void main() {
 
     test('VIN_FOUND takes priority over QUALITY_OK when both conditions met', () async {
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
       await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
 
       // Send VIN found — should emit VinDetected, not QualityOk
@@ -308,7 +374,7 @@ void main() {
 
     test('OcrStartCaptureEvent resets consecutive frame counter', () async {
       final bloc = buildBloc();
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
       await expectLater(bloc.stream, emits(isA<OcrCapturingState>()));
 
       // Send 2 ok frames, then restart — counter should reset
@@ -320,7 +386,7 @@ void main() {
       );
       bloc.add(OcrFrameAnalyzedEvent(quality: okQuality));
       bloc.add(OcrFrameAnalyzedEvent(quality: okQuality));
-      bloc.add(OcrStartCaptureEvent());
+      bloc.add(OcrStartCaptureEvent(sessionToken: sessionToken));
 
       await expectLater(
         bloc.stream,
