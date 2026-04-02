@@ -27,6 +27,15 @@ _PSM_SPARSE = "--psm 11 --oem 3"
 # and Latin-character field codes (A, E, D.1, C.2.1, etc.)
 _LANG = "bul+eng"
 
+# MRZ zones use OCR-B font with only uppercase Latin, digits, and '<' filler.
+# Using bul+eng here is harmful — the Bulgarian model confuses '<' with random
+# Cyrillic/Latin characters.  Restrict to eng + explicit char whitelist.
+_LANG_MRZ = "eng"
+_PSM_MRZ = (
+    "--psm 6 --oem 3"
+    " -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<"
+)
+
 
 def extract_blocks(image: np.ndarray) -> List[Tuple[str, float]]:
     """Run Tesseract OCR and return list of (text, confidence) tuples.
@@ -72,6 +81,20 @@ def full_text(image: np.ndarray) -> str:
     """Return the full OCR output as a single string preserving layout."""
     gray = _to_gray(image)
     return pytesseract.image_to_string(gray, lang=_LANG, config=_PSM_FULL)
+
+
+def full_text_mrz(image: np.ndarray) -> str:
+    """OCR optimized for MRZ zones (OCR-B font, eng-only, '<' in whitelist).
+
+    Using bul+eng on MRZ is harmful: the Bulgarian model has no concept of
+    the '<' filler character and substitutes garbage (dashes, newlines, etc.),
+    breaking MRZ positional parsing.  This function uses eng only with an
+    explicit character whitelist so Tesseract stays in the correct charset.
+    """
+    gray = _to_gray(image)
+    # Binarize: MRZ text is dark on light background — Otsu gives clean edges
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return pytesseract.image_to_string(binary, lang=_LANG_MRZ, config=_PSM_MRZ)
 
 
 def blocks_to_text(blocks: List[Tuple[str, float]]) -> str:

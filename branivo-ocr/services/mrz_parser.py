@@ -44,7 +44,11 @@ VIN_RE = re.compile(r"([A-HJ-NPR-Z0-9]{17})")
 REG_RE = re.compile(r"\b([A-Z]{1,2}[\s\-]?[0-9O]{4}[\s\-]?[A-Z]{2})(?![A-Z])")
 EGN_RE = re.compile(r"(?<!\d)(\d{10})(?!\d)")
 DATE_RE = re.compile(r"\b(\d{2}[.\/\-]\d{2}[.\/\-]\d{4})\b")
+# Primary: strict MRZ (correct OCR with '<' preserved)
 MRZ_LINE_RE = re.compile(r"^[A-Z0-9<]{20,}$")
+# Fallback: tolerate common Tesseract substitutes for '<' (dash, dot, space)
+# when there are enough uppercase+digit characters to look like an MRZ line
+_MRZ_LOOSE_RE = re.compile(r"^[A-Z0-9<\-.\s]{20,}$")
 
 # Matches a pure-Latin-script line (digits, letters, basic punctuation)
 LATIN_RE = re.compile(r"^[A-Z0-9\s\-./]+$", re.I)
@@ -98,12 +102,22 @@ def _detect_mrz_lines(text: str) -> List[str]:
     """Return lines that look like MRZ (uppercase + digits + '<', ≥ 20 chars).
 
     Normalises each line before matching: uppercase + strip OCR-inserted spaces.
+    Falls back to loose matching when Tesseract substituted '<' with '-' or '.'.
     """
     result = []
     for line in text.splitlines():
         normalised = line.strip().upper().replace(" ", "")
         if MRZ_LINE_RE.match(normalised):
             result.append(normalised)
+            continue
+        # Loose pass: if the line looks MRZ-ish, normalise '<' substitutes
+        loose = line.strip().upper()
+        if _MRZ_LOOSE_RE.match(loose):
+            # Replace common Tesseract '<' substitutes: dash, dot, lone space
+            fixed = re.sub(r"[-.\s]", "<", loose).replace(" ", "")
+            # Only accept if it still meets the strict pattern after fixing
+            if MRZ_LINE_RE.match(fixed):
+                result.append(fixed)
     return result
 
 

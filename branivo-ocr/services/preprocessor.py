@@ -12,8 +12,11 @@ All operations are in-memory — no disk writes.
 
 from __future__ import annotations
 
+import io
+
 import cv2
 import numpy as np
+from PIL import Image, ExifTags
 
 
 MAX_DIM = 2048  # cap longest side to avoid OOM on high-res photos
@@ -49,36 +52,42 @@ def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
 
 
 def light_preprocess(image_bytes: bytes) -> np.ndarray:
-    """Light pipeline for EasyOCR — returns BGR color image.
+    """Light pipeline for Tesseract — returns BGR color image.
 
-    resize → auto-orient → bilateral → CLAHE → glare inpaint → deskew.
+    resize → bilateral → CLAHE → glare inpaint.
+    EXIF orientation is handled in _decode, so _auto_orient is not needed.
+    _deskew_color is omitted: it uses dark pixel distribution to detect skew,
+    which is unreliable for hand-held photos with significant background.
     """
     img = _decode(image_bytes)
     img = _resize(img)
-    img = _auto_orient(img)
     img = _bilateral(img)
     img = _clahe(img)
     img = _mask_glare(img)
-    return _deskew_color(img)
+    return img
 
 
 def crop_mrz_zone(image_bytes: bytes) -> np.ndarray:
-    """Crop + light-preprocess the MRZ zone of the image.
+    """Crop + light-preprocess the MRZ zone (bottom 38 % of image).
 
-    Handles open-booklet shots where the owner/MRZ page is in the top half
-    (rotated 90° or 180°): auto-orient is applied before cropping so the MRZ
-    ends up at the bottom 30 % as expected.
+    Auto-orient and deskew are intentionally skipped here:
+    - Auto-orient was rotating hand-held portrait photos CCW, moving the
+      owner-text region into the crop window instead of the MRZ lines.
+    - Deskew on a partial card image picks up background/hand pixels and
+      applies large incorrect rotations that break OCR.
+    The MRZ is always at the physical bottom of a correctly-held registration
+    certificate, so a generous bottom crop (38 %) reliably captures it without
+    orientation guessing.  Bilateral + CLAHE + glare inpaint are still applied
+    to improve contrast on laminated card surfaces.
     """
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img = _decode(image_bytes)   # EXIF rotation applied here
     img = _resize(img)
-    img = _auto_orient(img)
     h = img.shape[0]
-    mrz = img[int(h * 0.70):, :]
+    mrz = img[int(h * 0.62):, :]
     mrz = _bilateral(mrz)
     mrz = _clahe(mrz)
     mrz = _mask_glare(mrz)
-    return _deskew_color(mrz)
+    return mrz
 
 
 # ── private helpers ────────────────────────────────────────────────────────────
@@ -94,8 +103,37 @@ def _resize(img: np.ndarray) -> np.ndarray:
 
 
 def _decode(image_bytes: bytes) -> np.ndarray:
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    """Decode image bytes to BGR, applying EXIF orientation if present.
+
+    OpenCV's imdecode ignores EXIF rotation tags, producing upside-down or
+    sideways images for phone photos.  PIL reads EXIF and corrects orientation
+    before we convert back to a BGR numpy array for OpenCV.
+    """
+    pil_img = Image.open(io.BytesIO(image_bytes))
+    pil_img = _apply_exif_orientation(pil_img)
+    rgb = np.array(pil_img.convert("RGB"))
+    return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+
+def _apply_exif_orientation(img: Image.Image) -> Image.Image:
+    """Rotate/flip a PIL image according to its EXIF Orientation tag."""
+    try:
+        exif = img._getexif()  # type: ignore[attr-defined]
+    except Exception:
+        exif = None
+    if not exif:
+        return img
+    orient_tag = next(
+        (tag for tag, name in ExifTags.TAGS.items() if name == "Orientation"), None
+    )
+    if orient_tag is None:
+        return img
+    orientation = exif.get(orient_tag)
+    rotations = {3: 180, 6: 270, 8: 90}
+    degrees = rotations.get(orientation)
+    if degrees:
+        img = img.rotate(degrees, expand=True)
+    return img
 
 
 def _bilateral(img: np.ndarray) -> np.ndarray:

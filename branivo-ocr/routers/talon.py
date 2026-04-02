@@ -91,8 +91,18 @@ async def debug_preview(
 
 async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
     mrz_img = preprocessor.crop_mrz_zone(image_bytes)
+
+    # MRZ-optimized OCR: eng-only + char whitelist so '<' is read correctly
+    text = ocr_engine.full_text_mrz(mrz_img)
+
+    # If MRZ crop yields no useful content, fall back to full-image MRZ scan
+    if len(text.strip()) < 10:
+        full_img = preprocessor.light_preprocess(image_bytes)
+        text = ocr_engine.full_text_mrz(full_img)
+        logger.info("step1: MRZ crop empty — fell back to full-image scan")
+
+    # Confidence measured on general blocks (both Cyrillic owner text + Latin MRZ)
     blocks = ocr_engine.extract_blocks(mrz_img)
-    text = ocr_engine.blocks_to_text(blocks)
     ocr_conf = ocr_engine.avg_confidence(blocks)
 
     parsed, field_conf = mrz_parser.parse_step1(text)
@@ -135,6 +145,14 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
 
     if step == 2:
         parsed, field_conf = mrz_parser.parse_step2(text)
+        # VIN on the vehicle identity page uses OCR-B font — run a dedicated
+        # Latin-only pass if the general OCR missed it.
+        if not parsed.get("vin"):
+            vin_text = ocr_engine.full_text_mrz(img)
+            vin_parsed, _ = mrz_parser.parse_step2(vin_text)
+            if vin_parsed.get("vin"):
+                parsed["vin"] = vin_parsed["vin"]
+                logger.info("step2: VIN recovered via MRZ-pass: %s", parsed["vin"])
     else:
         parsed, field_conf = mrz_parser.parse_step3(text)
 
