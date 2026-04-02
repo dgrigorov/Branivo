@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/painting.dart' show Offset;
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../../../../core/api/endpoints.dart';
@@ -19,8 +20,9 @@ class MlKitOcrRepository implements OcrRepository {
   @override
   Future<OcrScanResponse> scanImages(
     List<XFile> images,
-    String sessionToken,
-  ) async {
+    String sessionToken, {
+    List<List<Offset>?>? corners,
+  }) async {
     if (images.isEmpty) {
       return OcrScanResponse(
         jobId: 'local-empty',

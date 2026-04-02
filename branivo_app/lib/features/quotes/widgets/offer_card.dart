@@ -1,62 +1,39 @@
 import 'package:flutter/material.dart';
 import '../data/quote_api_repository.dart';
 
+const _kInstallmentOrdinals = ['1-ва', '2-ра', '3-та', '4-та'];
+
 class OfferCard extends StatelessWidget {
   const OfferCard({
     super.key,
     required this.offer,
     required this.isRecommended,
+    this.selectedInstallmentCount = 1,
     this.onSelect,
-    this.recommendReason,
   });
 
   final QuoteOffer offer;
   final bool isRecommended;
+  final int selectedInstallmentCount;
   final VoidCallback? onSelect;
-  final String? recommendReason;
 
   bool get _isUnavailable =>
       offer.status == 'error' || offer.status == 'timeout';
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Semantics(
-      button: true,
+      button: !_isUnavailable,
       label: isRecommended
           ? 'Препоръчана оферта от ${offer.insurerName}'
           : 'Оферта от ${offer.insurerName}',
-      child: FocusableActionDetector(
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) => onSelect?.call(),
-          ),
-        },
-        child: GestureDetector(
-          onTap: _isUnavailable ? null : onSelect,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: isRecommended
-                    ? theme.colorScheme.primary
-                    : _isUnavailable
-                        ? theme.colorScheme.outline.withValues(alpha: 0.3)
-                        : theme.colorScheme.outline,
-                width: isRecommended ? 2 : 1,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              color: _isUnavailable
-                  ? theme.colorScheme.surface.withValues(alpha: 0.5)
-                  : theme.colorScheme.surface,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _isUnavailable ? _buildUnavailable(context) : _buildContent(context),
-            ),
-          ),
+      child: InkWell(
+        onTap: _isUnavailable ? null : onSelect,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: _isUnavailable
+              ? _buildUnavailable(context)
+              : _buildContent(context),
         ),
       ),
     );
@@ -64,56 +41,114 @@ class OfferCard extends StatelessWidget {
 
   Widget _buildContent(BuildContext context) {
     final theme = Theme.of(context);
+    final option = offer.optionFor(selectedInstallmentCount);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      offer.insurerName,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (isRecommended) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Препоръчано',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (option != null && selectedInstallmentCount > 1)
+                _buildInstallmentRows(context, option)
+              else
+                _buildTotalPrice(context, option),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          onPressed: onSelect,
+          style: FilledButton.styleFrom(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+          child: const Text('ИЗБЕРИ'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInstallmentRows(
+      BuildContext context, QuotePaymentOption option) {
+    final theme = Theme.of(context);
+    final items = option.installments;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              offer.insurerName,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+        for (int i = 0; i < items.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Text(
+              '${_kInstallmentOrdinals[i]}: ${items[i].amountBgn.toStringAsFixed(2)} лв.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
               ),
-            ),
-            if (isRecommended)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '⭐ Препоръчано',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        if (isRecommended && recommendReason != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            recommendReason!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: const Color(0xFF6B7280),
-              fontStyle: FontStyle.italic,
             ),
           ),
-        ],
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Text(
-          offer.price != null
-              ? '${offer.price!.toStringAsFixed(2)} ${offer.currency}'
-              : 'Цената не е налична',
-          style: theme.textTheme.headlineSmall?.copyWith(
+          '${option.totalBgn.toStringAsFixed(2)} лв. общо',
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.primary,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTotalPrice(BuildContext context, QuotePaymentOption? option) {
+    final theme = Theme.of(context);
+    final total = option?.totalBgn ?? offer.price;
+    return Text(
+      total != null
+          ? '${total.toStringAsFixed(2)} лв.'
+          : 'Цената не е налична',
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.bold,
+        color: theme.colorScheme.primary,
+      ),
     );
   }
 
@@ -123,13 +158,16 @@ class OfferCard extends StatelessWidget {
       children: [
         Icon(
           Icons.info_outline,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+          size: 18,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
         ),
         const SizedBox(width: 8),
-        Text(
-          '${offer.insurerName} — Временно недостъпен',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+        Expanded(
+          child: Text(
+            '${offer.insurerName} — Временно недостъпен',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
           ),
         ),
       ],
@@ -142,12 +180,31 @@ class OfferCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      height: 100,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                    height: 14, width: 140, color: Colors.grey[200]),
+                const SizedBox(height: 8),
+                Container(
+                    height: 18, width: 100, color: Colors.grey[200]),
+              ],
+            ),
+          ),
+          Container(
+            height: 36,
+            width: 80,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -99,18 +99,6 @@ export class AdminVehicleCatalogController {
     });
   }
 
-  // ─── Makes ────────────────────────────────────────────────────────────────
-
-  @Get('makes')
-  async listMakes(
-    @Query() query: VehicleMakeQueryDto,
-  ): Promise<VehicleMakeDto[]> {
-    return this.vehicleCatalogService.listMakes({
-      ...query,
-      includeInactive: true,
-    });
-  }
-
   @Post('makes')
   @HttpCode(HttpStatus.CREATED)
   async createMake(@Body() dto: CreateVehicleMakeDto): Promise<VehicleMakeDto> {

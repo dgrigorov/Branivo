@@ -9,6 +9,7 @@ import {
 } from './circuit-breaker.service';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
 import { TenantsRepository } from '../tenants/tenants.repository';
+import { NlpScoringService } from './scoring/nlp-scoring.service';
 import { INSURER_ADAPTERS } from './adapters/insurer-adapter.interface';
 import { QuoteStatus } from './entities/quote.entity';
 import type { Insurer } from './entities/insurer.entity';
@@ -94,6 +95,14 @@ const mockTenantsRepo = {
   findById: jest.fn().mockResolvedValue({ id: TENANT_ID, status: 'active' }),
 };
 
+const mockNlpScoringService = {
+  detectIntent: jest.fn().mockReturnValue({
+    intent: 'price',
+    confidence: 0.9,
+    appliedWeights: { price: 1.0 },
+  }),
+};
+
 const allianzAdapter = {
   insurerCode: 'allianz',
   fetchQuote: jest.fn().mockResolvedValue({
@@ -163,6 +172,7 @@ describe('QuotesService', () => {
         { provide: CircuitBreakerService, useValue: mockCircuitBreakerService },
         { provide: TenantContext, useValue: mockTenantContext },
         { provide: TenantsRepository, useValue: mockTenantsRepo },
+        { provide: NlpScoringService, useValue: mockNlpScoringService },
         {
           provide: INSURER_ADAPTERS,
           useValue: [

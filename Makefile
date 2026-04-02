@@ -13,7 +13,8 @@
         status \
         flutter-pub-get flutter-test flutter-analyze \
         flutter-run flutter-install flutter-run-clean flutter-clean \
-        scrape-vehicles import-vehicles
+        scrape-vehicles import-vehicles \
+        ocr ocr-rebuild ocr-logs ocr-shell
 
 # ── Default ──────────────────────────────────────────────────────────────────
 
@@ -202,6 +203,20 @@ scrape-vehicles: ## Crawl bg.autodata24.com and save to scripts/output/autodata2
 
 import-vehicles: ## Import scripts/output/autodata24-modifications.json into Branivo vehicle catalog
 	npm run import
+
+# ── branivo-ocr (Python OCR microservice) ─────────────────────────────────────
+
+ocr: ## Start branivo-ocr container (port 8888 → /ocr/talon)
+	docker compose up -d branivo-ocr
+
+ocr-rebuild: ## Rebuild branivo-ocr image and restart
+	docker compose build branivo-ocr && docker compose up -d branivo-ocr
+
+ocr-logs: ## Tail branivo-ocr logs
+	docker compose logs -f branivo-ocr
+
+ocr-shell: ## Open shell inside running branivo-ocr container
+	docker exec -it branivo-ocr bash
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 

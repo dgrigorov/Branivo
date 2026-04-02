@@ -55,11 +55,17 @@ const ICONS = {
 
 // ─── Nav Structure ───────────────────────────────────────────────────────────
 
+interface NavChild {
+  label: string;
+  href: string;
+}
+
 interface NavItem {
   label: string;
   href: string;
   icon: keyof typeof ICONS;
   allowedRoles?: UserRole[];
+  children?: readonly NavChild[];
 }
 
 interface NavSection {
@@ -90,7 +96,14 @@ const SECTIONS: NavSection[] = [
     allowedRoles: CLIENT_ROLES,
     items: [
       { label: 'МПС',                href: '/bg/vehicles',                  icon: 'car' },
-      { label: 'Оферти',             href: '/bg/quotes',                    icon: 'chart' },
+      {
+        label: 'Оферти',
+        href: '/bg/quotes',
+        icon: 'chart',
+        children: [
+          { label: 'GO Застраховка', href: '/bg/quotes/go' },
+        ],
+      },
       { label: 'Портфейл',           href: '/bg/wallet',                    icon: 'wallet' },
     ],
   },
@@ -368,27 +381,49 @@ export function AppSidebar() {
               {/* Items */}
               {visibleItems.map((item) => {
                 const active = isActive(item.href);
+                const childActive = item.children?.some((c) => isActive(c.href)) ?? false;
+                const parentActive = active || childActive;
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    title={isCollapsed ? item.label : undefined}
-                    className={[
-                      'mx-2 my-0.5 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
-                      active
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
-                      isCollapsed ? 'justify-center' : '',
-                    ].join(' ')}
-                  >
-                    <Ico
-                      d={ICONS[item.icon]}
-                      className={`size-[18px] shrink-0 ${active ? 'text-blue-600' : 'text-slate-400'}`}
-                    />
-                    {!isCollapsed && (
-                      <span className="truncate">{item.label}</span>
-                    )}
-                  </Link>
+                  <div key={item.href}>
+                    <Link
+                      href={item.href}
+                      title={isCollapsed ? item.label : undefined}
+                      className={[
+                        'mx-2 my-0.5 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+                        parentActive
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                        isCollapsed ? 'justify-center' : '',
+                      ].join(' ')}
+                    >
+                      <Ico
+                        d={ICONS[item.icon]}
+                        className={`size-[18px] shrink-0 ${parentActive ? 'text-blue-600' : 'text-slate-400'}`}
+                      />
+                      {!isCollapsed && (
+                        <span className="truncate">{item.label}</span>
+                      )}
+                    </Link>
+                    {/* Submenu children — only when sidebar is expanded */}
+                    {!isCollapsed && item.children?.map((child) => {
+                      const childIsActive = isActive(child.href);
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={[
+                            'mx-2 my-0.5 flex items-center gap-2 rounded-lg py-1.5 pl-9 pr-2.5 text-xs font-medium transition-colors',
+                            childIsActive
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
+                          ].join(' ')}
+                        >
+                          <span className="h-1 w-1 shrink-0 rounded-full bg-current opacity-60" aria-hidden="true" />
+                          <span className="truncate">{child.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </div>

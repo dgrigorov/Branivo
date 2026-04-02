@@ -18,6 +18,7 @@ import '../../features/vehicles/screens/vehicle_validation_screen.dart';
 import '../../features/vehicles/bloc/vehicle_validation_bloc.dart';
 import '../../features/vehicles/data/repositories/vehicle_api_repository.dart';
 import '../../features/quotes/screens/offers_screen.dart';
+import '../../features/quotes/screens/installment_selection_screen.dart';
 import '../../features/quotes/bloc/quote_bloc.dart';
 import '../../features/quotes/data/quote_api_repository.dart';
 import '../../features/payments/screens/payment_screen.dart';
@@ -93,6 +94,7 @@ const _publicRoutes = {
   '/vehicles/scan',
   '/vehicles/validate',
   '/quotes/offers',
+  '/quotes/installment-selection',
   '/onboarding',
   '/reset-password',
 };
@@ -119,7 +121,7 @@ Future<void> _startAnonScan(
           ),
         );
       },
-      onManualEntry: () => context.go(
+      onManualEntry: () => context.push(
         '/vehicles/validate',
         extra: VehicleValidateRouteArgs(
           vin: '',
@@ -241,6 +243,16 @@ class AppRouter {
           return BlocProvider(
             create: (_) => QuoteBloc(repository: repo),
             child: OffersScreen(sessionToken: args.sessionToken),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/quotes/installment-selection',
+        builder: (context, state) {
+          final args = state.extra as InstallmentSelectionRouteArgs;
+          return InstallmentSelectionScreen(
+            offer: args.offer,
+            initialInstallmentCount: args.initialInstallmentCount,
           );
         },
       ),

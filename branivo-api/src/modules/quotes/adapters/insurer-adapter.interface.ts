@@ -1,3 +1,14 @@
+export interface QuoteInstallment {
+  number: number;
+  amountBgn: number;
+}
+
+export interface QuotePaymentOption {
+  installmentCount: number;
+  installments: QuoteInstallment[];
+  totalBgn: number;
+}
+
 export interface QuoteRequest {
   sessionToken: string;
   tenantId: string;
@@ -17,6 +28,7 @@ export interface QuoteResult {
   coverDetails: Record<string, unknown>;
   extras: Record<string, unknown>;
   rawResponse: Record<string, unknown>;
+  paymentOptions?: QuotePaymentOption[];
 }
 
 export interface InsurerAdapter {

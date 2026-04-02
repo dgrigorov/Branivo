@@ -22,7 +22,7 @@ import type { Insurer } from './entities/insurer.entity';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import type { CreateQuoteDto } from './dto/create-quote.dto';
 import type { QuoteResponseDto } from './dto/quote-response.dto';
-import type { QuoteOfferDto } from './dto/quote-offer.dto';
+import type { QuoteOfferDto, PaymentOptionDto } from './dto/quote-offer.dto';
 import type { RankWithPreferenceDto } from './dto/rank-with-preference.dto';
 
 export interface NlpRankResponseDto {
@@ -136,7 +136,12 @@ export class QuotesService {
           status: QuoteStatus.SUCCESS,
           price: quoteResult.price,
           currency: quoteResult.currency,
-          coverDetails: quoteResult.coverDetails,
+          coverDetails: {
+            ...quoteResult.coverDetails,
+            ...(quoteResult.paymentOptions !== undefined
+              ? { paymentOptions: quoteResult.paymentOptions }
+              : {}),
+          },
           extras: quoteResult.extras,
           rawResponse: quoteResult.rawResponse,
         } as QueryDeepPartialEntity<Quote>);
@@ -232,6 +237,9 @@ export class QuotesService {
 
     const offers: QuoteOfferDto[] = quotes.map((q) => {
       const s = scoreMap.get(q.insurer?.code ?? '');
+      const paymentOptions = Array.isArray(q.coverDetails?.['paymentOptions'])
+        ? (q.coverDetails['paymentOptions'] as PaymentOptionDto[])
+        : [];
       const offer: QuoteOfferDto = {
         id: q.id,
         insurerCode: q.insurer?.code ?? '',
@@ -242,6 +250,7 @@ export class QuotesService {
         isRecommended: s?.isRecommended ?? false,
         status: q.status,
         extras: q.extras,
+        paymentOptions,
       };
       return offer;
     });
@@ -263,6 +272,10 @@ export class QuotesService {
     quotes: Awaited<ReturnType<QuotesRepository['findBySessionToken']>>,
   ): QuoteResponseDto {
     const offers: QuoteOfferDto[] = quotes.map((q) => {
+      const paymentOptions = Array.isArray(q.coverDetails?.['paymentOptions'])
+        ? (q.coverDetails['paymentOptions'] as PaymentOptionDto[])
+        : [];
+
       const offer: QuoteOfferDto = {
         id: q.id,
         insurerCode: q.insurer?.code ?? '',
@@ -273,6 +286,7 @@ export class QuotesService {
         isRecommended: q.isRecommended,
         status: q.status,
         extras: q.extras,
+        paymentOptions,
       };
 
       if (q.status === QuoteStatus.TIMEOUT) offer.errorReason = 'timeout';

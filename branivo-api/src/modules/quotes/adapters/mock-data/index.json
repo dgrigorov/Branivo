@@ -1,0 +1,52 @@
+{
+  "insurers": [
+    {
+      "code": "uniqa",
+      "name": "UNIQA",
+      "singleInstallmentEur": 242.96,
+      "singleInstallmentBgn": 475.19
+    },
+    {
+      "code": "ozk",
+      "name": "OZK",
+      "singleInstallmentEur": 182.46,
+      "singleInstallmentBgn": 356.86
+    },
+    {
+      "code": "generali",
+      "name": "Generali",
+      "singleInstallmentEur": 191,
+      "singleInstallmentBgn": 373.56
+    },
+    {
+      "code": "euroins",
+      "name": "Euroins",
+      "singleInstallmentEur": 198.94,
+      "singleInstallmentBgn": 389.09
+    },
+    {
+      "code": "dzi",
+      "name": "ДЗИ",
+      "singleInstallmentEur": 297.1,
+      "singleInstallmentBgn": 581.08
+    },
+    {
+      "code": "bulstrad",
+      "name": "Булстрад",
+      "singleInstallmentEur": 103.32,
+      "singleInstallmentBgn": 202.08
+    },
+    {
+      "code": "bulins",
+      "name": "Булинс",
+      "singleInstallmentEur": 182.53,
+      "singleInstallmentBgn": null
+    },
+    {
+      "code": "allianz",
+      "name": "Allianz",
+      "singleInstallmentEur": 94.15,
+      "singleInstallmentBgn": 184.15
+    }
+  ]
+}

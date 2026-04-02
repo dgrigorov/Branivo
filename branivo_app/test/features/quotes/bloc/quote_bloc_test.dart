@@ -19,6 +19,7 @@ final _mockOffer = QuoteOffer(
   isRecommended: true,
   status: 'success',
   extras: {},
+  paymentOptions: [],
 );
 
 final _mockSession = QuoteSession(
@@ -99,6 +100,7 @@ void main() {
             isRecommended: false,
             status: 'error',
             extras: {},
+            paymentOptions: [],
             errorReason: 'unavailable',
           ),
         ],

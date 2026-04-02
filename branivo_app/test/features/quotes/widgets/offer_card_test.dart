@@ -13,6 +13,7 @@ final _successOffer = QuoteOffer(
   isRecommended: false,
   status: 'success',
   extras: {},
+  paymentOptions: [],
 );
 
 final _errorOffer = QuoteOffer(
@@ -25,20 +26,21 @@ final _errorOffer = QuoteOffer(
   isRecommended: false,
   status: 'error',
   extras: {},
+  paymentOptions: [],
   errorReason: 'unavailable',
 );
 
 Widget _buildWidget(
   QuoteOffer offer, {
   bool isRecommended = false,
-  String? recommendReason,
+  int selectedInstallmentCount = 1,
 }) {
   return MaterialApp(
     home: Scaffold(
       body: OfferCard(
         offer: offer,
         isRecommended: isRecommended,
-        recommendReason: recommendReason,
+        selectedInstallmentCount: selectedInstallmentCount,
       ),
     ),
   );
@@ -46,19 +48,22 @@ Widget _buildWidget(
 
 void main() {
   group('OfferCard', () {
-    testWidgets('renders recommended badge when isRecommended is true', (tester) async {
+    testWidgets('renders recommended badge when isRecommended is true',
+        (tester) async {
       await tester.pumpWidget(_buildWidget(_successOffer, isRecommended: true));
 
-      expect(find.text('⭐ Препоръчано'), findsOneWidget);
+      expect(find.text('Препоръчано'), findsOneWidget);
     });
 
-    testWidgets('does not render badge when isRecommended is false', (tester) async {
+    testWidgets('does not render badge when isRecommended is false',
+        (tester) async {
       await tester.pumpWidget(_buildWidget(_successOffer));
 
-      expect(find.text('⭐ Препоръчано'), findsNothing);
+      expect(find.text('Препоръчано'), findsNothing);
     });
 
-    testWidgets('renders "Временно недостъпен" for error status', (tester) async {
+    testWidgets('renders "Временно недостъпен" for error status',
+        (tester) async {
       await tester.pumpWidget(_buildWidget(_errorOffer));
 
       expect(find.textContaining('Временно недостъпен'), findsOneWidget);
@@ -71,41 +76,41 @@ void main() {
       expect(semantics.label, contains('Allianz Bulgaria'));
     });
 
-    testWidgets('renders price for success offer', (tester) async {
+    testWidgets('renders total price for single installment', (tester) async {
       await tester.pumpWidget(_buildWidget(_successOffer));
 
       expect(find.textContaining('450.00'), findsOneWidget);
     });
 
-    testWidgets('renders recommendReason subtitle when recommended and reason provided',
-        (tester) async {
-      await tester.pumpWidget(_buildWidget(
-        _successOffer,
-        isRecommended: true,
-        recommendReason: 'Най-добра комбинация',
-      ));
-
-      expect(find.text('Най-добра комбинация'), findsOneWidget);
-    });
-
-    testWidgets('does not render recommendReason when not recommended', (tester) async {
-      await tester.pumpWidget(_buildWidget(
-        _successOffer,
+    testWidgets('renders installment rows for 2-installment tab', (tester) async {
+      final offer = QuoteOffer(
+        id: 'offer-3',
+        insurerCode: 'allianz',
+        insurerName: 'Allianz Bulgaria',
+        price: 200,
+        currency: 'BGN',
+        score: 0.8,
         isRecommended: false,
-        recommendReason: 'Най-добра комбинация',
-      ));
+        status: 'success',
+        extras: {},
+        paymentOptions: [
+          QuotePaymentOption(
+            installmentCount: 2,
+            installments: [
+              QuoteInstallment(number: 1, amountBgn: 106.08),
+              QuoteInstallment(number: 2, amountBgn: 93.92),
+            ],
+            totalBgn: 200.0,
+          ),
+        ],
+      );
 
-      expect(find.text('Най-добра комбинация'), findsNothing);
-    });
+      await tester
+          .pumpWidget(_buildWidget(offer, selectedInstallmentCount: 2));
 
-    testWidgets('does not render subtitle when recommendReason is null', (tester) async {
-      await tester.pumpWidget(_buildWidget(
-        _successOffer,
-        isRecommended: true,
-      ));
-
-      // Badge is shown but no reason subtitle
-      expect(find.text('⭐ Препоръчано'), findsOneWidget);
+      expect(find.textContaining('1-ва'), findsOneWidget);
+      expect(find.textContaining('2-ра'), findsOneWidget);
+      expect(find.textContaining('200.00 лв. общо'), findsOneWidget);
     });
   });
 }

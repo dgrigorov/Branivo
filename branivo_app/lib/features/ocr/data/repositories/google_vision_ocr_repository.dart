@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/painting.dart' show Offset;
 import 'package:image_picker/image_picker.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../../core/api/endpoints.dart';
@@ -31,8 +32,9 @@ class GoogleVisionOcrRepository implements OcrRepository {
   @override
   Future<OcrScanResponse> scanImages(
     List<XFile> images,
-    String sessionToken,
-  ) async {
+    String sessionToken, {
+    List<List<Offset>?>? corners,
+  }) async {
     await _checkConnectivity();
 
     final deadline = DateTime.now().add(_timeout);

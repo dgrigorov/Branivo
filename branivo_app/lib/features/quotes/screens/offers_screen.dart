@@ -7,7 +7,7 @@ import '../bloc/quote_event.dart';
 import '../bloc/quote_state.dart';
 import '../data/quote_api_repository.dart';
 import '../widgets/offer_card.dart';
-import '../../payments/screens/payment_screen.dart';
+import '../screens/installment_selection_screen.dart';
 import '../../../core/routing/app_router.dart';
 
 class QuoteOffersRouteArgs {
@@ -16,10 +16,21 @@ class QuoteOffersRouteArgs {
   final String sessionToken;
 }
 
-enum _OfferFilter { all, cheapest, bestCoverage }
+enum _InstallmentTab { single, two, four }
 
-const _kRecommendReason =
-    'Балансирана комбинация от цена, рейтинг и скорост на изплащане';
+extension _InstallmentTabExt on _InstallmentTab {
+  String get label => switch (this) {
+        _InstallmentTab.single => 'ЕДНОКРАТНО',
+        _InstallmentTab.two => '2 ВНОСКИ',
+        _InstallmentTab.four => '4 ВНОСКИ',
+      };
+
+  int get count => switch (this) {
+        _InstallmentTab.single => 1,
+        _InstallmentTab.two => 2,
+        _InstallmentTab.four => 4,
+      };
+}
 
 const _storage = FlutterSecureStorage();
 
@@ -33,7 +44,7 @@ class OffersScreen extends StatefulWidget {
 }
 
 class _OffersScreenState extends State<OffersScreen> {
-  _OfferFilter _filter = _OfferFilter.all;
+  _InstallmentTab _selectedTab = _InstallmentTab.single;
 
   @override
   void initState() {
@@ -43,52 +54,38 @@ class _OffersScreenState extends State<OffersScreen> {
         );
   }
 
-  List<QuoteOffer> _applyFilter(List<QuoteOffer> offers) {
-    final available = offers.where((o) => o.status == 'success').toList();
+  List<QuoteOffer> _sortedOffers(List<QuoteOffer> offers) {
+    final available = offers.where((o) => o.status == 'success').toList()
+      ..sort((a, b) {
+        final aPrice = a.optionFor(_selectedTab.count)?.totalBgn ??
+            a.price ??
+            double.infinity;
+        final bPrice = b.optionFor(_selectedTab.count)?.totalBgn ??
+            b.price ??
+            double.infinity;
+        return aPrice.compareTo(bPrice);
+      });
     final unavailable = offers.where((o) => o.status != 'success').toList();
-
-    switch (_filter) {
-      case _OfferFilter.cheapest:
-        available.sort(
-          (a, b) => (a.price ?? double.infinity)
-              .compareTo(b.price ?? double.infinity),
-        );
-      case _OfferFilter.bestCoverage:
-        available.sort((a, b) => (b.score ?? 0).compareTo(a.score ?? 0));
-      case _OfferFilter.all:
-        available.sort((a, b) => (b.score ?? 0).compareTo(a.score ?? 0));
-    }
-
     return [...available, ...unavailable];
   }
 
-  String _filterLabel(_OfferFilter filter) => switch (filter) {
-        _OfferFilter.all => 'Всички',
-        _OfferFilter.cheapest => 'Най-евтини',
-        _OfferFilter.bestCoverage => 'Най-добро покритие',
-      };
-
   Future<void> _onSelectOffer(QuoteOffer offer) async {
-    if (offer.price == null) return;
-
-    final paymentArgs = PaymentRouteArgs(
-      quoteId: offer.id,
-      insurerName: offer.insurerName,
-      amount: offer.price!,
-      currency: offer.currency,
-    );
-
     final token = await _storage.read(key: 'access_token');
     if (!mounted) return;
 
+    final args = InstallmentSelectionRouteArgs(
+      offer: offer,
+      initialInstallmentCount: _selectedTab.count,
+    );
+
     if (token != null && token.isNotEmpty) {
-      context.push('/payment', extra: paymentArgs);
+      context.push('/quotes/installment-selection', extra: args);
     } else {
       context.push(
         '/auth-gate',
         extra: AuthGateRouteArgs(
-          redirectPath: '/payment',
-          redirectExtra: paymentArgs,
+          redirectPath: '/quotes/installment-selection',
+          redirectExtra: args,
         ),
       );
     }
@@ -97,99 +94,196 @@ class _OffersScreenState extends State<OffersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Оферти за застраховка')),
-      body: BlocBuilder<QuoteBloc, QuoteState>(
-        builder: (context, state) {
-          if (state is QuoteInitialState || state is QuoteLoadingState) {
-            return _buildSkeleton();
-          }
-
-          if (state is QuotePartialState) {
-            return _buildWithFilter(state.offers);
-          }
-
-          if (state is QuoteLoadedState) {
-            if (state.offers.isEmpty) {
-              return const Center(
-                child: Text('Няма налични оферти в момента.'),
-              );
-            }
-            return _buildWithFilter(state.offers);
-          }
-
-          if (state is QuoteErrorState) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Грешка при зареждане на оферти: ${state.message}',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
-          return const SizedBox.shrink();
-        },
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
+        title: const Text(
+          'ГРАЖДАНСКА ОТГОВОРНОСТ',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            letterSpacing: 0.5,
+          ),
+        ),
+        centerTitle: true,
+        elevation: 0,
       ),
-    );
-  }
-
-  Widget _buildWithFilter(List<QuoteOffer> offers) {
-    final filtered = _applyFilter(offers);
-    return Column(
-      children: [
-        _buildFilterChips(),
-        Expanded(child: _buildOfferList(filtered)),
-      ],
-    );
-  }
-
-  Widget _buildFilterChips() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
+      body: Column(
         children: [
-          for (final filter in _OfferFilter.values)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(_filterLabel(filter)),
-                selected: _filter == filter,
-                onSelected: (_) => setState(() => _filter = filter),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
+                child: _buildBody(),
               ),
             ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSkeleton() {
-    return ListView.builder(
-      itemCount: 4,
-      itemBuilder: (context, index) => const OfferCardSkeleton(),
+  Widget _buildBody() {
+    return BlocBuilder<QuoteBloc, QuoteState>(
+      builder: (context, state) {
+        if (state is QuoteInitialState || state is QuoteLoadingState) {
+          return _buildLoadingContent();
+        }
+
+        if (state is QuotePartialState) {
+          return _buildContent(state.offers);
+        }
+
+        if (state is QuoteLoadedState) {
+          if (state.offers.isEmpty) {
+            return const Center(
+              child: Text('Няма налични оферти в момента.'),
+            );
+          }
+          return _buildContent(state.offers);
+        }
+
+        if (state is QuoteErrorState) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Грешка при зареждане на оферти: ${state.message}',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
     );
   }
 
-  Widget _buildOfferList(List<QuoteOffer> offers) {
-    return ListView.builder(
-      itemCount: offers.length,
-      itemBuilder: (context, i) {
-        final offer = offers[i];
-        return Semantics(
-          label: offer.isRecommended
-              ? 'Препоръчана оферта от ${offer.insurerName}'
-              : 'Оферта от ${offer.insurerName}',
-          child: OfferCard(
-            offer: offer,
-            isRecommended: offer.isRecommended,
-            recommendReason:
-                offer.isRecommended ? _kRecommendReason : null,
-            onSelect: offer.price == null ? null : () => _onSelectOffer(offer),
+  Widget _buildLoadingContent() {
+    return Column(
+      children: [
+        _buildHeader(),
+        _buildTabSwitcher(),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.builder(
+            itemCount: 4,
+            itemBuilder: (_, _) => const OfferCardSkeleton(),
           ),
-        );
-      },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContent(List<QuoteOffer> offers) {
+    final sorted = _sortedOffers(offers);
+    return Column(
+      children: [
+        _buildHeader(),
+        _buildTabSwitcher(),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: sorted.length,
+            separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
+            itemBuilder: (context, i) {
+              final offer = sorted[i];
+              return OfferCard(
+                offer: offer,
+                isRecommended: offer.isRecommended,
+                selectedInstallmentCount: _selectedTab.count,
+                onSelect: offer.status == 'success'
+                    ? () => _onSelectOffer(offer)
+                    : null,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+      child: Column(
+        children: [
+          Text(
+            'ОФЕРТИ',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Сравнете и изберете най-добрата оферта',
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabSwitcher() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      height: 44,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: _InstallmentTab.values.map((tab) {
+          final isSelected = _selectedTab == tab;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedTab = tab),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Center(
+                  child: Text(
+                    tab.label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? Colors.white
+                          : Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }

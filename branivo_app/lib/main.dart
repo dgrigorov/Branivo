@@ -10,7 +10,7 @@ import 'core/theme/app_theme.dart';
 import 'features/anonymous_session/data/repositories/anonymous_session_repository.dart';
 import 'features/fleet/data/repositories/fleet_repository.dart';
 import 'features/ocr/data/repositories/ocr_repository.dart';
-import 'features/ocr/data/repositories/mlkit_ocr_repository.dart';
+import 'features/ocr/data/repositories/branivo_ocr_repository.dart';
 import 'features/payments/data/payment_api_repository.dart';
 import 'features/policies/data/repositories/policy_repository.dart';
 import 'features/registration/data/repositories/client_auth_repository.dart';
@@ -42,7 +42,7 @@ Future<void> main() async {
 
   final vehiclesRepository = VehiclesRepository(dio: dio);
   final vehicleApiRepository = VehicleApiRepository(dio: dio, storage: storage);
-  final OcrRepository ocrApiRepository = MlKitOcrRepository(dio: dio);
+  final OcrRepository ocrApiRepository = BranivoOcrRepository();
   final paymentApiRepository = PaymentApiRepository(dio: dio);
   final anonSessionRepository = AnonymousSessionRepository(dio: dio);
   final policyRepository = PolicyRepository(dio: dio);

@@ -5,1431 +5,1885 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Branivo — UX Design Directions</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Inter', system-ui, sans-serif; background: #0F172A; color: #fff; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif; background: #0A0F1E; color: #fff; }
 
-  /* NAV */
-  nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    background: #0F172A; border-bottom: 1px solid #1E293B;
-    padding: 12px 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
-  }
-  nav span { color: #94A3B8; font-size: 13px; margin-right: 8px; }
-  nav button {
-    padding: 6px 14px; border-radius: 6px; border: 1px solid #334155;
-    background: transparent; color: #94A3B8; font-size: 13px; cursor: pointer;
-    transition: all 0.2s;
-  }
-  nav button.active, nav button:hover { background: #6366F1; color: #fff; border-color: #6366F1; }
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(10,15,30,0.95); backdrop-filter: blur(12px);
+  border-bottom: 1px solid #1E293B;
+  padding: 10px 20px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+}
+nav span { color: #94A3B8; font-size: 12px; margin-right: 4px; font-weight: 600; }
+nav button {
+  padding: 5px 12px; border-radius: 6px; border: 1px solid #1E293B;
+  background: transparent; color: #64748B; font-size: 12px; cursor: pointer; font-weight: 500;
+}
+nav button.active { background: #2563EB; color: #fff; border-color: #2563EB; }
+nav button:hover:not(.active) { background: #1E293B; color: #CBD5E1; }
 
-  /* SECTIONS */
-  section { display: none; padding: 80px 24px 40px; min-height: 100vh; }
-  section.active { display: block; }
+section { display: none; padding: 68px 20px 40px; min-height: 100vh; }
+section.active { display: block; }
+.section-header { text-align: center; margin-bottom: 28px; }
+.section-header h2 { font-size: 20px; font-weight: 700; color: #F1F5F9; }
+.section-header p { font-size: 13px; color: #475569; margin-top: 4px; }
 
-  .direction-label {
-    text-align: center; margin-bottom: 32px;
-  }
-  .direction-label h2 { font-size: 22px; font-weight: 700; color: #fff; }
-  .direction-label p { font-size: 14px; color: #64748B; margin-top: 6px; }
+.phones { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; align-items: flex-start; }
 
-  /* PHONE FRAME */
-  .phones { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
-  .phone {
-    width: 320px; background: #fff; border-radius: 32px;
-    overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.5);
-    border: 6px solid #1E293B;
-  }
-  .phone-header {
-    height: 40px; display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 600; letter-spacing: 1px;
-  }
-  .phone-screen { padding: 0; min-height: 580px; }
-  .phone-label {
-    text-align: center; margin-top: 12px;
-    font-size: 12px; color: #64748B; font-weight: 500;
-  }
+/* ── PHONE FRAME ── */
+.phone {
+  width: 300px; border-radius: 36px; overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px #334155;
+  border: 8px solid #1E293B; flex-shrink: 0;
+}
+.phone-bar {
+  height: 36px; background: #fff; display: flex; align-items: center;
+  justify-content: space-between; padding: 0 16px; position: relative; flex-shrink: 0;
+}
+.phone-bar.dark { background: #050B1A; }
+.phone-bar.ob-dark { background: #0A0F1E; }
+.phone-bar .time { font-size: 11px; font-weight: 700; color: #0F172A; }
+.phone-bar.dark .time, .phone-bar.ob-dark .time { color: #fff; }
+.phone-bar .status-icons { display: flex; gap: 3px; align-items: center; color: #0F172A; }
+.phone-bar.dark .status-icons, .phone-bar.ob-dark .status-icons { color: #fff; }
+.phone-notch {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 80px; height: 22px; background: #1E293B; border-radius: 0 0 14px 14px;
+}
 
-  /* ===== DIRECTION 1: Clean Minimal ===== */
-  .d1-header { background: #6366F1; color: #fff; }
-  .d1-screen { background: #FAFAFA; }
-  .d1-topbar {
-    background: #fff; padding: 16px 20px; display: flex;
-    align-items: center; justify-content: space-between;
-    border-bottom: 1px solid #F1F5F9;
-  }
-  .d1-topbar .logo { font-size: 16px; font-weight: 700; color: #6366F1; }
-  .d1-topbar .avatar { width: 32px; height: 32px; border-radius: 50%; background: #EEF2FF; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #6366F1; font-weight: 700; }
-  .d1-hero { padding: 24px 20px 16px; }
-  .d1-hero h1 { font-size: 22px; font-weight: 700; color: #111827; line-height: 1.3; }
-  .d1-hero p { font-size: 14px; color: #6B7280; margin-top: 6px; }
-  .d1-cta {
-    margin: 16px 20px; background: #6366F1; color: #fff;
-    border-radius: 12px; padding: 18px; text-align: center; cursor: pointer;
-    box-shadow: 0 4px 16px rgba(99,102,241,0.35);
-  }
-  .d1-cta .cta-icon { font-size: 28px; margin-bottom: 6px; }
-  .d1-cta .cta-title { font-size: 16px; font-weight: 700; }
-  .d1-cta .cta-sub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
-  .d1-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 20px 16px; }
-  .d1-stat { background: #fff; border-radius: 10px; padding: 12px; border: 1px solid #F1F5F9; }
-  .d1-stat .val { font-size: 18px; font-weight: 700; color: #111827; }
-  .d1-stat .lbl { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
-  .d1-recent { margin: 0 20px; }
-  .d1-recent .sec-title { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 10px; }
-  .d1-item { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; border: 1px solid #F1F5F9; }
-  .d1-item-icon { width: 36px; height: 36px; border-radius: 8px; background: #EEF2FF; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-  .d1-item-info .name { font-size: 13px; font-weight: 600; color: #111827; }
-  .d1-item-info .sub { font-size: 11px; color: #9CA3AF; margin-top: 1px; }
-  .d1-item-badge { margin-left: auto; font-size: 11px; font-weight: 600; color: #10B981; background: #ECFDF5; padding: 3px 8px; border-radius: 20px; }
-  .d1-nav { display: flex; background: #fff; border-top: 1px solid #F1F5F9; padding: 10px 0 6px; }
-  .d1-nav-item { flex: 1; text-align: center; font-size: 10px; color: #9CA3AF; }
-  .d1-nav-item.active { color: #6366F1; }
-  .d1-nav-item .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; }
+/* ── SCREEN LAYOUT ── */
+.phone-screen {
+  display: flex; flex-direction: column;
+  background: #fff; overflow: hidden; height: 600px;
+}
+.screen-content {
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+}
+.screen-content::-webkit-scrollbar { display: none; }
 
-  /* ===== DIRECTION 2: OCR Wizard Screen ===== */
-  .d2-screen { background: #111827; }
-  .d2-topbar { padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
-  .d2-topbar .back { font-size: 20px; color: #fff; }
-  .d2-topbar .title { font-size: 15px; font-weight: 600; color: #fff; }
-  .d2-progress { padding: 0 20px 16px; display: flex; gap: 6px; }
-  .d2-step { flex: 1; height: 3px; border-radius: 2px; background: #374151; }
-  .d2-step.done { background: #10B981; }
-  .d2-step.active { background: #6366F1; }
-  .d2-camera { margin: 0 20px; background: #1E293B; border-radius: 16px; aspect-ratio: 16/9; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .d2-camera-frame { width: 85%; height: 80%; border: 2px solid #6366F1; border-radius: 8px; position: relative; }
-  .d2-camera-frame::before, .d2-camera-frame::after { content: ''; position: absolute; width: 16px; height: 16px; border-color: #6366F1; border-style: solid; }
-  .d2-camera-frame::before { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
-  .d2-camera-frame::after { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
-  .d2-hint { text-align: center; padding: 16px 20px 8px; }
-  .d2-hint .step-num { font-size: 11px; font-weight: 600; color: #6366F1; letter-spacing: 1px; text-transform: uppercase; }
-  .d2-hint .step-text { font-size: 15px; font-weight: 600; color: #fff; margin-top: 4px; }
-  .d2-hint .step-sub { font-size: 12px; color: #64748B; margin-top: 4px; }
-  .d2-partial { margin: 8px 20px; background: #1E293B; border-radius: 10px; padding: 12px; border-left: 3px solid #10B981; }
-  .d2-partial .p-label { font-size: 11px; color: #10B981; font-weight: 600; margin-bottom: 6px; }
-  .d2-partial .p-item { font-size: 12px; color: #94A3B8; margin-bottom: 2px; }
-  .d2-partial .p-item span { color: #fff; font-weight: 600; }
-  .d2-capture { margin: 12px 20px; background: #6366F1; border-radius: 50px; padding: 14px; text-align: center; font-size: 15px; font-weight: 700; color: #fff; }
+/* sticky CTA footer */
+.screen-footer {
+  flex-shrink: 0; background: #fff;
+  padding: 10px 16px 16px;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+}
+.screen-footer.dark { background: #050B1A; box-shadow: none; border-top: 1px solid rgba(255,255,255,0.08); }
+.screen-footer.ob-dark { background: #0A0F1E; box-shadow: none; border-top: none; padding: 10px 16px 14px; }
+.screen-footer.white-clean { box-shadow: none; border-top: 1px solid #F1F5F9; }
+.screen-footer.transparent { background: transparent; box-shadow: none; border-top: none; }
 
-  /* ===== DIRECTION 3: Offers Screen ===== */
-  .d3-screen { background: #F8FAFC; }
-  .d3-topbar { background: #fff; padding: 16px 20px; border-bottom: 1px solid #F1F5F9; }
-  .d3-topbar .car { font-size: 13px; font-weight: 600; color: #111827; }
-  .d3-topbar .sub { font-size: 11px; color: #6B7280; margin-top: 2px; }
-  .d3-filter { padding: 12px 20px; display: flex; gap: 8px; overflow-x: auto; }
-  .d3-tag { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; white-space: nowrap; background: #fff; color: #6B7280; border: 1px solid #E5E7EB; }
-  .d3-tag.active { background: #6366F1; color: #fff; border-color: #6366F1; }
-  .d3-card { margin: 0 20px 10px; background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #F1F5F9; }
-  .d3-card.recommended { border: 2px solid #6366F1; }
-  .d3-rec-badge { font-size: 11px; font-weight: 700; color: #6366F1; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
-  .d3-rec-reason { font-size: 11px; color: #6B7280; margin-bottom: 10px; font-style: italic; }
-  .d3-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  .d3-insurer { font-size: 13px; font-weight: 700; color: #111827; }
-  .d3-price { font-size: 22px; font-weight: 700; color: #111827; }
-  .d3-price span { font-size: 13px; font-weight: 400; color: #6B7280; }
-  .d3-features { display: flex; gap: 6px; flex-wrap: wrap; }
-  .d3-feat { font-size: 11px; color: #6B7280; background: #F9FAFB; padding: 3px 8px; border-radius: 4px; }
-  .d3-buy { margin-top: 10px; background: #6366F1; color: #fff; border-radius: 8px; padding: 10px; text-align: center; font-size: 13px; font-weight: 700; }
-  .d3-buy-out { margin-top: 8px; background: transparent; color: #6366F1; border: 1px solid #6366F1; border-radius: 8px; padding: 10px; text-align: center; font-size: 13px; font-weight: 600; }
+.phone-home-bar {
+  height: 26px; background: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.phone-home-bar.dark { background: #050B1A; }
+.phone-home-bar.ob-dark { background: #0A0F1E; }
+.phone-home-bar div { width: 90px; height: 4px; border-radius: 4px; opacity: 0.25; background: #0F172A; }
+.phone-home-bar.dark div, .phone-home-bar.ob-dark div { background: #fff; }
+.phone-label { text-align: center; margin-top: 10px; font-size: 11px; color: #475569; font-weight: 600; }
 
-  /* ===== DIRECTION 4: Confirmation ===== */
-  .d4-screen { background: #FAFAFA; display: flex; flex-direction: column; }
-  .d4-success { background: linear-gradient(135deg, #6366F1 0%, #0D9488 100%); padding: 40px 20px 32px; text-align: center; }
-  .d4-checkmark { width: 64px; height: 64px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 32px; }
-  .d4-success h1 { font-size: 22px; font-weight: 700; color: #fff; }
-  .d4-success p { font-size: 14px; color: rgba(255,255,255,0.8); margin-top: 6px; }
-  .d4-coverage { margin: -16px 20px 0; background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-  .d4-cov-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 14px; }
-  .d4-cov-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #F9FAFB; font-size: 13px; }
-  .d4-cov-item:last-child { border: none; }
-  .d4-cov-item .k { color: #6B7280; }
-  .d4-cov-item .v { color: #111827; font-weight: 600; }
-  .d4-loyalty { margin: 12px 20px; background: #FFF7ED; border-radius: 12px; padding: 14px; display: flex; align-items: center; gap: 12px; border: 1px solid #FED7AA; }
-  .d4-loyalty .icon { font-size: 24px; }
-  .d4-loyalty .text .title { font-size: 13px; font-weight: 700; color: #92400E; }
-  .d4-loyalty .text .sub { font-size: 12px; color: #B45309; margin-top: 2px; }
-  .d4-actions { padding: 0 20px 20px; }
-  .d4-btn-primary { background: #6366F1; color: #fff; border-radius: 10px; padding: 14px; text-align: center; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
-  .d4-btn-secondary { background: transparent; color: #6366F1; border: 1px solid #6366F1; border-radius: 10px; padding: 12px; text-align: center; font-size: 13px; }
+/* ── ICONS ── */
+.ico { display: inline-flex; align-items: center; justify-content: center; }
+.ico svg { display: block; }
 
-  /* ===== DIRECTION 5: Broker Dashboard ===== */
-  .d5-screen { background: #F1F5F9; }
-  .d5-topbar { background: #6366F1; padding: 20px 20px 40px; }
-  .d5-topbar .greeting { font-size: 13px; color: rgba(255,255,255,0.7); }
-  .d5-topbar .name { font-size: 20px; font-weight: 700; color: #fff; margin-top: 2px; }
-  .d5-mrr { margin: -20px 16px 0; background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-  .d5-mrr .mrr-label { font-size: 12px; color: #6B7280; font-weight: 500; }
-  .d5-mrr .mrr-value { font-size: 32px; font-weight: 800; color: #111827; margin: 4px 0; }
-  .d5-mrr .mrr-growth { font-size: 13px; color: #10B981; font-weight: 600; }
-  .d5-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 16px; }
-  .d5-kpi { background: #fff; border-radius: 12px; padding: 14px; }
-  .d5-kpi .k-val { font-size: 22px; font-weight: 700; color: #111827; }
-  .d5-kpi .k-lbl { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
-  .d5-recent { margin: 0 16px; }
-  .d5-recent .sec-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 8px; }
-  .d5-sale { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
-  .d5-sale .dot { width: 8px; height: 8px; border-radius: 50%; background: #10B981; flex-shrink: 0; }
-  .d5-sale .info .name { font-size: 13px; font-weight: 600; color: #111827; }
-  .d5-sale .info .sub { font-size: 11px; color: #9CA3AF; margin-top: 1px; }
-  .d5-sale .amount { margin-left: auto; font-size: 14px; font-weight: 700; color: #10B981; }
+/* ── BUTTONS ── */
+.btn-primary {
+  display: block; width: 100%;
+  background: #2563EB; color: #fff; border: none; border-radius: 10px;
+  padding: 14px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center;
+  white-space: nowrap; line-height: 1;
+}
+.btn-primary.wow { background: linear-gradient(135deg,#2563EB,#7C3AED); border-radius: 14px; font-size: 15px; animation: ctaPulse 2s ease-in-out infinite; }
+@keyframes ctaPulse { 0%,100% { box-shadow:0 6px 24px rgba(99,102,241,.5); } 50% { box-shadow:0 8px 40px rgba(99,102,241,.8); } }
 
-  /* ===== DIRECTION 7: Onboarding ===== */
-  /* Uses the same Branivo brand colors as D1–D6:
-     Primary: #6366F1  |  Gradient end: #0D9488
-     BG: #FAFAFA  |  Card: #fff  |  Border: #F1F5F9
-     Text: #111827  |  Muted: #6B7280  |  Icon tint: #EEF2FF
-     Dark card: #1E293B
-  */
+/* ── BACK BAR ── */
+.back-bar {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px 6px;
+  font-size: 14px; font-weight: 600; color: #0F172A; flex-shrink: 0;
+}
 
-  /* Shared atoms */
-  .ob-screen { background: #FAFAFA; }
-  .ob-circle-btn {
-    width: 36px; height: 36px; border-radius: 50%; background: #fff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; color: #374151; cursor: pointer; flex-shrink: 0;
-    border: 1px solid #F1F5F9;
-  }
-  .ob-primary-btn {
-    background: #6366F1; color: #fff; border-radius: 12px; height: 52px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 15px; font-weight: 700; cursor: pointer;
-    box-shadow: 0 4px 16px rgba(99,102,241,0.35);
-    gap: 8px;
-  }
-  .ob-outlined-btn {
-    border: 1.5px solid #6366F1; border-radius: 12px; height: 52px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 15px; font-weight: 600; color: #6366F1;
-    background: transparent; cursor: pointer;
-  }
-  .ob-text-btn {
-    text-align: center; font-size: 13px; color: #6B7280;
-    cursor: pointer; padding: 8px;
-  }
-  .ob-dark-card {
-    background: #1E293B; border-radius: 14px; padding: 14px 16px;
-    display: flex; align-items: center; gap: 12px;
-  }
-  .ob-dark-card .dc-icon-wrap {
-    width: 38px; height: 38px; border-radius: 10px;
-    background: rgba(255,255,255,0.12);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 17px; flex-shrink: 0;
-  }
-  .ob-dark-card .dc-title { font-size: 13px; font-weight: 700; color: #fff; }
-  .ob-dark-card .dc-sub { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 2px; }
-  .ob-field {
-    background: #F9FAFB; border-radius: 10px; padding: 12px 14px;
-    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-    border: 1px solid #F1F5F9;
-  }
-  .ob-field.focused { border-color: #6366F1; background: #EEF2FF; }
-  .ob-field .f-icon { font-size: 15px; color: #6366F1; flex-shrink: 0; }
-  .ob-field .f-label { font-size: 13px; color: #9CA3AF; }
+/* ── FORM ── */
+.field {
+  width: 100%; border: 1px solid #E2E8F0; border-radius: 8px;
+  padding: 13px 14px; font-size: 14px; color: #0F172A;
+  background: #F8FAFC; margin-bottom: 11px; display: flex; align-items: center; justify-content: space-between;
+}
+.field.error { border-color: #EF4444; background: #FFF5F5; }
+.field .placeholder { color: #94A3B8; }
+.field .err-label { font-size: 10px; color: #EF4444; display: block; line-height: 1; margin-bottom: 2px; }
+.field .val { font-size: 14px; color: #0F172A; }
+.field-col { flex-direction: column; align-items: flex-start; }
+.err-msg { font-size: 11px; color: #EF4444; margin: -7px 0 10px; padding-left: 2px; }
+.form-pad { padding: 0 16px; }
+.form-label { font-size: 12px; color: #64748B; font-weight: 500; margin-bottom: 8px; }
+.forgot-link { text-align: right; font-size: 13px; color: #2563EB; font-weight: 500; margin-bottom: 18px; }
+.auth-footer { text-align: center; padding: 14px 16px 4px; font-size: 13px; color: #64748B; }
+.auth-footer a { color: #2563EB; font-weight: 600; }
 
-  /* Splash */
-  .splash-screen {
-    background: #fff; min-height: 580px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-  }
-  .splash-logo-wrap {
-    width: 72px; height: 72px; border-radius: 20px;
-    background: #6366F1;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 24px rgba(99,102,241,0.4); margin-bottom: 18px;
-  }
-  .splash-logo-wrap .logo-letter { font-size: 34px; font-weight: 800; color: #fff; }
-  .splash-tenant { font-size: 18px; font-weight: 800; color: #111827; }
-  .splash-tagline { font-size: 13px; color: #9CA3AF; margin-top: 5px; }
-  .splash-dot-wrap { display: flex; gap: 5px; margin-top: 52px; }
-  .splash-dot { width: 6px; height: 6px; border-radius: 50%; background: #6366F1; opacity: 0.25; }
-  .splash-dot.active { opacity: 1; width: 18px; border-radius: 3px; }
+/* ── ONBOARDING ── */
+.ob-camera {
+  position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 50%, #0d1a3a 0%, #000 100%);
+  flex: 1;
+}
+.ob-cam-hint {
+  position: absolute; top: 14px; left: 0; right: 0; text-align: center; z-index: 3;
+}
+.ob-cam-hint span { background: rgba(255,255,255,0.12); color: #fff; font-size: 11px; padding: 4px 14px; border-radius: 20px; backdrop-filter: blur(4px); }
+.ob-doc-frame {
+  position: relative; z-index: 2; width: 230px; height: 152px;
+  border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ob-corner { position: absolute; width: 18px; height: 18px; }
+.ob-corner.tl { top:-2px;left:-2px; border-top:3px solid #38BDF8;border-left:3px solid #38BDF8;border-radius:4px 0 0 0; }
+.ob-corner.tr { top:-2px;right:-2px; border-top:3px solid #38BDF8;border-right:3px solid #38BDF8;border-radius:0 4px 0 0; }
+.ob-corner.bl { bottom:-2px;left:-2px; border-bottom:3px solid #38BDF8;border-left:3px solid #38BDF8;border-radius:0 0 0 4px; }
+.ob-corner.br { bottom:-2px;right:-2px; border-bottom:3px solid #38BDF8;border-right:3px solid #38BDF8;border-radius:0 0 4px 0; }
+.scan-line {
+  position:absolute; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,transparent,#38BDF8,transparent);
+  animation:scan 2s ease-in-out infinite; box-shadow:0 0 8px #38BDF8;
+}
+@keyframes scan { 0%{top:0} 50%{top:calc(100% - 2px)} 100%{top:0} }
+.talona-mini { width:192px;height:126px;background:#F0F4FF;border-radius:6px;padding:7px;position:relative;overflow:hidden; }
+.talona-header { background:#1B3F8B;color:#fff;font-size:5.5px;font-weight:700;padding:3px 6px;border-radius:3px;text-align:center;margin-bottom:5px;letter-spacing:.5px; }
+.talona-row { display:flex;gap:5px;margin-bottom:4px; }
+.talona-field { flex:1;background:#fff;border:1px solid #CBD5E1;border-radius:3px;padding:2px 4px; }
+.tf-label { font-size:5px;color:#64748B;display:block; }
+.tf-value { font-size:6.5px;font-weight:700;color:#0F172A; }
+.ob-cam-bottom-hint { position:absolute;bottom:10px;left:0;right:0;text-align:center;z-index:3;font-size:11px;color:rgba(255,255,255,.45); }
 
-  /* Value Prop slide */
-  .slide-screen {
-    background: #FAFAFA; min-height: 580px; padding: 20px;
-    display: flex; flex-direction: column;
-  }
-  .slide-topbar { display: flex; justify-content: flex-end; margin-bottom: 16px; }
-  .slide-skip { font-size: 13px; color: #9CA3AF; cursor: pointer; }
-  .slide-illustration {
-    background: #1E293B; border-radius: 20px; padding: 24px;
-    text-align: center; margin-bottom: 22px;
-  }
-  .slide-illustration .il-icon { font-size: 44px; margin-bottom: 10px; display: block; }
-  .slide-illustration .il-tag {
-    background: rgba(99,102,241,0.25); border-radius: 8px; padding: 5px 12px;
-    font-size: 12px; font-weight: 700; color: #A5B4FC; display: inline-block;
-  }
-  .slide-heading { font-size: 26px; font-weight: 800; color: #111827; line-height: 1.25; margin-bottom: 8px; }
-  .slide-sub { font-size: 14px; color: #6B7280; line-height: 1.55; margin-bottom: 18px; flex: 1; }
-  .slide-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; }
-  .slide-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366F1; opacity: 0.2; }
-  .slide-dot.active { opacity: 1; width: 22px; border-radius: 4px; }
+.ob-text-area { padding: 16px 16px 0; }
+.ob-dots { display:flex;justify-content:center;gap:6px;margin-bottom:14px; }
+.ob-dot { width:7px;height:7px;border-radius:50%;background:#CBD5E1; }
+.ob-dot.dark { background:rgba(255,255,255,.25); }
+.ob-dot.active { width:20px;border-radius:4px;background:#2563EB; }
+.ob-dot.active.light { background:#38BDF8; }
+.ob-title { font-size:20px;font-weight:700;color:#0F172A;text-align:center;margin-bottom:6px; }
+.ob-title.light { color:#F1F5F9; }
+.ob-desc { font-size:13px;color:#64748B;text-align:center;line-height:1.55; }
+.ob-desc.light { color:#94A3B8; }
 
-  /* Interest Selector */
-  .interest-screen {
-    background: #FAFAFA; min-height: 580px; padding: 20px;
-    display: flex; flex-direction: column;
-  }
-  .interest-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-  .interest-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .interest-card {
-    background: #fff; border-radius: 16px; padding: 14px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    border: 2px solid #F1F5F9; cursor: pointer;
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  .interest-card.selected { border-color: #6366F1; background: #EEF2FF; }
-  .interest-card .ic-icon-wrap {
-    width: 40px; height: 40px; border-radius: 10px;
-    background: #EEF2FF;
-    display: flex; align-items: center; justify-content: center; font-size: 18px;
-  }
-  .interest-card.selected .ic-icon-wrap { background: rgba(99,102,241,0.2); }
-  .interest-card .ic-label { font-size: 13px; font-weight: 700; color: #111827; }
-  .interest-card .ic-sub { font-size: 11px; color: #9CA3AF; }
-  .interest-card .ic-check {
-    width: 18px; height: 18px; border-radius: 50%;
-    background: #6366F1; margin-left: auto; margin-top: -2px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; color: #fff; font-weight: 700;
-    opacity: 0;
-  }
-  .interest-card.selected .ic-check { opacity: 1; }
+/* extract */
+.ob-extract-view {
+  height: 190px; background:#F8FAFC; border-bottom:1px solid #E2E8F0;
+  display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;flex-shrink:0;
+}
+.extract-doc { width:192px;height:134px;background:#fff;border:1px solid #CBD5E1;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.1);padding:9px;position:relative; }
+.doc-header { background:#1B3F8B;height:17px;border-radius:4px;margin-bottom:7px;display:flex;align-items:center;justify-content:center; }
+.doc-header span { font-size:5.5px;color:#fff;font-weight:700;letter-spacing:1px; }
+.extract-row { display:flex;gap:6px;margin-bottom:5px;align-items:center; }
+.ef { flex:1; }
+.ef-label { font-size:5px;color:#94A3B8;display:block; }
+.ef-value { font-size:7px;font-weight:700;color:#0F172A; }
+.ck { width:13px;height:13px;background:#22C55E;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.ck svg { color:#fff; }
+.hl-scan { position:absolute;left:0;right:0;height:17px;background:linear-gradient(90deg,transparent,rgba(56,189,248,.4),transparent);animation:hlRow 3s ease-in-out infinite; }
+@keyframes hlRow { 0%{top:26px;opacity:1} 33%{top:55px;opacity:1} 66%{top:84px;opacity:1} 99%{top:26px;opacity:0} 100%{top:26px;opacity:1} }
+.done-badge { position:absolute;bottom:8px;right:10px;background:#22C55E;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px; }
+.fields-list { padding: 10px 16px 0; }
+.field-item { display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #F1F5F9; }
+.fi-icon { width:28px;height:28px;background:#EFF6FF;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px; }
+.fi-text { flex:1; }
+.fi-label { font-size:11px;color:#94A3B8; }
+.fi-value { font-size:14px;font-weight:600;color:#0F172A; }
+.fi-badge { font-size:10px;background:#DCFCE7;color:#15803D;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap; }
 
-  /* Entry Gate */
-  .entry-screen {
-    background: #FAFAFA; min-height: 580px; padding: 24px;
-    display: flex; flex-direction: column;
-  }
-  .entry-logo-wrap { display: flex; justify-content: center; margin-bottom: 24px; margin-top: 8px; }
-  .entry-logo {
-    background: #6366F1; border-radius: 12px; padding: 10px 20px;
-    font-size: 15px; font-weight: 800; color: #fff;
-  }
-  .entry-actions { display: flex; flex-direction: column; gap: 10px; flex: 1; justify-content: flex-end; padding-bottom: 12px; }
-  .entry-legal { text-align: center; font-size: 11px; color: #9CA3AF; margin-top: 8px; }
+/* live quotes */
+.ob-live-view { padding:12px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;flex-shrink:0; }
+.live-bar { display:flex;align-items:center;justify-content:space-between;margin-bottom:9px; }
+.live-badge { display:flex;align-items:center;gap:5px;font-size:10px;color:#22C55E;font-weight:700; }
+.pulse-dot { width:7px;height:7px;background:#22C55E;border-radius:50%;animation:pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+.live-count { font-size:11px;color:#64748B; }
+.quote-card { display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:9px 10px;margin-bottom:7px;box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.quote-card.best { border-color:#2563EB;background:#EFF6FF;box-shadow:0 2px 12px rgba(37,99,235,.2); }
+.q-logo { width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:8px;font-weight:800;color:#fff; }
+.q-info { flex:1; }
+.q-name { font-size:11px;font-weight:700;color:#0F172A; }
+.q-plan { font-size:9px;color:#94A3B8; }
+.q-price { text-align:right; }
+.best-badge { font-size:8px;background:#2563EB;color:#fff;padding:1px 6px;border-radius:20px;font-weight:700;display:block;text-align:right;margin-bottom:2px; }
+.q-amount { font-size:15px;font-weight:800;color:#0F172A; }
+.q-period { font-size:9px;color:#94A3B8; }
+.quote-card.best .q-amount { color:#2563EB; }
+.more-loading { display:flex;align-items:center;gap:5px;padding:3px 0; }
+.more-loading span { font-size:11px;color:#94A3B8; }
 
-  /* Login */
-  .login-screen { background: #FAFAFA; min-height: 580px; padding: 20px; display: flex; flex-direction: column; }
-  .login-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-  .login-form-card {
-    background: #fff; border-radius: 16px; padding: 20px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #F1F5F9;
-  }
-  .login-forgot { text-align: right; font-size: 12px; color: #6366F1; margin-bottom: 14px; cursor: pointer; }
+/* WOW */
+.wow-bg { background:#050B1A; }
+.wow-content {
+  flex:1; display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px 16px 16px; position:relative;overflow:hidden; background:#050B1A;
+}
+.wow-glow { position:absolute;top:5%;left:50%;transform:translateX(-50%);width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.35) 0%,transparent 70%);animation:glowPulse 2.5s ease-in-out infinite; }
+.wow-glow2 { position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,.25) 0%,transparent 70%);animation:glowPulse 3s ease-in-out infinite reverse; }
+@keyframes glowPulse { 0%,100%{transform:translateX(-50%) scale(1);opacity:.7} 50%{transform:translateX(-50%) scale(1.3);opacity:1} }
+.particle { position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(99,152,255,.6);animation:floatUp 4s ease-in infinite; }
+@keyframes floatUp { 0%{transform:translateY(100%) scale(0);opacity:0} 20%{opacity:.6;transform:scale(1)} 100%{transform:translateY(-100vh) scale(0);opacity:0} }
+.wow-num { position:relative;z-index:2;text-align:center;margin-bottom:2px; }
+.wow-num span { font-size:72px;font-weight:900;line-height:1;background:linear-gradient(135deg,#38BDF8,#6366F1,#2563EB);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
+.wow-sub { position:relative;z-index:2;text-align:center;font-size:13px;color:#94A3B8;margin-bottom:3px; }
+.wow-stat { position:relative;z-index:2;text-align:center;font-size:11px;color:#475569;margin-bottom:18px; }
+.wow-stat strong { color:#38BDF8; }
+.wow-card { position:relative;z-index:2;width:100%;background:linear-gradient(135deg,#1E3A8A,#1D4ED8);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 8px 32px rgba(37,99,235,.5);border:1px solid rgba(99,152,255,.4); }
+.wow-card-label { font-size:10px;color:#93C5FD;font-weight:600;margin-bottom:5px; }
+.wow-card-row { display:flex;align-items:center;justify-content:space-between; }
+.wow-insurer { font-size:16px;font-weight:800;color:#fff; }
+.wow-insurer-sub { font-size:10px;color:#93C5FD; }
+.wow-price-val { font-size:26px;font-weight:900;color:#fff; }
+.wow-price-sub { font-size:10px;color:#93C5FD;text-align:right; }
+.wow-chips { position:relative;z-index:2;display:flex;gap:5px;flex-wrap:wrap;justify-content:center; }
+.wow-chip { background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:3px 9px;font-size:10px;color:#94A3B8; }
+.wow-chip b { color:#E2E8F0;font-weight:700; }
 
-  /* Reset PW */
-  .reset-screen { background: #FAFAFA; min-height: 580px; padding: 20px; display: flex; flex-direction: column; }
-  .reset-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-  .reset-step-label { font-size: 11px; font-weight: 700; color: #6366F1; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
-  .otp-row { display: flex; gap: 7px; justify-content: center; margin: 16px 0; }
-  .otp-box {
-    width: 38px; height: 46px; border-radius: 10px; background: #fff;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08); border: 1.5px solid #F1F5F9;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 19px; font-weight: 700; color: #111827;
-  }
-  .otp-box.active { border-color: #6366F1; background: #EEF2FF; }
-  .otp-box.filled { border-color: #6366F1; }
-  .resend-hint { text-align: center; font-size: 12px; color: #9CA3AF; margin-bottom: 14px; }
-  .pw-strength-row { display: flex; gap: 4px; margin: 8px 0 4px; }
-  .pw-seg { flex: 1; height: 3px; border-radius: 2px; background: #E5E7EB; }
-  .pw-seg.s1 { background: #EF4444; }
-  .pw-seg.s2 { background: #F59E0B; }
-  .pw-seg.s3 { background: #84CC16; }
-  .pw-seg.s4 { background: #6366F1; }
-  .pw-strength-label { font-size: 11px; color: #6366F1; margin-bottom: 12px; }
+/* ── HOME ── */
+.home-top { padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between; }
+.home-top h2 { font-size:21px;font-weight:800;color:#0F172A; }
+.home-top .sub { font-size:12px;color:#64748B; }
+.notif-btn { width:34px;height:34px;border:1px solid #E2E8F0;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#F8FAFC;color:#64748B; }
+.search-bar { margin:0 16px 12px;background:#F1F5F9;border-radius:10px;padding:9px 14px;display:flex;align-items:center;gap:8px;color:#94A3B8; }
+.search-bar span { font-size:13px; }
+.hero-banner { margin:0 16px 14px;background:linear-gradient(135deg,#1E3A8A,#2563EB);border-radius:16px;padding:16px;color:#fff;position:relative;overflow:hidden; }
+.hero-banner h3 { font-size:17px;font-weight:700;margin-bottom:3px; }
+.hero-banner p { font-size:12px;color:#93C5FD;margin-bottom:12px; }
+.hero-btn { background:#fff;color:#1E40AF;font-size:12px;font-weight:700;padding:7px 13px;border-radius:8px;display:inline-block; }
+.hero-decor { position:absolute;right:-8px;top:50%;transform:translateY(-50%);font-size:64px;opacity:.12; }
+.sec-row { display:flex;align-items:center;justify-content:space-between;padding:0 16px 8px; }
+.sec-row h3 { font-size:15px;font-weight:700;color:#0F172A; }
+.sec-row a { font-size:12px;color:#2563EB;font-weight:600; }
+.svc-row { display:flex;gap:6px;padding:0 16px 14px;flex-wrap:wrap; }
+.svc-item { width:46px;text-align:center; }
+.svc-icon { width:46px;height:46px;background:#EFF6FF;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:3px; }
+.svc-label { font-size:10px;color:#64748B;font-weight:500; }
+.art-row { display:flex;gap:10px;padding:0 16px;overflow:hidden; }
+.art-card { width:116px;flex-shrink:0; }
+.art-img { width:116px;height:76px;border-radius:10px;background:#E2E8F0;display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:5px; }
+.art-title { font-size:11px;color:#0F172A;font-weight:600;line-height:1.4; }
+.bottom-nav { display:flex;border-top:1px solid #F1F5F9;padding:6px 0 2px;background:#fff;flex-shrink:0; }
+.nav-item { flex:1;text-align:center;color:#94A3B8; }
+.nav-item.active { color:#2563EB; }
+.nav-label { font-size:10px;font-weight:500;margin-top:2px; }
+.nav-dot { width:4px;height:4px;background:#2563EB;border-radius:50%;margin:2px auto 0; }
 
-  /* Register */
-  .reg-screen { background: #FAFAFA; min-height: 580px; padding: 20px; display: flex; flex-direction: column; }
-  .reg-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-  .reg-terms-row { display: flex; align-items: flex-start; gap: 10px; margin: 8px 0 14px; }
-  .reg-checkbox {
-    width: 18px; height: 18px; border-radius: 5px;
-    background: #6366F1; display: flex; align-items: center;
-    justify-content: center; font-size: 11px; color: #fff; flex-shrink: 0; margin-top: 1px;
-  }
-  .reg-terms-text { font-size: 12px; color: #6B7280; line-height: 1.5; }
-  .reg-terms-text a { color: #6366F1; text-decoration: underline; }
+/* services full */
+.svc-full-grid { display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px; }
+.svc-full-item { text-align:center; }
+.svc-full-icon { width:60px;height:60px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 5px; }
+.svc-full-label { font-size:12px;color:#0F172A;font-weight:600; }
 
-  /* ===== DIRECTION 6: Renewal Flow ===== */
-  .d6-screen { background: #0F172A; }
-  .d6-notif { margin: 20px 16px 0; background: #1E293B; border-radius: 14px; padding: 16px; border-left: 4px solid #6366F1; }
-  .d6-notif .n-time { font-size: 11px; color: #64748B; margin-bottom: 6px; }
-  .d6-notif .n-title { font-size: 14px; font-weight: 700; color: #fff; }
-  .d6-notif .n-body { font-size: 12px; color: #94A3B8; margin-top: 4px; }
-  .d6-card { margin: 16px; background: #1E293B; border-radius: 16px; padding: 20px; }
-  .d6-card .c-label { font-size: 11px; font-weight: 600; color: #6366F1; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
-  .d6-card .c-car { font-size: 18px; font-weight: 700; color: #fff; }
-  .d6-card .c-plate { font-size: 13px; color: #64748B; margin-top: 2px; }
-  .d6-card .c-divider { height: 1px; background: #334155; margin: 14px 0; }
-  .d6-card .c-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
-  .d6-card .c-row .ck { color: #64748B; }
-  .d6-card .c-row .cv { color: #fff; font-weight: 600; }
-  .d6-price { margin: 0 16px; background: linear-gradient(135deg, #6366F1, #0D9488); border-radius: 14px; padding: 20px; text-align: center; }
-  .d6-price .p-label { font-size: 12px; color: rgba(255,255,255,0.7); }
-  .d6-price .p-amount { font-size: 36px; font-weight: 800; color: #fff; margin: 6px 0; }
-  .d6-price .p-period { font-size: 13px; color: rgba(255,255,255,0.7); }
-  .d6-actions { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-  .d6-pay { background: #fff; color: #111827; border-radius: 12px; padding: 16px; text-align: center; font-size: 16px; font-weight: 800; }
-  .d6-pay .pay-sub { font-size: 11px; color: #6B7280; margin-top: 3px; font-weight: 400; }
-  .d6-skip { text-align: center; font-size: 13px; color: #475569; }
+/* articles */
+.art-full { margin:0 16px 10px;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden; }
+.art-full-img { height:100px;background:#E2E8F0;display:flex;align-items:center;justify-content:center;font-size:44px; }
+.art-full-body { padding:11px; }
+.art-full-body h3 { font-size:13px;font-weight:700;color:#0F172A;margin-bottom:3px; }
+.art-full-body p { font-size:11px;color:#64748B;line-height:1.5;margin-bottom:7px; }
+.explore-btn { background:#EFF6FF;color:#2563EB;font-size:11px;font-weight:700;padding:5px 11px;border-radius:8px;display:inline-block; }
+
+/* insurance */
+.plan-head { padding:11px 16px;border-bottom:1px solid #F1F5F9; }
+.plan-head h2 { font-size:17px;font-weight:700;color:#0F172A; }
+.plan-meta { display:flex;gap:14px;margin-top:3px; }
+.plan-meta-item { font-size:11px;color:#64748B; }
+.plan-meta-item span { font-weight:600;color:#0F172A; }
+.tenure-row { display:flex;gap:6px;padding:11px 16px 8px; }
+.tenure-btn { flex:1;padding:7px;border:1.5px solid #E2E8F0;border-radius:8px;text-align:center;font-size:12px;font-weight:600;color:#64748B; }
+.tenure-btn.active { border-color:#2563EB;color:#2563EB;background:#EFF6FF; }
+.plan-cards { padding:0 16px 8px;display:flex;gap:8px; }
+.plan-card { flex:1;border:1.5px solid #E2E8F0;border-radius:12px;padding:11px; }
+.plan-card.selected { border-color:#2563EB;background:#EFF6FF; }
+.radio-row { display:flex;align-items:center;gap:6px;margin-bottom:7px; }
+.radio { width:16px;height:16px;border:2px solid #2563EB;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.radio .dot { width:8px;height:8px;background:#2563EB;border-radius:50%; }
+.radio.empty { border-color:#CBD5E1; }
+.plan-name { font-size:12px;font-weight:600;color:#0F172A; }
+.plan-price { font-size:19px;font-weight:800;color:#0F172A;margin-bottom:5px; }
+.plan-feature { display:flex;align-items:flex-start;gap:4px;font-size:10px;color:#64748B;margin-bottom:2px; }
+.plan-feature .ck-small { color:#22C55E;font-size:10px;flex-shrink:0; }
+.see-benefits { font-size:12px;color:#2563EB;font-weight:600;padding:0 16px 8px;text-align:right; }
+.idv-row { margin:0 16px 12px;padding:11px 13px;border:1px solid #E2E8F0;border-radius:10px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:#0F172A; }
+.detail-row { border:1.5px solid #E2E8F0;border-radius:10px;padding:11px 13px;margin-bottom:9px;display:flex;align-items:center;justify-content:space-between; }
+.dr-label { font-size:11px;color:#94A3B8;margin-bottom:2px; }
+.dr-val { font-size:13px;color:#0F172A;font-weight:500; }
+.model-list { padding:0 16px; }
+.model-item { display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #F1F5F9; }
+.model-item span { font-size:14px;color:#0F172A;font-weight:500; }
+.radio-c { width:18px;height:18px;border:2px solid #2563EB;border-radius:50%;display:flex;align-items:center;justify-content:center; }
+.radio-c .inner { width:10px;height:10px;background:#2563EB;border-radius:50%; }
+.radio-c.empty { border-color:#CBD5E1; }
+.comp-sec { margin:0 16px 8px;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden; }
+.comp-sec-head { padding:11px 13px;display:flex;align-items:center;justify-content:space-between; }
+.comp-sec-head h3 { font-size:13px;font-weight:700;color:#0F172A; }
+.comp-sec-head.open { background:#EFF6FF; }
+.comp-sec-body { padding:11px 13px;background:#FAFAFA;border-top:1px solid #E2E8F0; }
+.comp-sec-body p { font-size:11px;color:#64748B;line-height:1.6; }
+.what-label { padding:7px 16px 5px;font-size:13px;font-weight:700;color:#0F172A; }
+
+/* sheets */
+.sheet-bg { background:rgba(0,0,0,.5); }
+.sheet { background:#fff;border-radius:20px 20px 0 0;padding:14px; }
+.sheet-handle { width:38px;height:4px;background:#E2E8F0;border-radius:4px;margin:0 auto 14px; }
+.sheet-title { font-size:15px;font-weight:700;color:#0F172A;margin-bottom:11px;display:flex;align-items:center;justify-content:space-between; }
+.sheet-title .close-btn { color:#94A3B8; }
+.year-item { text-align:center;padding:5px 0;font-size:16px;color:#CBD5E1; }
+.year-item.sel { font-size:22px;font-weight:800;color:#0F172A; }
+.year-item.near { color:#64748B;font-size:18px; }
+.status-item { padding:11px 0;border-bottom:1px solid #F1F5F9;font-size:14px;color:#0F172A;display:flex;align-items:center;gap:8px; }
+
+/* splash */
+.splash { background:#EFF6FF;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center; }
+.splash-logo { width:76px;height:76px;background:#2563EB;border-radius:22px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 8px 24px rgba(37,99,235,.35);color:#fff; }
+.splash-name { font-size:27px;font-weight:800;color:#1E40AF; }
+.splash-tag { font-size:13px;color:#64748B;margin-top:5px; }
+
+/* success */
+.success-sheet { background:#fff;border-radius:20px 20px 0 0;padding:20px 20px 28px;text-align:center; }
+.success-icon { width:54px;height:54px;background:#22C55E;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;color:#fff; }
+.success-sheet h3 { font-size:17px;font-weight:700;color:#0F172A;margin-bottom:5px; }
+.success-sheet p { font-size:13px;color:#64748B;margin-bottom:18px;line-height:1.5; }
+.success-sheet .btn-primary { border-radius:10px; }
+
+/* otp */
+.otp-boxes { display:flex;gap:8px;justify-content:center;padding:8px 16px 14px; }
+.otp-box { width:38px;height:46px;border:2px solid #2563EB;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#0F172A;background:#EFF6FF; }
+.otp-box.empty { border-color:#E2E8F0;background:#F8FAFC; }
+.otp-hint { text-align:center;font-size:12px;color:#64748B;padding-bottom:4px; }
+.otp-hint a { color:#2563EB;font-weight:600; }
 </style>
 </head>
 <body>
 
+<!-- ── HEROICONS SVG SYMBOLS ── -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ico-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
+  </symbol>
+  <symbol id="ico-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+  </symbol>
+  <symbol id="ico-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+  </symbol>
+  <symbol id="ico-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+  </symbol>
+  <symbol id="ico-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+  </symbol>
+  <symbol id="ico-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+  </symbol>
+  <symbol id="ico-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+  </symbol>
+  <symbol id="ico-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/>
+    <path d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
+  </symbol>
+  <symbol id="ico-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 12.75l6 6 9-13.5"/>
+  </symbol>
+  <symbol id="ico-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 18L18 6M6 6l12 12"/>
+  </symbol>
+  <symbol id="ico-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+  </symbol>
+  <symbol id="ico-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+  </symbol>
+  <symbol id="ico-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+  </symbol>
+  <symbol id="ico-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 15.75l7.5-7.5 7.5 7.5"/>
+  </symbol>
+  <symbol id="ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+  </symbol>
+  <symbol id="ico-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </symbol>
+  <symbol id="ico-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </symbol>
+  <symbol id="ico-x-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </symbol>
+</svg>
+
 <nav>
-  <span>Branivo UX Directions:</span>
-  <button class="active" onclick="show(1)">1. Home (клиент)</button>
-  <button onclick="show(2)">2. OCR Wizard</button>
-  <button onclick="show(3)">3. Оферти</button>
-  <button onclick="show(4)">4. Confirmation</button>
-  <button onclick="show(5)">5. Broker Dashboard</button>
-  <button onclick="show(6)">6. Renewal Flow</button>
-  <button onclick="show(7)">7. Onboarding Flow</button>
+  <span>Branivo</span>
+  <button class="active" onclick="show('onboarding',this)">Onboarding</button>
+  <button onclick="show('auth',this)">Auth</button>
+  <button onclick="show('home',this)">Home</button>
+  <button onclick="show('insurance',this)">Застраховане</button>
+  <button onclick="show('modals',this)">Sheets & Modals</button>
+  <button onclick="show('go-wizard',this)">GO Wizard</button>
 </nav>
 
-<!-- DIRECTION 1: Client Home -->
-<section id="d1" class="active">
-  <div class="direction-label">
-    <h2>Direction 1 — Client Home Screen</h2>
-    <p>Clean Minimal · Индиго primary · Anonymous-first · OCR като главен CTA</p>
-  </div>
+<!-- ════════════════════════════════ ONBOARDING ════════════════════════════════ -->
+<section id="onboarding" class="active">
+  <div class="section-header"><h2>Onboarding Flow</h2><p>Splash · Сканиране · Извличане · Оферти на живо · WOW активация</p></div>
   <div class="phones">
+
+    <!-- SPLASH -->
     <div>
       <div class="phone">
-        <div class="phone-header d1-header">ЗАСТРАХОВКИ ДИМИТРОВ</div>
-        <div class="phone-screen d1-screen">
-          <div class="d1-topbar">
-            <span class="logo">Застраховки Димитров</span>
-            <div class="d1-avatar">МД</div>
-          </div>
-          <div class="d1-hero">
-            <h1>Застрахови колата си за минути</h1>
-            <p>Снимай талона · Сравни оферти · Плати онлайн</p>
-          </div>
-          <div class="d1-cta">
-            <div class="cta-icon">📷</div>
-            <div class="cta-title">Сканирай талона</div>
-            <div class="cta-sub">3 снимки · 30 секунди · без регистрация</div>
-          </div>
-          <div class="d1-stats">
-            <div class="d1-stat">
-              <div class="val">2</div>
-              <div class="lbl">Активни полици</div>
-            </div>
-            <div class="d1-stat">
-              <div class="val">24</div>
-              <div class="lbl">Дни до подновяване</div>
-            </div>
-          </div>
-          <div class="d1-recent">
-            <div class="sec-title">Моите полици</div>
-            <div class="d1-item">
-              <div class="d1-item-icon">🚗</div>
-              <div class="d1-item-info">
-                <div class="name">Toyota Corolla 2019</div>
-                <div class="sub">ГО · до 17.03.2027</div>
-              </div>
-              <div class="d1-item-badge">Активна</div>
-            </div>
-            <div class="d1-item">
-              <div class="d1-item-icon">🚙</div>
-              <div class="d1-item-info">
-                <div class="name">VW Golf 2020</div>
-                <div class="sub">ГО · до 05.06.2026</div>
-              </div>
-              <div class="d1-item-badge">Активна</div>
-            </div>
-          </div>
-          <div class="d1-nav">
-            <div class="d1-nav-item active"><span class="nav-icon">🏠</span>Начало</div>
-            <div class="d1-nav-item"><span class="nav-icon">📋</span>Полици</div>
-            <div class="d1-nav-item"><span class="nav-icon">💬</span>Чат</div>
-            <div class="d1-nav-item"><span class="nav-icon">👤</span>Профил</div>
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"><svg width="14" height="14"><use href="#ico-shield"/></svg></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="splash"><div class="splash-logo"><svg width="38" height="38"><use href="#ico-shield"/></svg></div><div class="splash-name">Branivo</div><div class="splash-tag">Умна застраховка за всеки</div></div>
           </div>
         </div>
+        <div class="phone-home-bar"><div></div></div>
       </div>
-      <div class="phone-label">Начален екран · Връщащ се клиент</div>
+      <div class="phone-label">Splash Screen</div>
     </div>
-  </div>
-</section>
 
-<!-- DIRECTION 2: OCR Wizard -->
-<section id="d2">
-  <div class="direction-label">
-    <h2>Direction 2 — OCR Wizard</h2>
-    <p>Dark mode · 3-стъпков wizard · Frame guide · Partial reveal след всяка снимка</p>
-  </div>
-  <div class="phones">
+    <!-- OB 1: СКАНИРАЙ ТАЛОНА -->
     <div>
       <div class="phone">
-        <div class="phone-header" style="background:#1E293B; color:#6366F1">📷 СКАНИРАНЕ</div>
-        <div class="phone-screen d2-screen">
-          <div class="d2-topbar">
-            <span class="back">←</span>
-            <span class="title">Сканирай талона</span>
-          </div>
-          <div class="d2-progress">
-            <div class="d2-step done"></div>
-            <div class="d2-step active"></div>
-            <div class="d2-step"></div>
-          </div>
-          <div class="d2-hint">
-            <div class="step-num">Стъпка 2 от 3</div>
-            <div class="step-text">Горна дясна секция</div>
-            <div class="step-sub">Снимай собственика и датата на регистрация</div>
-          </div>
-          <div class="d2-camera">
-            <div class="d2-camera-frame"></div>
-          </div>
-          <div class="d2-partial">
-            <div class="p-label">✓ Разпознато от Стъпка 1</div>
-            <div class="p-item">Марка: <span>Toyota Corolla</span></div>
-            <div class="p-item">Година: <span>2019</span></div>
-            <div class="p-item">Рег. №: <span>СА 1234 АВ</span></div>
-          </div>
-          <div class="d2-capture">📷 Снимай</div>
-        </div>
-      </div>
-      <div class="phone-label">OCR Wizard · Стъпка 2 · Partial reveal</div>
-    </div>
-  </div>
-</section>
-
-<!-- DIRECTION 3: Offers -->
-<section id="d3">
-  <div class="direction-label">
-    <h2>Direction 3 — Оферти Screen</h2>
-    <p>Value Justification · is_recommended с динамично "защо" · Ценова прозрачност</p>
-  </div>
-  <div class="phones">
-    <div>
-      <div class="phone">
-        <div class="phone-header" style="background:#6366F1; color:#fff">ОФЕРТИ</div>
-        <div class="phone-screen d3-screen">
-          <div class="d3-topbar">
-            <div class="car">Toyota Corolla 2019 · СА 1234 АВ</div>
-            <div class="sub">4 оферти · обновено преди 2 сек</div>
-          </div>
-          <div class="d3-filter">
-            <div class="d3-tag active">Всички</div>
-            <div class="d3-tag">Най-евтини</div>
-            <div class="d3-tag">Най-добро покритие</div>
-            <div class="d3-tag">Бързо изплащане</div>
-          </div>
-
-          <!-- Recommended card -->
-          <div class="d3-card recommended">
-            <div class="d3-rec-badge">⭐ Препоръчано за вас</div>
-            <div class="d3-rec-reason">Най-бързо изплащане при щета (24ч) + пълно покритие за вашия автомобил</div>
-            <div class="d3-card-top">
-              <div class="d3-insurer">ДЗИ</div>
-              <div class="d3-price">189 <span>лв/год</span></div>
-            </div>
-            <div class="d3-features">
-              <div class="d3-feat">✓ 24ч изплащане</div>
-              <div class="d3-feat">✓ Пълно покритие</div>
-              <div class="d3-feat">✓ Безплатен асистанс</div>
-            </div>
-            <div class="d3-buy">Купи сега</div>
-          </div>
-
-          <!-- Regular card -->
-          <div class="d3-card">
-            <div class="d3-card-top">
-              <div class="d3-insurer">Алианц</div>
-              <div class="d3-price">162 <span>лв/год</span></div>
-            </div>
-            <div class="d3-features">
-              <div class="d3-feat">✓ 48ч изплащане</div>
-              <div class="d3-feat">✓ Стандартно покритие</div>
-            </div>
-            <div class="d3-buy-out">Избери</div>
-          </div>
-        </div>
-      </div>
-      <div class="phone-label">Оферти · is_recommended с "защо" · Value Justification</div>
-    </div>
-  </div>
-</section>
-
-<!-- DIRECTION 4: Confirmation -->
-<section id="d4">
-  <div class="direction-label">
-    <h2>Direction 4 — Confirmation Screen</h2>
-    <p>Три емоционални слоя: Облекчение → Удовлетворение → Micro-delight (loyalty)</p>
-  </div>
-  <div class="phones">
-    <div>
-      <div class="phone">
-        <div class="phone-header" style="background:linear-gradient(90deg,#6366F1,#0D9488); color:#fff">✓ ГОТОВО</div>
-        <div class="phone-screen d4-screen">
-          <div class="d4-success">
-            <div class="d4-checkmark">✓</div>
-            <h1>Готово, полицата е ваша!</h1>
-            <p>PDF и Зелена карта ще получите на имейл в рамките на 5 минути</p>
-          </div>
-          <div class="d4-coverage">
-            <div class="d4-cov-title">Вашето покритие</div>
-            <div class="d4-cov-item"><span class="k">Полица №</span><span class="v">GO-2026-00847</span></div>
-            <div class="d4-cov-item"><span class="k">Застраховател</span><span class="v">ДЗИ</span></div>
-            <div class="d4-cov-item"><span class="k">МПС</span><span class="v">Toyota Corolla 2019</span></div>
-            <div class="d4-cov-item"><span class="k">Валидна до</span><span class="v">17.03.2027</span></div>
-            <div class="d4-cov-item"><span class="k">Покритие</span><span class="v">Пълна ГО + асистанс</span></div>
-          </div>
-          <div class="d4-loyalty">
-            <div class="icon">⭐</div>
-            <div class="text">
-              <div class="title">Спечелихте 18 точки!</div>
-              <div class="sub">= 1.80 лв към следваща покупка</div>
-            </div>
-          </div>
-          <div class="d4-actions">
-            <div class="d4-btn-primary">Изтегли PDF</div>
-            <div class="d4-btn-secondary">Обратно към начало</div>
-          </div>
-        </div>
-      </div>
-      <div class="phone-label">Confirmation · Облекчение + Удовлетворение + Loyalty</div>
-    </div>
-  </div>
-</section>
-
-<!-- DIRECTION 5: Broker Dashboard -->
-<section id="d5">
-  <div class="direction-label">
-    <h2>Direction 5 — Broker Dashboard</h2>
-    <p>Майсторство и Собственост · MRR prominent · Live sales notifications</p>
-  </div>
-  <div class="phones">
-    <div>
-      <div class="phone">
-        <div class="phone-header" style="background:#6366F1; color:#fff">BROKER DASHBOARD</div>
-        <div class="phone-screen d5-screen">
-          <div class="d5-topbar">
-            <div class="greeting">Добро утро,</div>
-            <div class="name">Мариян Димитров</div>
-          </div>
-          <div class="d5-mrr">
-            <div class="mrr-label">МЕСЕЧЕН ПРИХОД (MRR)</div>
-            <div class="mrr-value">€ 1,840</div>
-            <div class="mrr-growth">↑ +12% спрямо миналия месец</div>
-          </div>
-          <div class="d5-grid">
-            <div class="d5-kpi">
-              <div class="k-val">47</div>
-              <div class="k-lbl">Активни клиенти</div>
-            </div>
-            <div class="d5-kpi">
-              <div class="k-val">12</div>
-              <div class="k-lbl">Полици тази седмица</div>
-            </div>
-            <div class="d5-kpi">
-              <div class="k-val">3</div>
-              <div class="k-lbl">Изтичащи тази седмица</div>
-            </div>
-            <div class="d5-kpi">
-              <div class="k-val">98%</div>
-              <div class="k-lbl">Renewal rate</div>
-            </div>
-          </div>
-          <div class="d5-recent">
-            <div class="sec-title">Последни продажби</div>
-            <div class="d5-sale">
-              <div class="dot"></div>
-              <div class="info">
-                <div class="name">Николай Петров</div>
-                <div class="sub">Toyota Corolla · ГО · преди 12 мин</div>
-              </div>
-              <div class="amount">+189 лв</div>
-            </div>
-            <div class="d5-sale">
-              <div class="dot"></div>
-              <div class="info">
-                <div class="name">Радка Иванова</div>
-                <div class="sub">VW Golf · ГО · преди 1 час</div>
-              </div>
-              <div class="amount">+162 лв</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="phone-label">Broker Dashboard · Мариян · MRR + Live sales</div>
-    </div>
-  </div>
-</section>
-
-<!-- DIRECTION 7: Onboarding Flow -->
-<style>
-/* ── Simulator layout ── */
-.sim-wrap { display:flex; gap:40px; justify-content:center; align-items:flex-start; flex-wrap:wrap; }
-.sim-left { display:flex; flex-direction:column; gap:8px; width:200px; padding-top:12px; }
-.sim-step {
-  padding:9px 14px; border-radius:8px; font-size:12px; font-weight:500; color:#64748B;
-  cursor:pointer; border:1px solid transparent; transition:all .2s; background:transparent;
-}
-.sim-step:hover { background:#1E293B; color:#94A3B8; border-color:#334155; }
-.sim-step.current { background:#6366F1; color:#fff; border-color:#6366F1; font-weight:700; }
-.sim-step.visited { color:#94A3B8; }
-.sim-right { width:220px; padding-top:12px; }
-.sim-anno-title { font-size:13px; font-weight:700; color:#fff; margin-bottom:6px; }
-.sim-anno-body { font-size:12px; color:#64748B; line-height:1.6; }
-.sim-anno-tag { display:inline-block; margin-top:8px; font-size:10px; font-weight:700;
-  background:#1E293B; color:#6366F1; border:1px solid #334155; border-radius:4px; padding:3px 8px; }
-
-/* ── Phone viewport ── */
-.sim-phone-wrap { position:relative; }
-.sim-viewport { position:relative; width:308px; height:580px; overflow:hidden; }
-.sim-screen {
-  position:absolute; inset:0; overflow-y:auto; overflow-x:hidden;
-  background:#FAFAFA;
-  transform:translateX(100%); transition:transform .32s cubic-bezier(.4,0,.2,1);
-  will-change:transform;
-}
-.sim-screen.active { transform:translateX(0); }
-.sim-screen.exit-left { transform:translateX(-100%); }
-.sim-screen.exit-right { transform:translateX(100%); }
-
-/* ── Toast ── */
-.sim-toast {
-  position:absolute; bottom:16px; left:12px; right:12px; z-index:99;
-  background:#111827; color:#fff; border-radius:12px; padding:12px 16px;
-  font-size:13px; font-weight:600; text-align:center;
-  opacity:0; transform:translateY(16px); transition:all .3s;
-  pointer-events:none;
-}
-.sim-toast.show { opacity:1; transform:translateY(0); }
-
-/* ── Loading spinner overlay ── */
-.sim-loading {
-  position:absolute; inset:0; background:rgba(255,255,255,.85); z-index:50;
-  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px;
-  opacity:0; pointer-events:none; transition:opacity .2s;
-}
-.sim-loading.show { opacity:1; pointer-events:all; }
-.spin { width:28px; height:28px; border:3px solid #EEF2FF; border-top-color:#6366F1;
-  border-radius:50%; animation:spin .7s linear infinite; }
-@keyframes spin { to { transform:rotate(360deg); } }
-
-/* ── OTP interaction ── */
-.otp-row { display:flex; gap:7px; justify-content:center; margin:16px 0; cursor:pointer; }
-.otp-box { width:38px; height:46px; border-radius:10px; background:#fff;
-  box-shadow:0 2px 6px rgba(0,0,0,.08); border:1.5px solid #F1F5F9;
-  display:flex; align-items:center; justify-content:center;
-  font-size:19px; font-weight:700; color:#111827; transition:all .15s; }
-.otp-box.active { border-color:#6366F1; background:#EEF2FF; }
-.otp-box.filled { border-color:#6366F1; }
-.otp-hint { text-align:center; font-size:11px; color:#6366F1; cursor:pointer;
-  margin-top:-8px; margin-bottom:6px; text-decoration:underline; }
-
-/* ── Field interaction ── */
-.ob-field { background:#F9FAFB; border-radius:10px; padding:12px 14px;
-  display:flex; align-items:center; gap:10px; margin-bottom:10px;
-  border:1px solid #F1F5F9; cursor:text; transition:all .15s; }
-.ob-field:hover, .ob-field.focused { border-color:#6366F1; background:#EEF2FF; }
-.ob-field .f-icon { font-size:15px; color:#6366F1; flex-shrink:0; }
-.ob-field .f-label { font-size:13px; color:#9CA3AF; }
-.ob-field .f-val { font-size:13px; color:#111827; font-weight:500; display:none; }
-.ob-field.filled .f-label { display:none; }
-.ob-field.filled .f-val { display:block; }
-.ob-field.filled { border-color:#6366F1; background:#fff; }
-
-/* ── Buttons ── */
-.ob-primary-btn { background:#6366F1; color:#fff; border-radius:12px; height:52px;
-  display:flex; align-items:center; justify-content:center;
-  font-size:15px; font-weight:700; cursor:pointer;
-  box-shadow:0 4px 16px rgba(99,102,241,.35); gap:8px;
-  transition:opacity .15s, transform .1s; user-select:none; }
-.ob-primary-btn:hover { opacity:.9; }
-.ob-primary-btn:active { transform:scale(.97); }
-.ob-primary-btn.disabled { opacity:.35; pointer-events:none; }
-.ob-outlined-btn { border:1.5px solid #6366F1; border-radius:12px; height:52px;
-  display:flex; align-items:center; justify-content:center;
-  font-size:15px; font-weight:600; color:#6366F1; background:transparent;
-  cursor:pointer; transition:all .15s; }
-.ob-outlined-btn:hover { background:#EEF2FF; }
-.ob-text-btn { text-align:center; font-size:13px; color:#6B7280; cursor:pointer;
-  padding:8px; transition:color .15s; }
-.ob-text-btn:hover { color:#6366F1; }
-.ob-circle-btn { width:36px; height:36px; border-radius:50%; background:#fff;
-  box-shadow:0 2px 8px rgba(0,0,0,.10); display:flex; align-items:center;
-  justify-content:center; font-size:14px; color:#374151; cursor:pointer;
-  border:1px solid #F1F5F9; transition:all .15s; flex-shrink:0; }
-.ob-circle-btn:hover { background:#EEF2FF; border-color:#6366F1; }
-.ob-dark-card { background:#1E293B; border-radius:14px; padding:14px 16px;
-  display:flex; align-items:center; gap:12px; }
-.ob-dark-card .dc-icon-wrap { width:38px; height:38px; border-radius:10px;
-  background:rgba(255,255,255,.12); display:flex; align-items:center;
-  justify-content:center; font-size:17px; flex-shrink:0; }
-.ob-dark-card .dc-title { font-size:13px; font-weight:700; color:#fff; }
-.ob-dark-card .dc-sub { font-size:11px; color:rgba(255,255,255,.55); margin-top:2px; }
-
-/* ── Interest cards ── */
-.interest-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.ic2 { background:#fff; border-radius:14px; padding:14px; border:2px solid #F1F5F9;
-  cursor:pointer; transition:all .18s; }
-.ic2:hover { border-color:#A5B4FC; background:#EEF2FF; }
-.ic2.selected { border-color:#6366F1; background:#EEF2FF; }
-.ic2-icon { width:40px; height:40px; border-radius:10px; background:#EEF2FF;
-  display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:8px; }
-.ic2.selected .ic2-icon { background:rgba(99,102,241,.2); }
-.ic2-label { font-size:13px; font-weight:700; color:#111827; }
-.ic2-sub { font-size:11px; color:#9CA3AF; margin-top:2px; }
-.ic2-check { width:18px; height:18px; border-radius:50%; background:#6366F1;
-  display:flex; align-items:center; justify-content:center;
-  font-size:10px; color:#fff; font-weight:700;
-  opacity:0; float:right; margin-top:-30px; transition:opacity .15s; }
-.ic2.selected .ic2-check { opacity:1; }
-
-/* ── Success overlay ── */
-.success-overlay {
-  position:absolute; inset:0; background:#fff; z-index:60;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
-  opacity:0; pointer-events:none; transition:opacity .3s;
-}
-.success-overlay.show { opacity:1; pointer-events:all; }
-.success-circle { width:72px; height:72px; border-radius:50%;
-  background:linear-gradient(135deg,#6366F1,#0D9488);
-  display:flex; align-items:center; justify-content:center;
-  font-size:32px; color:#fff; }
-</style>
-<section id="d7">
-  <div class="direction-label">
-    <h2>Direction 7 — Onboarding Flow · Interactive</h2>
-    <p>Клик върху бутоните за навигация · Пълен flow от Splash до Home</p>
-  </div>
-
-  <div class="sim-wrap">
-
-    <!-- LEFT: step map -->
-    <div class="sim-left">
-      <div class="sim-step current" id="step-splash" onclick="simGoto('splash')">1. Splash Screen</div>
-      <div class="sim-step" id="step-slide1" onclick="simGoto('slide1')">2. Slide 1 — 30 сек</div>
-      <div class="sim-step" id="step-slide2" onclick="simGoto('slide2')">3. Slide 2 — Face ID</div>
-      <div class="sim-step" id="step-interests" onclick="simGoto('interests')">4. Interest Selector</div>
-      <div class="sim-step" id="step-entry" onclick="simGoto('entry')">5. Entry Gate</div>
-      <div class="sim-step" id="step-login" onclick="simGoto('login')">6. Login</div>
-      <div class="sim-step" id="step-reset1" onclick="simGoto('reset1')">7. Reset PW — Step 1</div>
-      <div class="sim-step" id="step-reset2" onclick="simGoto('reset2')">8. Reset PW — Step 2</div>
-      <div class="sim-step" id="step-reset3" onclick="simGoto('reset3')">9. Reset PW — Step 3</div>
-      <div class="sim-step" id="step-register" onclick="simGoto('register')">10. Register</div>
-      <div class="sim-step" id="step-postpurchase" onclick="simGoto('postpurchase')">11. Post-Purchase</div>
-    </div>
-
-    <!-- CENTER: phone simulator -->
-    <div class="sim-phone-wrap">
-      <div class="phone" style="width:320px;">
-        <div class="phone-header" id="sim-header" style="background:#6366F1; color:#fff;">BRANIVO</div>
-        <div class="sim-viewport">
-
-          <!-- Loading overlay -->
-          <div class="sim-loading" id="sim-loading"><div class="spin"></div><div style="font-size:12px;color:#6B7280;">Зареждане...</div></div>
-
-          <!-- Success overlay -->
-          <div class="success-overlay" id="sim-success">
-            <div class="success-circle">✓</div>
-            <div style="font-size:18px;font-weight:800;color:#111827;" id="success-msg">Готово!</div>
-            <div style="font-size:13px;color:#6B7280;text-align:center;padding:0 24px;" id="success-sub">Операцията беше успешна.</div>
-            <div class="ob-primary-btn" style="width:200px;margin-top:8px;" onclick="simGoto('entry')">← Начало</div>
-          </div>
-
-          <!-- Toast -->
-          <div class="sim-toast" id="sim-toast"></div>
-
-          <!-- ── SCREEN: Splash ── -->
-          <div id="scr-splash" class="sim-screen active" style="background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center;" onclick="simGoto('slide1')">
-            <div style="width:72px;height:72px;border-radius:20px;background:#6366F1;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(99,102,241,.4);margin-bottom:18px;">
-              <span style="font-size:32px;font-weight:800;color:#fff;">Б</span>
-            </div>
-            <div style="font-size:18px;font-weight:800;color:#111827;">Застраховки Димитров</div>
-            <div style="font-size:13px;color:#9CA3AF;margin-top:5px;">Застраховай се за минути</div>
-            <div style="display:flex;gap:5px;margin-top:52px;">
-              <div style="width:18px;height:6px;border-radius:3px;background:#6366F1;"></div>
-              <div style="width:6px;height:6px;border-radius:50%;background:#6366F1;opacity:.25;"></div>
-              <div style="width:6px;height:6px;border-radius:50%;background:#6366F1;opacity:.25;"></div>
-            </div>
-            <div style="font-size:11px;color:#9CA3AF;margin-top:24px;">Кликни за да продължиш</div>
-          </div>
-
-          <!-- ── SCREEN: Slide 1 ── -->
-          <div id="scr-slide1" class="sim-screen" style="padding:20px;display:flex;flex-direction:column;">
-            <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
-              <div class="ob-text-btn" onclick="simGoto('entry')">Пропусни</div>
-            </div>
-            <div style="background:#1E293B;border-radius:20px;padding:24px;text-align:center;margin-bottom:20px;">
-              <div style="font-size:44px;margin-bottom:10px;">🚗</div>
-              <div style="font-size:13px;color:rgba(255,255,255,.65);margin-bottom:10px;">Намерихме Toyota Corolla 2019</div>
-              <span style="background:rgba(99,102,241,.25);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;color:#A5B4FC;">⚡ 30 секунди</span>
-            </div>
-            <div style="font-size:26px;font-weight:800;color:#111827;line-height:1.25;margin-bottom:8px;">Оферта за 30 секунди</div>
-            <div style="font-size:14px;color:#6B7280;line-height:1.55;flex:1;">Снимай талона на колата си и получи оферти от водещите застрахователи веднага.</div>
-            <div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px;">
-              <div style="width:22px;height:8px;border-radius:4px;background:#6366F1;"></div>
-              <div style="width:8px;height:8px;border-radius:50%;background:#6366F1;opacity:.2;"></div>
-            </div>
-            <div class="ob-primary-btn" onclick="simGoto('slide2')">Напред →</div>
-          </div>
-
-          <!-- ── SCREEN: Slide 2 ── -->
-          <div id="scr-slide2" class="sim-screen" style="padding:20px;display:flex;flex-direction:column;">
-            <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
-              <div class="ob-text-btn" onclick="simGoto('entry')">Пропусни</div>
-            </div>
-            <div style="background:#1E293B;border-radius:20px;padding:24px;text-align:center;margin-bottom:20px;">
-              <div style="font-size:44px;margin-bottom:10px;">🔒</div>
-              <div style="font-size:13px;color:rgba(255,255,255,.65);margin-bottom:10px;">Сигурно и бързо плащане</div>
-              <span style="background:rgba(13,148,136,.25);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;color:#5EEAD4;">Face ID · Apple Pay</span>
-            </div>
-            <div style="font-size:26px;font-weight:800;color:#111827;line-height:1.25;margin-bottom:8px;">Плати за секунди</div>
-            <div style="font-size:14px;color:#6B7280;line-height:1.55;flex:1;">Apple Pay, Google Pay или карта. Твоите данни са защитени с банкова сигурност.</div>
-            <div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px;">
-              <div style="width:8px;height:8px;border-radius:50%;background:#6366F1;opacity:.2;"></div>
-              <div style="width:22px;height:8px;border-radius:4px;background:#6366F1;"></div>
-            </div>
-            <div class="ob-primary-btn" onclick="simGoto('interests')">Започни →</div>
-          </div>
-
-          <!-- ── SCREEN: Interests ── -->
-          <div id="scr-interests" class="sim-screen" style="padding:20px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-              <div class="ob-circle-btn" onclick="simGoto('slide2')">←</div>
-              <div class="ob-text-btn" onclick="simGoto('entry')">Пропусни</div>
-            </div>
-            <div style="font-size:22px;font-weight:800;color:#111827;margin-bottom:5px;">Какво те интересува?</div>
-            <div style="font-size:13px;color:#6B7280;margin-bottom:18px;">Избери — ще намерим най-добрите оферти.</div>
-            <div class="interest-grid2">
-              <div class="ic2" id="ic-go" onclick="selectInterest('go')">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                  <div class="ic2-icon">🚗</div>
-                  <div class="ic2-check" id="chk-go">✓</div>
+        <div class="phone-bar ob-dark"><div class="phone-notch" style="background:#000;"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen" style="background:#0A0F1E;">
+          <div class="screen-content" style="display:flex;flex-direction:column;">
+            <div class="ob-camera" style="flex:1;min-height:300px;">
+              <div class="ob-cam-hint"><span>Насочете към малкия талон</span></div>
+              <div class="ob-doc-frame">
+                <div class="ob-corner tl"></div><div class="ob-corner tr"></div>
+                <div class="ob-corner bl"></div><div class="ob-corner br"></div>
+                <div class="scan-line"></div>
+                <div class="talona-mini">
+                  <div class="talona-header">СВИДЕТЕЛСТВО ЗА РЕГИСТРАЦИЯ</div>
+                  <div class="talona-row"><div class="talona-field"><span class="tf-label">A. Рег. номер</span><span class="tf-value">СА 1234 КС</span></div><div class="talona-field"><span class="tf-label">B. Дата</span><span class="tf-value">12.03.2019</span></div></div>
+                  <div class="talona-row"><div class="talona-field"><span class="tf-label">D.1 Марка</span><span class="tf-value">VOLKSWAGEN</span></div><div class="talona-field"><span class="tf-label">D.3 Модел</span><span class="tf-value">GOLF 1.6 TDI</span></div></div>
+                  <div class="talona-row"><div class="talona-field"><span class="tf-label">P.2 Мощност</span><span class="tf-value">85 kW</span></div><div class="talona-field"><span class="tf-label">P.3 Обем</span><span class="tf-value">1598 cc</span></div></div>
+                  <div class="talona-row"><div class="talona-field" style="flex:2;"><span class="tf-label">C. ЕГН / ЕИК</span><span class="tf-value">8001011234</span></div></div>
                 </div>
-                <div class="ic2-label">Гражданска отг.</div>
-                <div class="ic2-sub">За всяко МПС</div>
               </div>
-              <div class="ic2" id="ic-casco" onclick="selectInterest('casco')">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                  <div class="ic2-icon">🛡️</div>
-                  <div class="ic2-check" id="chk-casco">✓</div>
-                </div>
-                <div class="ic2-label">Каско</div>
-                <div class="ic2-sub">Пълно покритие</div>
-              </div>
-              <div class="ic2" id="ic-travel" onclick="selectInterest('travel')">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                  <div class="ic2-icon">✈️</div>
-                  <div class="ic2-check" id="chk-travel">✓</div>
-                </div>
-                <div class="ic2-label">Пътуване</div>
-                <div class="ic2-sub">За чужбина</div>
-              </div>
-              <div class="ic2" id="ic-property" onclick="selectInterest('property')">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                  <div class="ic2-icon">🏠</div>
-                  <div class="ic2-check" id="chk-property">✓</div>
-                </div>
-                <div class="ic2-label">Имущество</div>
-                <div class="ic2-sub">Дом и офис</div>
-              </div>
+              <div class="ob-cam-bottom-hint">Задръжте стабилно — снимката е автоматична</div>
             </div>
-            <div style="margin-top:12px;font-size:11px;color:#9CA3AF;text-align:center;">Продуктите се конфигурират от Admin Panel</div>
-          </div>
-
-          <!-- ── SCREEN: Entry Gate ── -->
-          <div id="scr-entry" class="sim-screen" style="padding:24px;display:flex;flex-direction:column;">
-            <div style="display:flex;justify-content:center;margin-bottom:24px;margin-top:8px;">
-              <div style="background:#6366F1;border-radius:12px;padding:10px 20px;font-size:15px;font-weight:800;color:#fff;">Застраховки Димитров</div>
-            </div>
-            <div class="ob-dark-card" style="margin-bottom:0;">
-              <div class="dc-icon-wrap">🛡️</div>
-              <div>
-                <div class="dc-title" id="entry-title">Застрахователни оферти</div>
-                <div class="dc-sub">Сравни и купи за минути</div>
-              </div>
-            </div>
-            <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;padding-bottom:12px;margin-top:24px;">
-              <div class="ob-primary-btn" onclick="simGoto('ocr-note')"><span>📷</span> Сканирай без акаунт</div>
-              <div class="ob-outlined-btn" onclick="simGoto('login')">Влез в профила си</div>
-              <div class="ob-text-btn" onclick="simGoto('register')">Нямаш акаунт? Регистрирай се</div>
-            </div>
-            <div style="text-align:center;font-size:11px;color:#9CA3AF;">Продължавайки, приемаш условията ни.</div>
-          </div>
-
-          <!-- ── SCREEN: OCR Note ── -->
-          <div id="scr-ocr-note" class="sim-screen" style="padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
-            <div style="font-size:52px;margin-bottom:16px;">📷</div>
-            <div style="font-size:20px;font-weight:800;color:#111827;margin-bottom:8px;">OCR Scanner</div>
-            <div style="font-size:13px;color:#6B7280;line-height:1.6;margin-bottom:24px;">Анонимният scan отваря OCR Wizard в Direction 2. Покупката минава през Post-Purchase prompt.</div>
-            <div class="ob-primary-btn" style="width:100%;margin-bottom:10px;" onclick="show(2)">→ Виж OCR Wizard (Direction 2)</div>
-            <div class="ob-outlined-btn" style="width:100%;" onclick="simGoto('entry')">← Обратно</div>
-          </div>
-
-          <!-- ── SCREEN: Login ── -->
-          <div id="scr-login" class="sim-screen" style="padding:20px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-              <div class="ob-circle-btn" onclick="simGoto('entry')">←</div>
-              <div style="font-size:13px;color:#6366F1;font-weight:600;cursor:pointer;" onclick="simGoto('register')">Регистрация</div>
-            </div>
-            <div style="font-size:26px;font-weight:800;color:#111827;margin-bottom:4px;">Добре дошли!</div>
-            <div style="font-size:13px;color:#6B7280;margin-bottom:16px;">Влезте в своя профил</div>
-            <div class="ob-dark-card" style="margin-bottom:16px;">
-              <div class="dc-icon-wrap">🔒</div>
-              <div><div class="dc-title">Сигурно влизане</div><div class="dc-sub">Данните ви са защитени</div></div>
-            </div>
-            <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F1F5F9;box-shadow:0 2px 8px rgba(0,0,0,.05);">
-              <div class="ob-field" id="lf-email" onclick="fillField('lf-email','demo@branivo.bg')">
-                <span class="f-icon">✉️</span>
-                <div class="f-label">Имейл адрес</div>
-                <div class="f-val">demo@branivo.bg</div>
-              </div>
-              <div class="ob-field" id="lf-pass" onclick="fillField('lf-pass','••••••••')">
-                <span class="f-icon">🔑</span>
-                <div class="f-label">Парола</div>
-                <div class="f-val">••••••••</div>
-              </div>
-              <div style="text-align:right;font-size:12px;color:#6366F1;margin-bottom:14px;cursor:pointer;" onclick="simGoto('reset1')">Забравена парола?</div>
-              <div class="ob-primary-btn" onclick="doLogin()">Влез</div>
+            <div class="ob-text-area" style="background:#0A0F1E;">
+              <div class="ob-dots"><div class="ob-dot dark active light"></div><div class="ob-dot dark"></div><div class="ob-dot dark"></div><div class="ob-dot dark"></div></div>
+              <div class="ob-title light">Сканирайте талона</div>
+              <div class="ob-desc light" style="margin-bottom:0;">Без ръчно въвеждане — камерата чете данните вместо вас</div>
             </div>
           </div>
+          <div class="screen-footer ob-dark"><button class="btn-primary">Следващ</button></div>
+        </div>
+        <div class="phone-home-bar ob-dark"><div></div></div>
+      </div>
+      <div class="phone-label">Onboarding 1 — Сканирай талона</div>
+    </div>
 
-          <!-- ── SCREEN: Reset Step 1 ── -->
-          <div id="scr-reset1" class="sim-screen" style="padding:20px;">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
-              <div class="ob-circle-btn" onclick="simGoto('login')">←</div>
-            </div>
-            <div style="font-size:11px;font-weight:700;color:#6366F1;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">СТЪПКА 1 ОТ 3</div>
-            <div style="font-size:24px;font-weight:800;color:#111827;margin-bottom:16px;">Нулиране на парола</div>
-            <div class="ob-dark-card" style="margin-bottom:18px;">
-              <div class="dc-icon-wrap">✉️</div>
-              <div><div class="dc-title">Въведи имейл адрес</div><div class="dc-sub">Ще изпратим 6-цифрен код</div></div>
-            </div>
-            <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F1F5F9;box-shadow:0 2px 8px rgba(0,0,0,.05);">
-              <div class="ob-field" id="rf-email" onclick="fillField('rf-email','demo@branivo.bg')">
-                <span class="f-icon">✉️</span>
-                <div class="f-label">Имейл адрес</div>
-                <div class="f-val">demo@branivo.bg</div>
+    <!-- OB 2: ИЗВЛИЧАНЕ НА ДАННИ -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="ob-extract-view">
+              <div class="extract-doc">
+                <div class="doc-header"><span>СВИДЕТЕЛСТВО ЗА РЕГИСТРАЦИЯ (ТАЛОН)</span></div>
+                <div class="extract-row"><div class="ef"><span class="ef-label">A. Рег. номер</span><span class="ef-value">СА 1234 КС</span></div><div class="ck"><svg width="8" height="8"><use href="#ico-check"/></svg></div></div>
+                <div class="extract-row"><div class="ef"><span class="ef-label">D.1 / D.3 Марка и модел</span><span class="ef-value">VW Golf 1.6 TDI</span></div><div class="ck"><svg width="8" height="8"><use href="#ico-check"/></svg></div></div>
+                <div class="extract-row"><div class="ef"><span class="ef-label">P.2 Мощност</span><span class="ef-value">85 kW (116 к.с.)</span></div><div class="ck"><svg width="8" height="8"><use href="#ico-check"/></svg></div></div>
+                <div class="extract-row"><div class="ef"><span class="ef-label">B. Дата на регистрация</span><span class="ef-value">12.03.2019</span></div><div class="ck"><svg width="8" height="8"><use href="#ico-check"/></svg></div></div>
+                <div class="hl-scan"></div>
               </div>
-              <div style="margin-top:6px;"></div>
-              <div class="ob-primary-btn" onclick="doLoadThen('reset2')">Изпрати код</div>
+              <div class="done-badge">✓ Готово!</div>
+            </div>
+            <div class="fields-list">
+              <div class="field-item"><div class="fi-icon">🚗</div><div class="fi-text"><div class="fi-label">Автомобил</div><div class="fi-value">VW Golf 1.6 TDI</div></div><div class="fi-badge">Извлечено</div></div>
+              <div class="field-item"><div class="fi-icon">🔢</div><div class="fi-text"><div class="fi-label">Рег. номер</div><div class="fi-value">СА 1234 КС</div></div><div class="fi-badge">Извлечено</div></div>
+              <div class="field-item"><div class="fi-icon" style="background:#FFF7ED;"><svg width="16" height="16" color="#F59E0B"><use href="#ico-shield"/></svg></div><div class="fi-text"><div class="fi-label">Мощност</div><div class="fi-value">85 kW · 116 к.с.</div></div><div class="fi-badge">Извлечено</div></div>
+              <div class="field-item"><div class="fi-icon"><svg width="16" height="16" color="#2563EB"><use href="#ico-calendar"/></svg></div><div class="fi-text"><div class="fi-label">Година</div><div class="fi-value">2019</div></div><div class="fi-badge">Извлечено</div></div>
+            </div>
+            <div style="height:8px;"></div>
+            <div class="ob-dots" style="margin-bottom:12px;"><div class="ob-dot"></div><div class="ob-dot"></div><div class="ob-dot active"></div><div class="ob-dot"></div></div>
+            <div class="ob-title">Данните са прочетени</div>
+            <div class="ob-desc">Проверете дали всичко е правилно</div>
+          </div>
+          <div class="screen-footer white-clean"><button class="btn-primary">Намери оферти</button></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Onboarding 2 — Извличане на данни</div>
+    </div>
+
+    <!-- OB 3: ОФЕРТИ НА ЖИВО -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="ob-live-view">
+              <div class="live-bar"><div class="live-badge"><div class="pulse-dot"></div>НА ЖИВО</div><div class="live-count">17 оферти намерени</div></div>
+              <div class="quote-card best">
+                <div class="q-logo" style="background:#1B3F8B;">ЛЕВ</div>
+                <div class="q-info"><div class="q-name">Лев Инс</div><div class="q-plan">Гражданска отговорност</div></div>
+                <div class="q-price"><span class="best-badge">НАЙ-ДОБРА</span><div class="q-amount">189 лв.</div><div class="q-period">/година</div></div>
+              </div>
+              <div class="quote-card">
+                <div class="q-logo" style="background:#C41E3A;">ДЗИ</div>
+                <div class="q-info"><div class="q-name">ДЗИ</div><div class="q-plan">Гражданска отговорност</div></div>
+                <div class="q-price"><div class="q-amount">215 лв.</div><div class="q-period">/година</div></div>
+              </div>
+              <div class="quote-card">
+                <div class="q-logo" style="background:#15803D;">БУЛ</div>
+                <div class="q-info"><div class="q-name">Булстрад</div><div class="q-plan">Гражданска отговорност</div></div>
+                <div class="q-price"><div class="q-amount">231 лв.</div><div class="q-period">/година</div></div>
+              </div>
+              <div class="more-loading"><div class="pulse-dot"></div><span>Зареждаме още от 3 застрахователя...</span></div>
+            </div>
+            <div style="padding:14px 16px 0;">
+              <div class="ob-dots" style="margin-bottom:12px;"><div class="ob-dot"></div><div class="ob-dot"></div><div class="ob-dot"></div><div class="ob-dot active"></div></div>
+              <div class="ob-title">Спестете до 120 лв. годишно</div>
+              <div class="ob-desc">Сравняваме всички застрахователи наведнъж — само за вашия автомобил</div>
             </div>
           </div>
+          <div class="screen-footer white-clean"><button class="btn-primary">Напред</button></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Onboarding 3 — Оферти на живо</div>
+    </div>
 
-          <!-- ── SCREEN: Reset Step 2 ── -->
-          <div id="scr-reset2" class="sim-screen" style="padding:20px;">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
-              <div class="ob-circle-btn" onclick="simGoto('reset1')">←</div>
-            </div>
-            <div style="font-size:11px;font-weight:700;color:#6366F1;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">СТЪПКА 2 ОТ 3</div>
-            <div style="font-size:24px;font-weight:800;color:#111827;margin-bottom:16px;">Въведи кода</div>
-            <div class="ob-dark-card" style="margin-bottom:18px;">
-              <div class="dc-icon-wrap">📧</div>
-              <div><div class="dc-title">Кодът е изпратен</div><div class="dc-sub">Провери имейл: demo@branivo.bg</div></div>
-            </div>
-            <div class="otp-row" id="otp-row" onclick="fillOtp()">
-              <div class="otp-box" id="otp0"></div>
-              <div class="otp-box" id="otp1"></div>
-              <div class="otp-box" id="otp2"></div>
-              <div class="otp-box" id="otp3"></div>
-              <div class="otp-box" id="otp4"></div>
-              <div class="otp-box" id="otp5"></div>
-            </div>
-            <div class="otp-hint" onclick="fillOtp()">Кликни за demo код →</div>
-            <div style="text-align:center;font-size:12px;color:#9CA3AF;margin-bottom:14px;" id="resend-timer">Изпрати нов код след 42с</div>
-            <div class="ob-primary-btn disabled" id="otp-confirm-btn" onclick="simGoto('reset3')">Потвърди</div>
-          </div>
-
-          <!-- ── SCREEN: Reset Step 3 ── -->
-          <div id="scr-reset3" class="sim-screen" style="padding:20px;">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
-              <div class="ob-circle-btn" onclick="simGoto('reset2')">←</div>
-            </div>
-            <div style="font-size:11px;font-weight:700;color:#6366F1;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">СТЪПКА 3 ОТ 3</div>
-            <div style="font-size:24px;font-weight:800;color:#111827;margin-bottom:16px;">Нова парола</div>
-            <div class="ob-dark-card" style="margin-bottom:18px;">
-              <div class="dc-icon-wrap">🔒</div>
-              <div><div class="dc-title">Въведи нова парола</div><div class="dc-sub">Минимум 8 символа</div></div>
-            </div>
-            <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F1F5F9;box-shadow:0 2px 8px rgba(0,0,0,.05);">
-              <div class="ob-field" id="np-pass" onclick="fillField('np-pass','••••••••••')">
-                <span class="f-icon">🔑</span>
-                <div class="f-label">Нова парола</div>
-                <div class="f-val">••••••••••</div>
+    <!-- OB 4: WOW -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar dark"><div class="phone-notch" style="background:#000;"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen wow-bg">
+          <div class="wow-content">
+            <div class="particle" style="left:15%;animation-delay:0s;animation-duration:5s;"></div>
+            <div class="particle" style="left:32%;animation-delay:.8s;animation-duration:4s;background:rgba(99,102,241,.7);"></div>
+            <div class="particle" style="left:55%;animation-delay:1.5s;animation-duration:6s;"></div>
+            <div class="particle" style="left:72%;animation-delay:.3s;animation-duration:4.5s;background:rgba(56,189,248,.7);"></div>
+            <div class="particle" style="left:88%;animation-delay:2s;animation-duration:5.5s;"></div>
+            <div class="wow-glow"></div><div class="wow-glow2"></div>
+            <div class="wow-num"><span>17</span></div>
+            <div class="wow-sub">оферти от 6 застрахователя</div>
+            <div class="wow-stat">намерени само за <strong>2.3 секунди</strong></div>
+            <div class="wow-card">
+              <div class="wow-card-label">🏆 НАЙ-ДОБРА ЦЕНА ЗА ВАШИЯ АВТОМОБИЛ</div>
+              <div class="wow-card-row">
+                <div><div class="wow-insurer">Лев Инс</div><div class="wow-insurer-sub">Гражданска отговорност · 1 год.</div></div>
+                <div style="text-align:right;"><div class="wow-price-val">189 лв.</div><div class="wow-price-sub">/година</div></div>
               </div>
-              <div class="ob-field" id="np-pass2" onclick="fillField('np-pass2','••••••••••')">
-                <span class="f-icon">🔑</span>
-                <div class="f-label">Потвърди паролата</div>
-                <div class="f-val">••••••••••</div>
-              </div>
-              <div style="display:flex;gap:4px;margin:8px 0 4px;">
-                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
-                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
-                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
-                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
-              </div>
-              <div style="font-size:11px;color:#6366F1;margin-bottom:14px;">Силна парола ✓</div>
-              <div class="ob-primary-btn" onclick="doResetSuccess()">Смени паролата</div>
+            </div>
+            <div class="wow-chips" style="margin-bottom:0;">
+              <div class="wow-chip">ДЗИ <b>215 лв.</b></div>
+              <div class="wow-chip">Булстрад <b>231 лв.</b></div>
+              <div class="wow-chip">Алианц <b>247 лв.</b></div>
+              <div class="wow-chip">ОЗК <b>198 лв.</b></div>
+              <div class="wow-chip">+ 12 още</div>
             </div>
           </div>
-
-          <!-- ── SCREEN: Register ── -->
-          <div id="scr-register" class="sim-screen" style="padding:20px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-              <div class="ob-circle-btn" onclick="simGoto('entry')">←</div>
-              <div style="font-size:13px;color:#6366F1;font-weight:600;cursor:pointer;" onclick="simGoto('login')">Вход</div>
-            </div>
-            <div style="font-size:24px;font-weight:800;color:#111827;margin-bottom:4px;">Създай акаунт</div>
-            <div style="font-size:13px;color:#6B7280;margin-bottom:14px;">Бърза регистрация в 2 стъпки</div>
-            <div class="ob-dark-card" style="margin-bottom:14px;">
-              <div class="dc-icon-wrap">👤</div>
-              <div><div class="dc-title">Само основни данни</div><div class="dc-sub">Профилът се допълва след покупка</div></div>
-            </div>
-            <div style="background:#fff;border-radius:14px;padding:14px;border:1px solid #F1F5F9;box-shadow:0 2px 8px rgba(0,0,0,.05);">
-              <div class="ob-field" id="reg-email" onclick="fillField('reg-email','nikolay@gmail.com')">
-                <span class="f-icon">✉️</span>
-                <div class="f-label">Имейл адрес</div>
-                <div class="f-val">nikolay@gmail.com</div>
-              </div>
-              <div class="ob-field" id="reg-phone" onclick="fillField('reg-phone','+359 88 123 4567')">
-                <span class="f-icon">📱</span>
-                <div class="f-label">Телефонен номер</div>
-                <div class="f-val">+359 88 123 4567</div>
-              </div>
-              <div class="ob-field" id="reg-pass" onclick="fillField('reg-pass','••••••••••')">
-                <span class="f-icon">🔑</span>
-                <div class="f-label">Парола</div>
-                <div class="f-val">••••••••••</div>
-              </div>
-              <div style="display:flex;gap:4px;margin:6px 0 3px;">
-                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
-                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
-                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
-                <div style="flex:1;height:3px;border-radius:2px;background:#6366F1;"></div>
-              </div>
-              <div style="font-size:11px;color:#6366F1;margin-bottom:10px;">Силна парола ✓</div>
-              <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;" onclick="toggleTerms()">
-                <div id="reg-cb" style="width:18px;height:18px;border-radius:5px;background:#6366F1;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;flex-shrink:0;margin-top:1px;cursor:pointer;">✓</div>
-                <div style="font-size:12px;color:#6B7280;line-height:1.5;">Приемам <span style="color:#6366F1;text-decoration:underline;cursor:pointer;">Условията за ползване</span></div>
-              </div>
-              <div class="ob-primary-btn" onclick="doRegister()">Регистрирай се</div>
-            </div>
-          </div>
-
-          <!-- ── SCREEN: Post-Purchase ── -->
-          <div id="scr-postpurchase" class="sim-screen" style="position:relative;overflow:hidden;">
-            <!-- dimmed bg -->
-            <div style="padding:20px;opacity:0.25;pointer-events:none;">
-              <div style="text-align:center;padding:20px 0 10px;">
-                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#6366F1,#0D9488);display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;margin:0 auto 12px;">✓</div>
-                <div style="font-size:16px;font-weight:800;color:#111827;">Готово, полицата е ваша!</div>
-                <div style="font-size:12px;color:#6B7280;margin-top:4px;">PDF ще получите на имейл</div>
-              </div>
-            </div>
-            <!-- bottom sheet -->
-            <div style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:24px 24px 0 0;padding:20px;box-shadow:0 -6px 32px rgba(0,0,0,.14);">
-              <div style="width:36px;height:4px;border-radius:2px;background:#E5E7EB;margin:0 auto 16px;"></div>
-              <div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:3px;">Запази полицата си</div>
-              <div style="font-size:12px;color:#6B7280;margin-bottom:12px;">Регистрирай се за да виждаш и подновяваш</div>
-              <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#374151;margin-bottom:14px;">
-                <div>✓ Получи PDF на имейл</div>
-                <div>✓ Виждай полиците си</div>
-                <div>✓ Поднови с едно докосване</div>
-              </div>
-              <div class="ob-field" id="pp-phone" onclick="fillField('pp-phone','+359 88 123 4567')" style="margin-bottom:10px;">
-                <span class="f-icon">📱</span>
-                <div class="f-label">Телефонен номер</div>
-                <div class="f-val">+359 88 123 4567</div>
-              </div>
-              <div class="ob-primary-btn" style="margin-bottom:8px;" onclick="doSaveAccount()">Запази акаунта</div>
-              <div class="ob-text-btn" onclick="showToast('PDF ще бъде изпратен на имейла ти 📧')">Не сега, изпрати PDF</div>
-            </div>
-          </div>
-
-        </div><!-- /sim-viewport -->
-      </div><!-- /phone -->
-    </div><!-- /sim-phone-wrap -->
-
-    <!-- RIGHT: annotation -->
-    <div class="sim-right">
-      <div class="sim-anno-title" id="anno-title">Splash Screen</div>
-      <div class="sim-anno-body" id="anno-body">Анимирано зареждане с tenant лого. Кликни за да продължиш към онбординг слайдовете.</div>
-      <div class="sim-anno-tag" id="anno-tag">Само при първо стартиране</div>
+          <div class="screen-footer dark"><button class="btn-primary wow">Виж всички оферти →</button></div>
+        </div>
+        <div class="phone-home-bar dark"><div></div></div>
+      </div>
+      <div class="phone-label">Onboarding 4 — WOW: 17 оферти за 2 сек.</div>
     </div>
 
   </div>
 </section>
 
-<!-- DIRECTION 6: Renewal -->
-<section id="d6">
-  <div class="direction-label">
-    <h2>Direction 6 — Renewal Flow (Стоян)</h2>
-    <p>Push → отваря → Face ID → Pay · Dark mode · 12 секунди total</p>
-  </div>
+<!-- ════════════════════════════════ AUTH ════════════════════════════════ -->
+<section id="auth">
+  <div class="section-header"><h2>Автентикация</h2><p>Login · Sign Up · Forgot Password · OTP · Reset Success</p></div>
   <div class="phones">
+
+    <!-- LOGIN -->
     <div>
       <div class="phone">
-        <div class="phone-header" style="background:#1E293B; color:#6366F1">🔔 ПОДНОВЯВАНЕ</div>
-        <div class="phone-screen d6-screen">
-          <div class="d6-notif">
-            <div class="n-time">Преди 2 минути</div>
-            <div class="n-title">Застраховки Димитров</div>
-            <div class="n-body">Вашата ГО за Toyota Corolla изтича след 7 дни. Поднови сега →</div>
-          </div>
-          <div class="d6-card">
-            <div class="c-label">Подновяване на полица</div>
-            <div class="c-car">Toyota Corolla 2019</div>
-            <div class="c-plate">СА 1234 АВ</div>
-            <div class="c-divider"></div>
-            <div class="c-row"><span class="ck">Застраховател</span><span class="cv">ДЗИ (същият)</span></div>
-            <div class="c-row"><span class="ck">Нова валидност</span><span class="cv">до 17.03.2027</span></div>
-            <div class="c-row"><span class="ck">Покритие</span><span class="cv">Пълна ГО</span></div>
-          </div>
-          <div class="d6-price">
-            <div class="p-label">Сума за плащане</div>
-            <div class="p-amount">189 лв</div>
-            <div class="p-period">за 1 година</div>
-          </div>
-          <div class="d6-actions">
-            <div class="d6-pay">
-              Face ID · Плати с Apple Pay
-              <div class="pay-sub">Ще бъдеш таксуван 189.00 лв</div>
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div style="height:32px;"></div>
+            <div style="padding:0 16px 20px;"><h1 style="font-size:26px;font-weight:800;color:#0F172A;margin-bottom:4px;">Вход</h1><p style="font-size:13px;color:#64748B;">Въведете вашия имейл и парола</p></div>
+            <div class="form-pad">
+              <div class="field"><span class="placeholder">Имейл адрес</span></div>
+              <div class="field"><span class="placeholder">Парола</span><svg width="18" height="18" color="#94A3B8"><use href="#ico-eye"/></svg></div>
+              <div class="forgot-link">Забравена парола?</div>
             </div>
-            <div class="d6-skip">Напомни ми по-късно</div>
+          </div>
+          <div class="screen-footer"><button class="btn-primary">Вход</button><div class="auth-footer">Нямате акаунт? <a href="#">Регистрация</a></div></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Login</div>
+    </div>
+
+    <!-- LOGIN ERRORS -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div style="height:32px;"></div>
+            <div style="padding:0 16px 20px;"><h1 style="font-size:26px;font-weight:800;color:#0F172A;margin-bottom:4px;">Вход</h1><p style="font-size:13px;color:#64748B;">Въведете вашия имейл и парола</p></div>
+            <div class="form-pad">
+              <div class="field error field-col"><span class="err-label">Имейл</span><span class="val">ivan.petrov</span></div>
+              <div class="err-msg">Въведете валиден имейл адрес</div>
+              <div class="field error"><span class="placeholder">Парола</span><svg width="18" height="18" color="#94A3B8"><use href="#ico-eye"/></svg></div>
+              <div class="err-msg">Въведете парола</div>
+              <div class="forgot-link">Забравена парола?</div>
+            </div>
+          </div>
+          <div class="screen-footer"><button class="btn-primary">Вход</button><div class="auth-footer">Нямате акаунт? <a href="#">Регистрация</a></div></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Login — Validation Errors</div>
+    </div>
+
+    <!-- SIGN UP -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div style="height:24px;"></div>
+            <div style="padding:0 16px 18px;"><h1 style="font-size:26px;font-weight:800;color:#0F172A;margin-bottom:4px;">Регистрация</h1><p style="font-size:13px;color:#64748B;">Създайте вашия акаунт</p></div>
+            <div class="form-pad">
+              <div class="field"><span class="placeholder">Собствено име</span></div>
+              <div class="field"><span class="placeholder">Фамилно име</span></div>
+              <div class="field"><span class="placeholder">Имейл адрес</span></div>
+              <div class="field"><span class="placeholder">Парола</span><svg width="18" height="18" color="#94A3B8"><use href="#ico-eye"/></svg></div>
+            </div>
+          </div>
+          <div class="screen-footer"><button class="btn-primary">Регистрирай се</button><div class="auth-footer">Вече имате акаунт? <a href="#">Вход</a></div></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Sign Up</div>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="back-bar"><svg width="20" height="20" color="#0F172A"><use href="#ico-arrow-left"/></svg> Забравена парола</div>
+            <div style="height:12px;"></div>
+            <div style="padding:0 16px 20px;"><h1 style="font-size:26px;font-weight:800;color:#0F172A;margin-bottom:4px;">Нулиране</h1><p style="font-size:13px;color:#64748B;">Въведете имейла, с който сте се регистрирали</p></div>
+            <div class="form-pad">
+              <div class="field"><span class="placeholder">Имейл адрес</span></div>
+            </div>
+          </div>
+          <div class="screen-footer"><button class="btn-primary">Изпрати инструкции</button></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Forgot Password</div>
+    </div>
+
+    <!-- OTP -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="back-bar"><svg width="20" height="20" color="#0F172A"><use href="#ico-arrow-left"/></svg> OTP верификация</div>
+            <div style="height:12px;"></div>
+            <div style="padding:0 16px 20px;"><h1 style="font-size:26px;font-weight:800;color:#0F172A;margin-bottom:4px;">Въведете кода</h1><p style="font-size:13px;color:#64748B;">Изпратихме код на <strong style="color:#0F172A;">ivan@example.com</strong></p></div>
+            <div class="otp-boxes">
+              <div class="otp-box">8</div><div class="otp-box">4</div><div class="otp-box">2</div>
+              <div class="otp-box empty"></div><div class="otp-box empty"></div><div class="otp-box empty"></div>
+            </div>
+            <div class="otp-hint"><strong style="color:#0F172A;">00:47</strong> · Не получихте? <a href="#">Изпрати отново</a></div>
+          </div>
+          <div class="screen-footer"><button class="btn-primary">Потвърди</button></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">OTP Verification</div>
+    </div>
+
+    <!-- PASSWORD SUCCESS -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content" style="background:rgba(0,0,0,.5);"></div>
+          <div class="success-sheet">
+            <div class="sheet-handle"></div>
+            <div class="success-icon"><svg width="28" height="28"><use href="#ico-check"/></svg></div>
+            <h3>Паролата е сменена!</h3>
+            <p>Използвайте новата си парола при следващ вход</p>
+            <button class="btn-primary">OK</button>
+          </div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Password Changed — Success</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════════════════════════════ HOME ════════════════════════════════ -->
+<section id="home">
+  <div class="section-header"><h2>Home & Navigation</h2><p>Dashboard · Услуги · Как работи застраховката</p></div>
+  <div class="phones">
+
+    <!-- DASHBOARD -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="home-top"><div><div class="sub">Добре дошли 👋</div><h2>Иван Петров</h2></div><div class="notif-btn"><svg width="18" height="18"><use href="#ico-bell"/></svg></div></div>
+            <div class="search-bar"><svg width="16" height="16"><use href="#ico-search"/></svg><span>Търсете застраховка...</span></div>
+            <div class="hero-banner"><h3>Гражданска<br>отговорност</h3><p>Вземете оферта мигновено</p><span class="hero-btn">Виж плановете</span><div class="hero-decor">🚗</div></div>
+            <div class="sec-row"><h3>Услуги</h3><a href="#">Виж всички</a></div>
+            <div class="svc-row">
+              <div class="svc-item"><div class="svc-icon">🚗</div><div class="svc-label">Кола</div></div>
+              <div class="svc-item"><div class="svc-icon">🏥</div><div class="svc-label">Здраве</div></div>
+              <div class="svc-item"><div class="svc-icon">✈️</div><div class="svc-label">Пътуване</div></div>
+              <div class="svc-item"><div class="svc-icon">🏠</div><div class="svc-label">Имот</div></div>
+              <div class="svc-item"><div class="svc-icon">❤️</div><div class="svc-label">Живот</div></div>
+            </div>
+            <div class="sec-row"><h3>Как работи</h3><a href="#">Виж всички</a></div>
+            <div class="art-row">
+              <div class="art-card"><div class="art-img">🚗</div><div class="art-title">Попаднали ли сте в пътен инцидент?</div></div>
+              <div class="art-card"><div class="art-img">🏥</div><div class="art-title">Видове болнично лечение</div></div>
+            </div>
+            <div style="height:6px;"></div>
+          </div>
+          <div class="bottom-nav">
+            <div class="nav-item active"><svg width="22" height="22"><use href="#ico-home"/></svg><div class="nav-label">Начало</div><div class="nav-dot"></div></div>
+            <div class="nav-item"><svg width="22" height="22"><use href="#ico-search"/></svg><div class="nav-label">Търси</div></div>
+            <div class="nav-item"><svg width="22" height="22"><use href="#ico-doc"/></svg><div class="nav-label">Полици</div></div>
+            <div class="nav-item"><svg width="22" height="22"><use href="#ico-user"/></svg><div class="nav-label">Профил</div></div>
           </div>
         </div>
       </div>
-      <div class="phone-label">Renewal · Стоян · Push → Face ID → Pay</div>
+      <div class="phone-label">Home Dashboard</div>
     </div>
+
+    <!-- SERVICES -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="back-bar"><svg width="20" height="20" color="#0F172A"><use href="#ico-arrow-left"/></svg> Услуги</div>
+            <div class="svc-full-grid">
+              <div class="svc-full-item"><div class="svc-full-icon">🚗</div><div class="svc-full-label">Кола</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">🚲</div><div class="svc-full-label">Мотор</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">🏥</div><div class="svc-full-label">Здраве</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">✈️</div><div class="svc-full-label">Пътуване</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">❤️</div><div class="svc-full-label">Живот</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">👨‍👩‍👧</div><div class="svc-full-label">Семейство</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">🔥</div><div class="svc-full-label">Пожар</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">🏠</div><div class="svc-full-label">Имот</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">🐾</div><div class="svc-full-label">Домашни</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">🏢</div><div class="svc-full-label">Бизнес</div></div>
+              <div class="svc-full-item"><div class="svc-full-icon">🏗️</div><div class="svc-full-label">Имущество</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Services Grid</div>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="back-bar"><svg width="20" height="20" color="#0F172A"><use href="#ico-arrow-left"/></svg> Как работи застраховката</div>
+            <div class="art-full"><div class="art-full-img">🚗</div><div class="art-full-body"><h3>Попаднали ли сте в пътен инцидент?</h3><p>Бъдете подготвени с правилната застраховка за вашия автомобил.</p><span class="explore-btn">Разгледай</span></div></div>
+            <div class="art-full"><div class="art-full-img">🏥</div><div class="art-full-body"><h3>Какво е болница и видове болнични заведения?</h3><p>Различни видове здравни заведения и как се покриват от застраховката.</p><span class="explore-btn">Разгледай</span></div></div>
+            <div class="art-full"><div class="art-full-img">🤝</div><div class="art-full-body"><h3>Как функционира застраховката?</h3><p>Застраховката предпазва от финансови загуби при неочаквани събития.</p><span class="explore-btn">Разгледай</span></div></div>
+          </div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">How Insurance Works</div>
+    </div>
+
   </div>
+</section>
+
+<!-- ════════════════════════════════ INSURANCE ════════════════════════════════ -->
+<section id="insurance">
+  <div class="section-header"><h2>Застрахователен Флоу</h2><p>Търсене → Верификация → Избор на план → Детайли</p></div>
+  <div class="phones">
+
+    <!-- SEARCH -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="back-bar"><svg width="20" height="20" color="#0F172A"><use href="#ico-arrow-left"/></svg> Гражданска отговорност</div>
+            <div style="height:8px;"></div>
+            <div class="form-pad">
+              <div class="form-label">Въведете регистрационен номер</div>
+              <div class="field" style="font-size:15px;color:#0F172A;">СА 1234 КС</div>
+              <div style="text-align:center;margin:16px 0 14px;font-size:12px;color:#94A3B8;position:relative;"><div style="border-top:1px solid #E2E8F0;position:absolute;top:50%;left:0;right:0;"></div><span style="background:#fff;padding:0 12px;position:relative;">или</span></div>
+              <div style="border:1.5px dashed #2563EB;border-radius:12px;padding:18px;text-align:center;background:#F0F7FF;">
+                <div style="color:#2563EB;margin-bottom:6px;"><svg width="28" height="28"><use href="#ico-camera"/></svg></div>
+                <div style="font-size:14px;font-weight:700;color:#2563EB;">Сканирайте талона</div>
+                <div style="font-size:12px;color:#64748B;margin-top:3px;">Данните се попълват автоматично</div>
+              </div>
+            </div>
+          </div>
+          <div class="screen-footer"><button class="btn-primary">Провери цена</button></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Търсене на застраховка</div>
+    </div>
+
+    <!-- VERIFY -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="back-bar"><svg width="20" height="20" color="#0F172A"><use href="#ico-arrow-left"/></svg> Потвърди данните</div>
+            <div style="height:8px;"></div>
+            <div class="form-pad">
+              <div class="detail-row"><div><div class="dr-label">Марка и модел</div><div class="dr-val">VW Golf 1.6 TDI</div></div><svg width="18" height="18" color="#CBD5E1"><use href="#ico-chevron-right"/></svg></div>
+              <div class="detail-row"><div><div class="dr-label">Година</div><div class="dr-val">2019</div></div><svg width="18" height="18" color="#CBD5E1"><use href="#ico-calendar"/></svg></div>
+              <div class="detail-row"><div><div class="dr-label">Текуща полица</div><div class="dr-val">Не е изтекла</div></div><svg width="18" height="18" color="#CBD5E1"><use href="#ico-chevron-down"/></svg></div>
+            </div>
+          </div>
+          <div class="screen-footer"><button class="btn-primary">Продължи</button></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Верификация на данните</div>
+    </div>
+
+    <!-- CHOOSE MODEL -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="back-bar"><svg width="20" height="20" color="#0F172A"><use href="#ico-arrow-left"/></svg> Избери модел</div>
+            <div style="margin:0 16px 12px;background:#F1F5F9;border-radius:10px;padding:9px 14px;display:flex;align-items:center;gap:8px;color:#94A3B8;"><svg width="16" height="16"><use href="#ico-search"/></svg><span style="font-size:13px;">Търсене...</span></div>
+            <div style="padding:0 16px 8px;font-size:11px;font-weight:700;color:#64748B;letter-spacing:.5px;">ПОПУЛЯРНИ</div>
+            <div class="model-list">
+              <div class="model-item"><span>VW Golf</span><div class="radio-c"><div class="inner"></div></div></div>
+              <div class="model-item"><span>BMW 3 Series</span><div class="radio-c empty"></div></div>
+              <div class="model-item"><span>Toyota Corolla</span><div class="radio-c empty"></div></div>
+              <div class="model-item"><span>Mercedes C-Class</span><div class="radio-c empty"></div></div>
+              <div class="model-item"><span>Opel Astra</span><div class="radio-c empty"></div></div>
+              <div class="model-item"><span>Skoda Octavia</span><div class="radio-c empty"></div></div>
+              <div class="model-item"><span>Ford Focus</span><div class="radio-c empty"></div></div>
+              <div class="model-item"><span>Renault Megane</span><div class="radio-c empty"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Избор на модел</div>
+    </div>
+
+    <!-- PLAN SELECTION -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="back-bar"><svg width="20" height="20" color="#0F172A"><use href="#ico-arrow-left"/></svg> Детайли</div>
+            <div class="plan-head"><h2>VW Golf 1.6 TDI</h2><div class="plan-meta"><div class="plan-meta-item">NCB: <span>0%</span></div><div class="plan-meta-item">Год.: <span>2019</span></div><div class="plan-meta-item">Полица: <span>активна</span></div></div></div>
+            <div style="padding:9px 16px 4px;font-size:11px;font-weight:700;color:#64748B;letter-spacing:.5px;">СРОК</div>
+            <div class="tenure-row"><div class="tenure-btn">1 год.</div><div class="tenure-btn active">2 год.</div><div class="tenure-btn">3 год.</div></div>
+            <div style="padding:7px 16px 4px;font-size:11px;font-weight:700;color:#64748B;letter-spacing:.5px;">ПЛАН</div>
+            <div class="plan-cards">
+              <div class="plan-card selected">
+                <div class="radio-row"><div class="radio"><div class="dot"></div></div><div class="plan-name">Всеобхватен</div></div>
+                <div class="plan-price">189 лв.</div>
+                <div class="plan-feature"><span class="ck-small">✓</span> Щети на чуждо МПС</div>
+                <div class="plan-feature"><span class="ck-small">✓</span> Щети на вашето МПС</div>
+              </div>
+              <div class="plan-card">
+                <div class="radio-row"><div class="radio empty"></div><div class="plan-name">Трети лица</div></div>
+                <div class="plan-price">144 лв.</div>
+                <div class="plan-feature"><span class="ck-small">✓</span> Щети на чуждо МПС</div>
+                <div class="plan-feature" style="color:#CBD5E1;">✗ Вашето МПС</div>
+              </div>
+            </div>
+            <div class="see-benefits">Виж ползите →</div>
+            <div class="idv-row"><span>IDV (Застрахователна стойност)</span><svg width="16" height="16" color="#94A3B8"><use href="#ico-chevron-right"/></svg></div>
+          </div>
+          <div class="screen-footer"><button class="btn-primary">Продължи</button></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Избор на план</div>
+    </div>
+
+    <!-- PLAN DETAILS -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen">
+          <div class="screen-content">
+            <div class="back-bar"><svg width="20" height="20" color="#0F172A"><use href="#ico-arrow-left"/></svg> Всеобхватен план</div>
+            <div style="padding:0 16px 10px;font-size:13px;color:#64748B;">Покрива щети на чуждо МПС и вашия автомобил</div>
+            <div class="what-label">Покрито</div>
+            <div class="comp-sec"><div class="comp-sec-head open"><h3>Щети на вашето МПС</h3><svg width="18" height="18" color="#2563EB"><use href="#ico-chevron-up"/></svg></div><div class="comp-sec-body"><p>Застраховката осигурява финансова защита срещу рискове и неочаквани събития, свързани с вашия автомобил.</p></div></div>
+            <div class="comp-sec"><div class="comp-sec-head"><h3>Щети на чуждо МПС</h3><svg width="18" height="18" color="#94A3B8"><use href="#ico-chevron-down"/></svg></div></div>
+            <div class="what-label">Не е покрито</div>
+            <div class="comp-sec"><div class="comp-sec-head"><h3>Умишлени вреди</h3><svg width="18" height="18" color="#94A3B8"><use href="#ico-chevron-down"/></svg></div></div>
+            <div class="comp-sec"><div class="comp-sec-head"><h3>Управление без книжка</h3><svg width="18" height="18" color="#94A3B8"><use href="#ico-chevron-down"/></svg></div></div>
+          </div>
+          <div class="screen-footer"><button class="btn-primary">Разбрах, продължи</button></div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Детайли на плана</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════════════════════════════ SHEETS ════════════════════════════════ -->
+<section id="modals">
+  <div class="section-header"><h2>Bottom Sheets & Modals</h2><p>Избор на година · Статус на полица</p></div>
+  <div class="phones">
+
+    <!-- SELECT YEAR -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen" style="background:#fff;">
+          <div class="screen-content" style="position:relative;">
+            <div style="padding:12px 16px;opacity:.3;">
+              <div style="font-size:15px;font-weight:700;color:#0F172A;margin-bottom:12px;display:flex;align-items:center;gap:6px;"><svg width="18" height="18" color="#0F172A"><use href="#ico-arrow-left"/></svg> Потвърди данните</div>
+              <div class="detail-row" style="margin-bottom:9px;"><span style="font-size:13px;color:#94A3B8;">Марка и модел</span><svg width="16" height="16" color="#CBD5E1"><use href="#ico-chevron-right"/></svg></div>
+              <div class="detail-row" style="margin-bottom:9px;"><span style="font-size:13px;color:#0F172A;font-weight:500;">2015</span><svg width="16" height="16" color="#CBD5E1"><use href="#ico-calendar"/></svg></div>
+              <div class="detail-row"><span style="font-size:13px;color:#94A3B8;">Не е изтекла</span><svg width="16" height="16" color="#CBD5E1"><use href="#ico-chevron-down"/></svg></div>
+            </div>
+          </div>
+          <div style="background:rgba(0,0,0,.5);padding:24px 0 0;">
+            <div class="sheet">
+              <div class="sheet-handle"></div>
+              <div class="sheet-title">Изберете година <span class="close-btn"><svg width="18" height="18"><use href="#ico-x"/></svg></span></div>
+              <div class="year-item">1999</div><div class="year-item">2000</div>
+              <div class="year-item near">2018</div><div class="year-item sel">2019</div>
+              <div class="year-item near">2020</div><div class="year-item">2021</div>
+              <div style="margin-top:12px;"><button class="btn-primary">Задай</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Bottom Sheet — Избор на година</div>
+    </div>
+
+    <!-- POLICY STATUS -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar"><div class="phone-notch"></div><span class="time">9:41</span><div class="status-icons"></div></div>
+        <div class="phone-screen" style="background:#fff;">
+          <div class="screen-content">
+            <div style="padding:12px 16px;opacity:.3;">
+              <div style="font-size:15px;font-weight:700;color:#0F172A;margin-bottom:12px;display:flex;align-items:center;gap:6px;"><svg width="18" height="18" color="#0F172A"><use href="#ico-arrow-left"/></svg> Потвърди данните</div>
+              <div class="detail-row" style="margin-bottom:9px;"><div><div class="dr-label">Марка и модел</div><div class="dr-val">VW Golf 1.6 TDI</div></div><svg width="16" height="16" color="#CBD5E1"><use href="#ico-chevron-right"/></svg></div>
+              <div class="detail-row" style="margin-bottom:9px;"><div><div class="dr-label">Година</div><div class="dr-val">2019</div></div><svg width="16" height="16" color="#CBD5E1"><use href="#ico-calendar"/></svg></div>
+              <div class="detail-row"><div><div class="dr-label">Текуща полица</div><div class="dr-val">Не е изтекла</div></div><svg width="16" height="16" color="#CBD5E1"><use href="#ico-chevron-down"/></svg></div>
+            </div>
+          </div>
+          <div style="background:rgba(0,0,0,.5);padding:24px 0 0;">
+            <div class="sheet">
+              <div class="sheet-handle"></div>
+              <div class="sheet-title">Статус на полица <span class="close-btn"><svg width="18" height="18"><use href="#ico-x"/></svg></span></div>
+              <div class="status-item"><svg width="18" height="18" color="#22C55E"><use href="#ico-check-circle"/></svg> Не е изтекла</div>
+              <div class="status-item"><svg width="18" height="18" color="#F59E0B"><use href="#ico-clock"/></svg> Изтекла в последните 90 дни</div>
+              <div class="status-item" style="border:none;"><svg width="18" height="18" color="#EF4444"><use href="#ico-x-circle"/></svg> Изтекла преди повече от 90 дни</div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-home-bar"><div></div></div>
+      </div>
+      <div class="phone-label">Bottom Sheet — Статус на полица</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     GO QUOTE WIZARD — интерактивен прототип
+     ═══════════════════════════════════════════════════════════════════════ -->
+<section id="go-wizard">
+  <div class="section-header">
+    <h2>GO Quote Wizard — Web Portal</h2>
+    <p>5-стъпков flow за Гражданска Отговорност · данни от реален талон</p>
+  </div>
+
+  <style>
+    /* ── Wizard layout ── */
+    #go-wizard {
+      background: #F1F5F9;
+      padding-top: 68px;
+    }
+    .wiz-browser {
+      max-width: 1100px;
+      margin: 0 auto;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+      background: #F1F5F9;
+    }
+    .wiz-browser-bar {
+      background: #E2E8F0;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #CBD5E1;
+    }
+    .wiz-browser-dots { display:flex; gap:5px; }
+    .wiz-browser-dots span {
+      width:11px; height:11px; border-radius:50%;
+    }
+    .wiz-browser-dots span:nth-child(1){ background:#EF4444; }
+    .wiz-browser-dots span:nth-child(2){ background:#F59E0B; }
+    .wiz-browser-dots span:nth-child(3){ background:#22C55E; }
+    .wiz-browser-url {
+      flex:1; background:#fff; border-radius:6px; padding:4px 12px;
+      font-size:12px; color:#64748B; font-family:monospace;
+    }
+
+    /* ── Wizard header ── */
+    .wiz-header {
+      background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #2563EB 100%);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .wiz-header-back {
+      color: #fff; font-size:14px; font-weight:600;
+      display:flex; align-items:center; gap:6px; cursor:pointer;
+      opacity:0.85; transition:opacity 0.15s;
+    }
+    .wiz-header-back:hover { opacity:1; }
+    .wiz-header-title {
+      color:#fff; font-size:16px; font-weight:800;
+      letter-spacing:1.5px; text-transform:uppercase;
+    }
+    .wiz-header-menu {
+      color:#fff; font-size:13px; font-weight:600;
+      display:flex; align-items:center; gap:6px; cursor:pointer; opacity:0.85;
+    }
+
+    /* ── Wizard body ── */
+    .wiz-body {
+      background: #F1F5F9;
+      padding: 32px 20px 48px;
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* ── White card ── */
+    .wiz-card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+      padding: 36px 40px 32px;
+      width: 100%;
+      max-width: 520px;
+      flex-shrink: 0;
+    }
+    .wiz-card-title {
+      text-align:center; font-size:20px; font-weight:800;
+      color:#4F46E5; letter-spacing:1px; text-transform:uppercase;
+      margin-bottom:6px;
+    }
+    .wiz-card-subtitle {
+      text-align:center; font-size:13px; color:#94A3B8;
+      margin-bottom:28px; line-height:1.5;
+    }
+
+    /* ── Step dots ── */
+    .wiz-dots {
+      display:flex; justify-content:center; gap:8px; margin-bottom:28px;
+    }
+    .wiz-dot {
+      width:8px; height:8px; border-radius:50%; background:#E2E8F0;
+      transition: all 0.2s;
+    }
+    .wiz-dot.active { background:#4F46E5; width:24px; border-radius:4px; }
+    .wiz-dot.done { background:#A5B4FC; }
+
+    /* ── Form elements ── */
+    .wiz-label {
+      font-size:13px; font-weight:600; color:#374151; margin-bottom:6px; display:block;
+    }
+    .wiz-label-row {
+      display:flex; align-items:center; gap:6px; margin-bottom:6px;
+    }
+    .wiz-label-row .wiz-label { margin-bottom:0; }
+    .wiz-info-icon {
+      width:16px; height:16px; border-radius:50%; background:#E0E7FF;
+      color:#4F46E5; font-size:10px; font-weight:800;
+      display:flex; align-items:center; justify-content:center; cursor:pointer;
+    }
+    .wiz-input {
+      width:100%; border:1.5px solid #E2E8F0; border-radius:50px;
+      padding:12px 20px; font-size:14px; color:#1E293B;
+      outline:none; transition:border-color 0.15s;
+      font-family:inherit;
+    }
+    .wiz-input:focus { border-color:#4F46E5; }
+    .wiz-select {
+      width:100%; border:1.5px solid #E2E8F0; border-radius:12px;
+      padding:12px 20px; font-size:14px; color:#1E293B;
+      outline:none; appearance:none; background:#fff;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234F46E5' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 16px center;
+      transition:border-color 0.15s; font-family:inherit; cursor:pointer;
+    }
+    .wiz-select:focus { border-color:#4F46E5; }
+    .wiz-field { margin-bottom:20px; }
+
+    /* ── Pill toggle ── */
+    .wiz-pill-group {
+      display:flex; gap:10px; margin-bottom:20px;
+    }
+    .wiz-pill {
+      flex:1; border:1.5px solid #E2E8F0; border-radius:50px;
+      padding:11px 16px; font-size:14px; font-weight:500; color:#64748B;
+      background:#fff; cursor:pointer; display:flex; align-items:center;
+      gap:8px; transition:all 0.15s; font-family:inherit;
+    }
+    .wiz-pill.selected {
+      border-color:#4F46E5; background:#EEF2FF; color:#4F46E5; font-weight:700;
+    }
+    .wiz-pill .check {
+      width:18px; height:18px; border-radius:50%; border:1.5px solid #CBD5E1;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    }
+    .wiz-pill.selected .check {
+      background:#4F46E5; border-color:#4F46E5; color:#fff; font-size:10px;
+    }
+
+    /* ── Primary button ── */
+    .wiz-btn {
+      width:100%; background:linear-gradient(135deg,#4F46E5,#7C3AED);
+      color:#fff; border:none; border-radius:50px; padding:15px;
+      font-size:15px; font-weight:800; letter-spacing:1px; text-transform:uppercase;
+      cursor:pointer; margin-top:12px; font-family:inherit;
+      transition:opacity 0.15s; box-shadow:0 4px 16px rgba(79,70,229,0.35);
+    }
+    .wiz-btn:hover { opacity:0.92; }
+
+    /* ── Offer rows ── */
+    .wiz-offer-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 0; border-bottom:1px solid #F1F5F9;
+    }
+    .wiz-offer-row:last-of-type { border-bottom:none; }
+    .wiz-offer-logo {
+      font-size:13px; font-weight:800; color:#1E293B;
+      width:90px; flex-shrink:0;
+    }
+    .wiz-offer-logo.uniqa { color:#003399; }
+    .wiz-offer-logo.allianz { color:#003781; }
+    .wiz-offer-logo.euroins { color:#E30613; }
+    .wiz-offer-logo.bulstrad { color:#1D4ED8; }
+    .wiz-offer-logo.generali { color:#CC0000; }
+    .wiz-offer-logo.dzi { color:#0057A8; }
+    .wiz-offer-logo.ozk { color:#1A6B3A; }
+    .wiz-offer-price-block { flex:1; padding:0 12px; }
+    .wiz-offer-price-main {
+      font-size:15px; font-weight:800; color:#1E293B;
+    }
+    .wiz-offer-price-sub {
+      font-size:12px; color:#64748B; margin-top:2px; line-height:1.5;
+    }
+    .wiz-offer-price-total {
+      font-size:13px; font-weight:700; color:#4F46E5; margin-top:3px;
+    }
+    .wiz-offer-select-btn {
+      background:linear-gradient(135deg,#4F46E5,#7C3AED);
+      color:#fff; border:none; border-radius:50px;
+      padding:9px 18px; font-size:13px; font-weight:800;
+      cursor:pointer; font-family:inherit; white-space:nowrap;
+      box-shadow:0 2px 8px rgba(79,70,229,0.3);
+    }
+    .wiz-offer-select-btn:hover { opacity:0.9; }
+    .wiz-offer-loading {
+      font-size:12px; color:#94A3B8; display:flex; align-items:center; gap:6px;
+    }
+    .wiz-spinner {
+      width:14px; height:14px; border:2px solid #E2E8F0;
+      border-top-color:#4F46E5; border-radius:50%;
+      animation: wiz-spin 0.8s linear infinite; flex-shrink:0;
+    }
+    @keyframes wiz-spin { to { transform:rotate(360deg); } }
+    .wiz-recommended-badge {
+      background:#4F46E5; color:#fff; font-size:10px; font-weight:800;
+      border-radius:4px; padding:2px 6px; margin-left:6px; letter-spacing:0.3px;
+    }
+    .wiz-tab-switcher {
+      display:flex; background:#F1F5F9; border-radius:50px;
+      padding:4px; margin-bottom:20px; gap:2px;
+    }
+    .wiz-tab {
+      flex:1; border:none; border-radius:50px; padding:9px 4px;
+      font-size:12px; font-weight:700; letter-spacing:0.5px;
+      cursor:pointer; background:transparent; color:#64748B; font-family:inherit;
+      transition:all 0.2s;
+    }
+    .wiz-tab.active { background:#4F46E5; color:#fff; }
+
+    /* ── Social proof sidebar ── */
+    .wiz-sidebar {
+      width:220px; flex-shrink:0;
+    }
+    .wiz-rating-card {
+      background:#fff; border-radius:16px; padding:16px;
+      box-shadow:0 4px 16px rgba(0,0,0,0.08); margin-bottom:12px;
+    }
+    .wiz-rating-top {
+      display:flex; align-items:center; gap:8px; margin-bottom:6px;
+    }
+    .wiz-google-g {
+      width:28px; height:28px; background:#fff;
+      border-radius:50%; display:flex; align-items:center; justify-content:center;
+      font-size:16px; font-weight:800; border:1px solid #E2E8F0;
+    }
+    .wiz-rating-score { font-size:26px; font-weight:900; color:#1E293B; }
+    .wiz-stars { color:#FBBF24; font-size:14px; }
+    .wiz-rating-count { font-size:11px; color:#94A3B8; }
+    .wiz-rating-headline { font-size:12px; font-weight:700; color:#1E293B; margin-bottom:2px; }
+    .wiz-review-card {
+      background:#fff; border-radius:12px; padding:14px;
+      box-shadow:0 4px 16px rgba(0,0,0,0.06); margin-bottom:10px;
+    }
+    .wiz-review-header {
+      display:flex; align-items:center; gap:8px; margin-bottom:8px;
+    }
+    .wiz-review-avatar {
+      width:32px; height:32px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:13px; font-weight:700; color:#fff; flex-shrink:0;
+    }
+    .wiz-review-name { font-size:12px; font-weight:700; color:#1E293B; }
+    .wiz-review-stars { color:#FBBF24; font-size:11px; }
+    .wiz-review-text { font-size:11px; color:#475569; line-height:1.5; }
+
+    /* ── Calendar ── */
+    .wiz-calendar {
+      border:1.5px solid #E2E8F0; border-radius:16px; overflow:hidden; margin-bottom:16px;
+    }
+    .wiz-cal-header {
+      background:#F8FAFC; padding:12px 16px;
+      display:flex; align-items:center; justify-content:space-between;
+      border-bottom:1px solid #E2E8F0;
+    }
+    .wiz-cal-nav {
+      font-size:12px; color:#64748B; cursor:pointer; font-weight:600;
+    }
+    .wiz-cal-month { font-size:14px; font-weight:700; color:#1E293B; }
+    .wiz-cal-grid { padding:12px; }
+    .wiz-cal-days {
+      display:grid; grid-template-columns:repeat(7,1fr);
+      gap:2px; margin-bottom:4px;
+    }
+    .wiz-cal-day-name {
+      text-align:center; font-size:11px; font-weight:700;
+      color:#94A3B8; padding:4px 0;
+    }
+    .wiz-cal-cell {
+      text-align:center; padding:6px 2px; font-size:13px; border-radius:8px;
+      cursor:pointer; color:#1E293B; font-weight:500;
+      transition:background 0.1s;
+    }
+    .wiz-cal-cell:hover:not(.selected):not(.empty) { background:#EEF2FF; color:#4F46E5; }
+    .wiz-cal-cell.today { color:#4F46E5; font-weight:800; }
+    .wiz-cal-cell.selected {
+      background:#4F46E5; color:#fff; border-radius:50%; font-weight:800;
+    }
+    .wiz-cal-cell.weekend { color:#EF4444; }
+    .wiz-cal-cell.empty { cursor:default; }
+    .wiz-info-box {
+      background:#EFF6FF; border:1px solid #BFDBFE; border-radius:10px;
+      padding:10px 14px; display:flex; align-items:flex-start; gap:8px;
+      margin-bottom:16px; font-size:12px; color:#1D4ED8; line-height:1.5;
+    }
+    .wiz-date-row {
+      display:flex; align-items:center; justify-content:space-between;
+      border:1.5px solid #E2E8F0; border-radius:50px;
+      padding:10px 16px; margin-bottom:10px;
+      font-size:13px; color:#1E293B;
+    }
+    .wiz-date-row-label { color:#94A3B8; display:flex; align-items:center; gap:6px; }
+    .wiz-date-row-value { font-weight:700; }
+
+    /* ── Checkbox ── */
+    .wiz-checkbox-row {
+      display:flex; align-items:flex-start; gap:10px;
+      border:1.5px solid #E2E8F0; border-radius:12px;
+      padding:12px 16px; margin-bottom:8px;
+    }
+    .wiz-checkbox {
+      width:18px; height:18px; border-radius:4px; border:2px solid #4F46E5;
+      background:#4F46E5; display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; margin-top:1px; cursor:pointer;
+    }
+    .wiz-checkbox-label { font-size:13px; color:#1E293B; font-weight:600; }
+    .wiz-checkbox-caption { font-size:11px; color:#94A3B8; margin-top:2px; }
+
+    /* ── Step wrapper ── */
+    .wiz-step { display:none; }
+    .wiz-step.active { display:block; }
+  </style>
+
+  <div class="wiz-browser">
+    <!-- Browser chrome -->
+    <div class="wiz-browser-bar">
+      <div class="wiz-browser-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="wiz-browser-url" id="wiz-url">localhost:3001/bg/quotes/go?step=vehicle</div>
+    </div>
+
+    <!-- Wizard header -->
+    <div class="wiz-header">
+      <div class="wiz-header-back" onclick="wizBack()">
+        ← НАЗАД
+      </div>
+      <div class="wiz-header-title">Гражданска Отговорност</div>
+      <div class="wiz-header-menu">≡ МЕНЮ</div>
+    </div>
+
+    <!-- Wizard body -->
+    <div class="wiz-body" id="wiz-body">
+
+      <!-- ── STEP 1: Vehicle ───────────────────────────────────── -->
+      <div class="wiz-card">
+        <div class="wiz-dots">
+          <div class="wiz-dot active" id="dot-0"></div>
+          <div class="wiz-dot" id="dot-1"></div>
+          <div class="wiz-dot" id="dot-2"></div>
+          <div class="wiz-dot" id="dot-3"></div>
+          <div class="wiz-dot" id="dot-4"></div>
+          <div class="wiz-dot" id="dot-5"></div>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="wiz-step active" id="step-1">
+          <div class="wiz-card-title">Данни за автомобил</div>
+          <div class="wiz-card-subtitle">Използваме тези данни само за изчисляване на оферта и ги споделяме единствено със застрахователите</div>
+
+          <div class="wiz-label">Регистриран ли е автомобилът в КАТ?</div>
+          <div class="wiz-pill-group" style="margin-bottom:24px">
+            <button class="wiz-pill selected" onclick="selectPill(this,'kat')">
+              <span class="check">✓</span> Да
+            </button>
+            <button class="wiz-pill" onclick="selectPill(this,'kat')">
+              <span class="check"></span> Не
+            </button>
+          </div>
+
+          <div class="wiz-field">
+            <label class="wiz-label">Регистрационен номер:</label>
+            <input class="wiz-input" value="СВ0688ММ" placeholder="CA1234AB">
+          </div>
+
+          <div class="wiz-field">
+            <div class="wiz-label-row">
+              <label class="wiz-label">Номер на малък талон:</label>
+              <span class="wiz-info-icon" title="8-цифрен номер от горния десен ъгъл на талона">i</span>
+            </div>
+            <input class="wiz-input" value="000000002" placeholder="000000002">
+          </div>
+
+          <button class="wiz-btn" onclick="wizNext(2)">ПРОДЪЛЖИ</button>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="wiz-step" id="step-2">
+          <div class="wiz-card-title">Допълнителни данни</div>
+          <div class="wiz-card-subtitle">&nbsp;</div>
+
+          <div class="wiz-field">
+            <label class="wiz-label">Шофьорски стаж:</label>
+            <select class="wiz-select">
+              <option>До 1 година</option>
+              <option>1–3 години</option>
+              <option selected>3–5 години</option>
+              <option>5–10 години</option>
+              <option>Над 10 години</option>
+            </select>
+          </div>
+
+          <div class="wiz-field">
+            <label class="wiz-label">Автомобилът се използва за:</label>
+            <select class="wiz-select">
+              <option selected>Лични нужди</option>
+              <option>Работа / Бизнес</option>
+              <option>Таксиметров превоз</option>
+              <option>Отдаване под наем</option>
+            </select>
+          </div>
+
+          <div class="wiz-label" style="margin-bottom:8px">Автомобилът с ляв волан ли е?</div>
+          <div class="wiz-pill-group">
+            <button class="wiz-pill selected" onclick="selectPill(this,'wheel')">
+              <span class="check">✓</span> Да
+            </button>
+            <button class="wiz-pill" onclick="selectPill(this,'wheel')">
+              <span class="check"></span> Не
+            </button>
+          </div>
+
+          <button class="wiz-btn" onclick="wizNext(3)">ПРОДЪЛЖИ</button>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="wiz-step" id="step-3">
+          <div class="wiz-card-title">Оферти</div>
+          <div class="wiz-card-subtitle">Сравнете и изберете най-добрата оферта</div>
+
+          <div class="wiz-tab-switcher">
+            <button class="wiz-tab active" onclick="switchTab(this,1)">ЕДНОКРАТНО</button>
+            <button class="wiz-tab" onclick="switchTab(this,2)">2 ВНОСКИ</button>
+            <button class="wiz-tab" onclick="switchTab(this,4)">4 ВНОСКИ</button>
+          </div>
+
+          <!-- Installment = 1 -->
+          <div id="offers-1">
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo allianz">Allianz<span class="wiz-recommended-badge">★ Препоръчано</span></div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-main">94.15 € / <strong>184.15 лв.</strong></div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo bulstrad">Булстрад</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-main">103.32 € / <strong>202.08 лв.</strong></div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo ozk">OZK</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-main">182.46 € / <strong>356.86 лв.</strong></div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo generali">Generali</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-main">191.00 € / <strong>373.56 лв.</strong></div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo euroins">Euroins</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-main">198.94 € / <strong>389.09 лв.</strong></div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo uniqa">UNIQA</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-main">242.96 € / <strong>475.19 лв.</strong></div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo dzi">ДЗИ</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-main">297.10 € / <strong>581.08 лв.</strong></div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo" style="color:#94A3B8">Булинс</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-loading"><span class="wiz-spinner"></span> Зареждане на цени</div>
+              </div>
+              <span></span>
+            </div>
+          </div>
+
+          <!-- Installment = 2 -->
+          <div id="offers-2" style="display:none">
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo allianz">Allianz<span class="wiz-recommended-badge">★ Препоръчано</span></div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 48.76 € / 95.36 лв.<br>2-ра: 45.39 € / 88.79 лв.</div>
+                <div class="wiz-offer-price-total">94.15 € / 184.15 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo bulstrad">Булстрад</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 53.72 € / 105.06 лв.<br>2-ра: 49.60 € / 97.02 лв.</div>
+                <div class="wiz-offer-price-total">103.32 € / 202.08 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo ozk">OZK</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 94.67 € / 185.13 лв.<br>2-ра: 87.79 € / 171.73 лв.</div>
+                <div class="wiz-offer-price-total">182.46 € / 356.86 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo generali">Generali</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 99.14 € / 193.89 лв.<br>2-ра: 91.86 € / 179.67 лв.</div>
+                <div class="wiz-offer-price-total">191.00 € / 373.56 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo euroins">Euroins</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 104.03 € / 203.46 лв.<br>2-ра: 94.91 € / 185.63 лв.</div>
+                <div class="wiz-offer-price-total">198.94 € / 389.09 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo uniqa">UNIQA</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 126.34 € / 247.10 лв.<br>2-ра: 116.62 € / 228.09 лв.</div>
+                <div class="wiz-offer-price-total">242.96 € / 475.19 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo dzi">ДЗИ</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 154.49 € / 302.16 лв.<br>2-ра: 142.61 € / 278.92 лв.</div>
+                <div class="wiz-offer-price-total">297.10 € / 581.08 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo" style="color:#94A3B8">Булинс</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-loading"><span class="wiz-spinner"></span> Зареждане на цени</div>
+              </div>
+              <span></span>
+            </div>
+          </div>
+
+          <!-- Installment = 4 -->
+          <div id="offers-4" style="display:none">
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo allianz">Allianz<span class="wiz-recommended-badge">★ Препоръчано</span></div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 25.11 € / 49.12 лв. · 2-ра: 23.54 € / 46.05 лв.<br>3-та: 23.54 € / 46.05 лв. · 4-та: 21.96 € / 42.93 лв.</div>
+                <div class="wiz-offer-price-total">94.15 € / 184.15 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo bulstrad">Булстрад</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 27.65 € / 54.07 лв. · 2-ра: 25.83 € / 50.52 лв.<br>3-та: 25.83 € / 50.52 лв. · 4-та: 24.01 € / 46.97 лв.</div>
+                <div class="wiz-offer-price-total">103.32 € / 202.08 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo generali">Generali</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 51.09 € / 99.94 лв. · 2-ра: 47.75 € / 93.39 лв.<br>3-та: 47.75 € / 93.39 лв. · 4-та: 44.41 € / 86.84 лв.</div>
+                <div class="wiz-offer-price-total">191.00 € / 373.56 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo euroins">Euroins</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 53.55 € / 104.75 лв. · 2-ра: 49.74 € / 97.27 лв.<br>3-та: 49.74 € / 97.27 лв. · 4-та: 45.91 € / 89.80 лв.</div>
+                <div class="wiz-offer-price-total">198.94 € / 389.09 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+            <div class="wiz-offer-row">
+              <div class="wiz-offer-logo uniqa">UNIQA</div>
+              <div class="wiz-offer-price-block">
+                <div class="wiz-offer-price-sub">1-ва: 65.00 € / 127.13 лв. · 2-ра: 61.10 € / 119.52 лв.<br>3-та: 58.43 € / 114.30 лв. · 4-та: 58.43 € / 114.24 лв.</div>
+                <div class="wiz-offer-price-total">242.96 € / 475.19 лв. общо</div>
+              </div>
+              <button class="wiz-offer-select-btn" onclick="wizNext(4)">ИЗБЕРИ</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="wiz-step" id="step-4">
+          <div class="wiz-card-title">Начало на застраховката</div>
+          <div class="wiz-card-subtitle">Избери начална дата:</div>
+
+          <div class="wiz-calendar">
+            <div class="wiz-cal-header">
+              <span class="wiz-cal-nav">Назад</span>
+              <span class="wiz-cal-month">Април 2026 г.</span>
+              <span class="wiz-cal-nav">Напред</span>
+            </div>
+            <div class="wiz-cal-grid">
+              <div class="wiz-cal-days">
+                <div class="wiz-cal-day-name">Пон</div><div class="wiz-cal-day-name">Вт</div>
+                <div class="wiz-cal-day-name">Ср</div><div class="wiz-cal-day-name">Чт</div>
+                <div class="wiz-cal-day-name">Пет</div>
+                <div class="wiz-cal-day-name" style="color:#EF4444">Съб</div>
+                <div class="wiz-cal-day-name" style="color:#EF4444">Нед</div>
+              </div>
+              <div class="wiz-cal-days">
+                <div class="wiz-cal-cell empty">30</div><div class="wiz-cal-cell empty">31</div>
+                <div class="wiz-cal-cell empty">1</div>
+                <div class="wiz-cal-cell selected today">2</div>
+                <div class="wiz-cal-cell">3</div>
+                <div class="wiz-cal-cell weekend">4</div><div class="wiz-cal-cell weekend">5</div>
+                <div class="wiz-cal-cell">6</div><div class="wiz-cal-cell">7</div>
+                <div class="wiz-cal-cell">8</div><div class="wiz-cal-cell">9</div>
+                <div class="wiz-cal-cell">10</div>
+                <div class="wiz-cal-cell weekend">11</div><div class="wiz-cal-cell weekend">12</div>
+                <div class="wiz-cal-cell">13</div><div class="wiz-cal-cell">14</div>
+                <div class="wiz-cal-cell">15</div><div class="wiz-cal-cell">16</div>
+                <div class="wiz-cal-cell">17</div>
+                <div class="wiz-cal-cell weekend">18</div><div class="wiz-cal-cell weekend">19</div>
+                <div class="wiz-cal-cell">20</div><div class="wiz-cal-cell">21</div>
+                <div class="wiz-cal-cell">22</div><div class="wiz-cal-cell">23</div>
+                <div class="wiz-cal-cell">24</div>
+                <div class="wiz-cal-cell weekend">25</div><div class="wiz-cal-cell weekend">26</div>
+                <div class="wiz-cal-cell">27</div><div class="wiz-cal-cell">28</div>
+                <div class="wiz-cal-cell">29</div><div class="wiz-cal-cell">30</div>
+                <div class="wiz-cal-cell empty">1</div>
+                <div class="wiz-cal-cell empty weekend">2</div>
+                <div class="wiz-cal-cell empty weekend">3</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="wiz-info-box">
+            <span>ℹ</span>
+            <span>Застраховката ще бъде валидна след 2 часа.</span>
+          </div>
+
+          <div class="wiz-date-row">
+            <span class="wiz-date-row-label">📅 Валидна от:</span>
+            <span class="wiz-date-row-value">02.04.2026</span>
+          </div>
+          <div class="wiz-date-row">
+            <span class="wiz-date-row-label">📅 Валидна до:</span>
+            <span class="wiz-date-row-value">01.04.2027</span>
+          </div>
+          <div class="wiz-date-row">
+            <span class="wiz-date-row-label">✓ Срок:</span>
+            <span class="wiz-date-row-value">12 месеца</span>
+          </div>
+
+          <button class="wiz-btn" onclick="wizNext(5)">ПРОДЪЛЖИ</button>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="wiz-step" id="step-5">
+          <div class="wiz-card-title">Собственик на автомобила</div>
+          <div class="wiz-card-subtitle">&nbsp;</div>
+
+          <div class="wiz-field">
+            <label class="wiz-label">Собственик:</label>
+            <select class="wiz-select">
+              <option selected>Физическо лице</option>
+              <option>Юридическо лице</option>
+            </select>
+          </div>
+          <div class="wiz-field">
+            <label class="wiz-label">Име:</label>
+            <input class="wiz-input" placeholder="Използвай кирилица">
+          </div>
+          <div class="wiz-field">
+            <label class="wiz-label">Презиме:</label>
+            <input class="wiz-input" placeholder="Използвай кирилица">
+          </div>
+          <div class="wiz-field">
+            <label class="wiz-label">Фамилия:</label>
+            <input class="wiz-input" placeholder="Използвай кирилица">
+          </div>
+          <div class="wiz-field">
+            <label class="wiz-label">ЕГН / ЛНЧ:</label>
+            <input class="wiz-input" placeholder="7703041122">
+          </div>
+
+          <div class="wiz-checkbox-row">
+            <div class="wiz-checkbox">✓</div>
+            <div>
+              <div class="wiz-checkbox-label">Собственикът на автомобила е застраховащ</div>
+              <div class="wiz-checkbox-caption">(застраховащ е лицето, сключващо застрахователния договор)</div>
+            </div>
+          </div>
+
+          <button class="wiz-btn" style="margin-top:20px" onclick="wizNext(6)">ПРОДЪЛЖИ</button>
+        </div>
+
+        <!-- Step 6 -->
+        <!-- Step 6 -->
+        <div class="wiz-step" id="step-6">
+          <div class="wiz-card-title">Данни за контакт</div>
+          <div class="wiz-card-subtitle">(на лицето, сключващо застраховката)</div>
+
+          <div class="wiz-field">
+            <label class="wiz-label">Имейл:</label>
+            <input class="wiz-input" type="email" placeholder="someone@somewhere.com">
+          </div>
+          <div class="wiz-field">
+            <label class="wiz-label">Телефон:</label>
+            <input class="wiz-input" type="tel" placeholder="+359 888 888 888">
+          </div>
+
+          <button class="wiz-btn" style="margin-top:20px" onclick="wizFinish()">ПРОДЪЛЖИ</button>
+        </div>
+
+      </div><!-- /wiz-card -->
+
+      <!-- Social proof sidebar (step 3 only) -->
+      <div class="wiz-sidebar" id="wiz-sidebar" style="display:none">
+        <div class="wiz-rating-card">
+          <div class="wiz-rating-headline">50 000+ клиенти избраха Branivo</div>
+          <div class="wiz-rating-top">
+            <div class="wiz-google-g">G</div>
+            <div>
+              <div class="wiz-rating-score">4.9</div>
+              <div class="wiz-stars">★★★★★</div>
+            </div>
+          </div>
+          <div class="wiz-rating-count">от 3000+ отзива</div>
+        </div>
+
+        <div class="wiz-review-card">
+          <div class="wiz-review-header">
+            <div class="wiz-review-avatar" style="background:#4F46E5">НН</div>
+            <div>
+              <div class="wiz-review-name">Николай Николов</div>
+              <div class="wiz-review-stars">★★★★★</div>
+            </div>
+          </div>
+          <div class="wiz-review-text">Страхотни и невероятни, кракът ми няма да стъпи в офис на друг застраховател. Много съм доволен от обслужването!</div>
+        </div>
+
+        <div class="wiz-review-card">
+          <div class="wiz-review-header">
+            <div class="wiz-review-avatar" style="background:#7C3AED">ИБ</div>
+            <div>
+              <div class="wiz-review-name">Иван Бонев</div>
+              <div class="wiz-review-stars">★★★★★</div>
+            </div>
+          </div>
+          <div class="wiz-review-text">Склонихме комбинирана застраховка. На втория ден полиците бяха при мен! Много удобно, изобщо не се налага да губиш време.</div>
+        </div>
+
+        <div class="wiz-review-card">
+          <div class="wiz-review-header">
+            <div class="wiz-review-avatar" style="background:#0EA5E9">EV</div>
+            <div>
+              <div class="wiz-review-name">Elena Vassileva</div>
+              <div class="wiz-review-stars">★★★★★</div>
+            </div>
+          </div>
+          <div class="wiz-review-text">С няколко думи бързо, лесно, достъпно. Получих документите на другия ден. А вече всичко необходимо беше сканирано и в профила ми.</div>
+        </div>
+      </div>
+
+    </div><!-- /wiz-body -->
+  </div><!-- /wiz-browser -->
+
 </section>
 
 <script>
-/* ── Section switcher ── */
-function show(n) {
+function show(id, btn) {
   document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-  document.getElementById('d' + n).classList.add('active');
-  const btns = document.querySelectorAll('nav button');
-  const idx = Array.from(btns).findIndex(b => b.getAttribute('onclick') === 'show(' + n + ')');
-  if (idx >= 0) btns[idx].classList.add('active');
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
 }
 
-/* ── Onboarding Simulator ── */
-const SCREENS = {
-  splash:      { title:'Splash Screen',       body:'Tenant лого с анимация. Кликни за продължаване.', tag:'Auto → Slide 1', header:'BRANIVO' },
-  slide1:      { title:'Value Prop — Slide 1', body:'"Оферта за 30 секунди" — главното обещание. Swipe или натисни Напред.', tag:'Само при isFirstLaunch', header:'ONBOARDING' },
-  slide2:      { title:'Value Prop — Slide 2', body:'"Плати за секунди" — Face ID + Apple Pay. Последен слайд.', tag:'Само при isFirstLaunch', header:'ONBOARDING' },
-  interests:   { title:'Interest Selector',    body:'1 tap → select + pulse → auto-advance след 600ms. Продуктите идват от Admin Panel (tenant features).', tag:'tenant-feature-gated', header:'ИНТЕРЕСИ' },
-  entry:       { title:'Entry Gate',           body:'Primary: Сканирай без акаунт. Secondary: Влез. Tertiary: Регистрирай се. Строга visual hierarchy.', tag:'Anonymous-first', header:'ВХОД' },
-  'ocr-note':  { title:'OCR Scanner',          body:'Anonymous scan отваря OCR Wizard. Виж Direction 2 за пълния flow.', tag:'→ Direction 2', header:'SCANNER' },
-  login:       { title:'Login Screen',         body:'Кликни полетата за да ги попълниш. "Забравена парола" → Reset flow. "Регистрация" → Register.', tag:'Implemented ✓', header:'ВХОД' },
-  reset1:      { title:'Reset PW — Step 1',    body:'Въвежда имейл. Натисни "Изпрати код" за loading → Step 2.', tag:'Стъпка 1 от 3', header:'НУЛИРАНЕ' },
-  reset2:      { title:'Reset PW — Step 2',    body:'OTP boxes. Кликни "demo код →" за попълване. При 6 цифри бутонът се активира.', tag:'Стъпка 2 от 3', header:'НУЛИРАНЕ' },
-  reset3:      { title:'Reset PW — Step 3',    body:'Нова парола с strength indicator. "Смени паролата" → success toast → Login.', tag:'Стъпка 3 от 3', header:'НУЛИРАНЕ' },
-  register:    { title:'Register Screen',      body:'Кликни полетата за попълване. Password strength = 4 сегмента. Terms checkbox toggleable.', tag:'2 стъпки', header:'РЕГИСТРАЦИЯ' },
-  postpurchase:{ title:'Post-Purchase Prompt', body:'BottomSheet над dimmed confirmation. Данните мигрират от anonymous сесията. Swipe-able.', tag:'Anonymous → акаунт', header:'ГОТОВО' },
+// ── Wizard state ──────────────────────────────────────────────────────────
+var wizCurrentStep = 1;
+var wizStepUrls = {
+  1: 'localhost:3001/bg/quotes/go?step=vehicle',
+  2: 'localhost:3001/bg/quotes/go?step=details',
+  3: 'localhost:3001/bg/quotes/go?step=offers',
+  4: 'localhost:3001/bg/quotes/go?step=dates',
+  5: 'localhost:3001/bg/quotes/go?step=owner',
+  6: 'localhost:3001/bg/quotes/go?step=contact',
 };
 
-let currentScreen = 'splash';
-let otpCount = 0;
-const OTP_DEMO = ['4','7','2','8','1','9'];
-
-function simGoto(id) {
-  const prev = document.getElementById('scr-' + currentScreen);
-  const next = document.getElementById('scr-' + id);
-  if (!next || id === currentScreen) return;
-
-  /* slide transition */
-  prev.classList.remove('active');
-  prev.classList.add('exit-left');
-  next.classList.remove('exit-left','exit-right');
-  next.classList.add('active');
-
-  setTimeout(() => { prev.classList.remove('exit-left','exit-right'); }, 350);
-
-  currentScreen = id;
-  updateMeta(id);
-
-  /* reset OTP when entering reset2 */
-  if (id === 'reset2') resetOtp();
+function wizNext(n) {
+  document.getElementById('step-' + wizCurrentStep).classList.remove('active');
+  wizCurrentStep = n;
+  document.getElementById('step-' + n).classList.add('active');
+  document.getElementById('wiz-url').textContent = wizStepUrls[n];
+  updateDots(n);
+  document.getElementById('wiz-sidebar').style.display = (n === 3) ? 'block' : 'none';
 }
 
-function updateMeta(id) {
-  const s = SCREENS[id];
-  if (!s) return;
-  document.getElementById('anno-title').textContent = s.title;
-  document.getElementById('anno-body').textContent = s.body;
-  document.getElementById('anno-tag').textContent = s.tag;
-  document.getElementById('sim-header').textContent = s.header;
+function wizBack() {
+  if (wizCurrentStep <= 1) return;
+  wizNext(wizCurrentStep - 1);
+}
 
-  document.querySelectorAll('.sim-step').forEach(el => {
-    el.classList.remove('current');
-    if (el.id === 'step-' + id) el.classList.add('current','visited');
+function wizFinish() {
+  document.getElementById('step-6').innerHTML =
+    '<div style="text-align:center;padding:32px 0">' +
+    '<div style="font-size:48px;margin-bottom:16px">🎉</div>' +
+    '<div class="wiz-card-title" style="color:#22C55E">Успешно!</div>' +
+    '<div class="wiz-card-subtitle" style="margin-top:8px">Вашата полица е изпратена на имейл.<br>Добре дошли в Branivo!</div>' +
+    '<div style="margin-top:24px;padding:16px;background:#F0FDF4;border-radius:12px;font-size:13px;color:#166534">' +
+    '<strong>Mercedes S 350 · СВ0688ММ</strong><br>' +
+    'Allianz · 184.15 лв. · Валидна до 01.04.2027' +
+    '</div></div>';
+}
+
+function updateDots(step) {
+  for (var i = 0; i < 6; i++) {
+    var dot = document.getElementById('dot-' + i);
+    dot.classList.remove('active', 'done');
+    if (i + 1 === step) dot.classList.add('active');
+    else if (i + 1 < step) dot.classList.add('done');
+  }
+}
+
+function selectPill(btn, group) {
+  var parent = btn.parentElement;
+  parent.querySelectorAll('.wiz-pill').forEach(function(p) {
+    p.classList.remove('selected');
+    p.querySelector('.check').textContent = '';
   });
-  /* special mappings */
-  const map = { 'ocr-note':'entry' };
-  const stepId = map[id] || id;
-  const el = document.getElementById('step-' + stepId);
-  if (el) el.classList.add('current');
+  btn.classList.add('selected');
+  btn.querySelector('.check').textContent = '✓';
 }
 
-/* ── Field click-to-fill ── */
-function fillField(id, val) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.add('filled','focused');
-  setTimeout(() => el.classList.remove('focused'), 800);
+function switchTab(btn, count) {
+  document.querySelectorAll('.wiz-tab').forEach(function(t){ t.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('offers-1').style.display = 'none';
+  document.getElementById('offers-2').style.display = 'none';
+  document.getElementById('offers-4').style.display = 'none';
+  document.getElementById('offers-' + count).style.display = 'block';
 }
-
-/* ── OTP ── */
-function resetOtp() {
-  otpCount = 0;
-  for (let i = 0; i < 6; i++) {
-    const b = document.getElementById('otp' + i);
-    if (b) { b.textContent = ''; b.classList.remove('filled','active'); }
-  }
-  document.getElementById('otp0').classList.add('active');
-  const btn = document.getElementById('otp-confirm-btn');
-  if (btn) btn.classList.add('disabled');
-}
-
-function fillOtp() {
-  if (otpCount >= 6) { resetOtp(); return; }
-  const box = document.getElementById('otp' + otpCount);
-  if (!box) return;
-  box.textContent = OTP_DEMO[otpCount];
-  box.classList.add('filled');
-  box.classList.remove('active');
-  otpCount++;
-  if (otpCount < 6) document.getElementById('otp' + otpCount).classList.add('active');
-  if (otpCount === 6) {
-    const btn = document.getElementById('otp-confirm-btn');
-    if (btn) btn.classList.remove('disabled');
-    showToast('Кодът е въведен ✓');
-  }
-}
-
-/* ── Loading transition ── */
-function doLoadThen(target) {
-  const loader = document.getElementById('sim-loading');
-  loader.classList.add('show');
-  setTimeout(() => {
-    loader.classList.remove('show');
-    simGoto(target);
-  }, 1200);
-}
-
-/* ── Login ── */
-function doLogin() {
-  const emailFilled = document.getElementById('lf-email').classList.contains('filled');
-  const passFilled  = document.getElementById('lf-pass').classList.contains('filled');
-  if (!emailFilled || !passFilled) {
-    showToast('Попълни имейл и парола 👆');
-    return;
-  }
-  doLoadThen('home-success');
-}
-
-function doRegister() {
-  const emailFilled = document.getElementById('reg-email').classList.contains('filled');
-  if (!emailFilled) { showToast('Попълни данните 👆'); return; }
-  doLoadThen('post-success');
-}
-
-function doResetSuccess() {
-  const p1 = document.getElementById('np-pass').classList.contains('filled');
-  const p2 = document.getElementById('np-pass2').classList.contains('filled');
-  if (!p1 || !p2) { showToast('Въведи новата парола 👆'); return; }
-  showSuccessOverlay('Паролата е сменена! 🎉', 'Влез с новата си парола.');
-  setTimeout(() => {
-    hideSuccessOverlay();
-    simGoto('login');
-    /* reset login fields */
-    ['lf-email','lf-pass'].forEach(id => document.getElementById(id).classList.remove('filled'));
-  }, 2200);
-}
-
-function doSaveAccount() {
-  const filled = document.getElementById('pp-phone').classList.contains('filled');
-  if (!filled) { showToast('Въведи телефонен номер 👆'); return; }
-  doLoadThen('account-success');
-}
-
-/* ── Virtual screens (success outcomes) ── */
-const _origGoto = simGoto;
-function simGoto(id) {
-  if (id === 'home-success') {
-    showSuccessOverlay('Добре дошли! 👋', 'Успешно влязохте в профила си.');
-    setTimeout(() => { hideSuccessOverlay(); show(1); }, 2000);
-    return;
-  }
-  if (id === 'post-success') {
-    showSuccessOverlay('Акаунтът е създаден! 🎉', 'Успешна регистрация. Продължаваш към профила си.');
-    setTimeout(() => { hideSuccessOverlay(); show(1); }, 2000);
-    return;
-  }
-  if (id === 'account-success') {
-    showSuccessOverlay('Акаунтът е запазен! ✓', 'PDF ще получиш на имейл до 5 минути.');
-    setTimeout(() => { hideSuccessOverlay(); show(1); }, 2200);
-    return;
-  }
-  const prev = document.getElementById('scr-' + currentScreen);
-  const next = document.getElementById('scr-' + id);
-  if (!next || id === currentScreen) return;
-  prev.classList.remove('active');
-  prev.classList.add('exit-left');
-  next.classList.remove('exit-left','exit-right');
-  next.classList.add('active');
-  setTimeout(() => { prev.classList.remove('exit-left','exit-right'); }, 350);
-  currentScreen = id;
-  updateMeta(id);
-  if (id === 'reset2') resetOtp();
-}
-
-/* ── Interest select ── */
-function selectInterest(type) {
-  /* deselect all */
-  ['go','casco','travel','property'].forEach(t => {
-    document.getElementById('ic-' + t).classList.remove('selected');
-  });
-  document.getElementById('ic-' + type).classList.add('selected');
-  /* update Entry Gate title based on selection */
-  const titles = { go:'ГО застраховка за минути', casco:'Намери Каско покритие', travel:'Застрахователни оферти', property:'Защити дома си' };
-  const et = document.getElementById('entry-title');
-  if (et) et.textContent = titles[type] || 'Застрахователни оферти';
-  setTimeout(() => simGoto('entry'), 600);
-}
-
-/* ── Toast ── */
-let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById('sim-toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-/* ── Success overlay ── */
-function showSuccessOverlay(msg, sub) {
-  document.getElementById('success-msg').textContent = msg;
-  document.getElementById('success-sub').textContent = sub;
-  document.getElementById('sim-success').classList.add('show');
-}
-function hideSuccessOverlay() {
-  document.getElementById('sim-success').classList.remove('show');
-}
-
-/* ── Terms toggle ── */
-function toggleTerms() {
-  const cb = document.getElementById('reg-cb');
-  cb.textContent = cb.textContent === '✓' ? '' : '✓';
-  cb.style.background = cb.textContent === '✓' ? '#6366F1' : '#E5E7EB';
-}
-
-/* init */
-updateMeta('splash');
 </script>
 </body>
 </html>

@@ -20,6 +20,7 @@ final _offer = QuoteOffer(
   isRecommended: true,
   status: 'success',
   extras: {},
+  paymentOptions: [],
 );
 
 Widget _buildTestWidget(QuoteBloc bloc) {

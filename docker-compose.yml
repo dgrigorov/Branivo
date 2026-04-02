@@ -68,6 +68,23 @@ services:
       - '1025:1025'   # SMTP
       - '8025:8025'   # Web UI
 
+  branivo-ocr:
+    build:
+      context: ./branivo-ocr
+      dockerfile: Dockerfile
+    container_name: branivo-ocr
+    restart: unless-stopped
+    ports:
+      - '8888:8000'
+    mem_limit: 3g
+    memswap_limit: 3g
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
 volumes:
   postgres_data:
   redis_data:

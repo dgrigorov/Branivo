@@ -1,3 +1,4 @@
+import 'package:flutter/painting.dart' show Offset;
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
 import 'ocr_models.dart';
@@ -19,8 +20,9 @@ class OcrApiRepository implements OcrRepository {
   @override
   Future<OcrScanResponse> scanImages(
     List<XFile> images,
-    String sessionToken,
-  ) async {
+    String sessionToken, {
+    List<List<Offset>?>? corners,
+  }) async {
     final formData = FormData();
     for (final image in images) {
       final bytes = await image.readAsBytes();

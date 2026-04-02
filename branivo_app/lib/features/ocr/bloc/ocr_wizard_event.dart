@@ -2,7 +2,10 @@ part of 'ocr_wizard_bloc.dart';
 
 abstract class OcrWizardEvent {}
 
-class OcrStartCaptureEvent extends OcrWizardEvent {}
+class OcrStartCaptureEvent extends OcrWizardEvent {
+  OcrStartCaptureEvent({required this.sessionToken});
+  final String sessionToken;
+}
 
 class OcrImageCapturedEvent extends OcrWizardEvent {
   OcrImageCapturedEvent({required this.step, required this.image});
@@ -22,14 +25,14 @@ class OcrStatusPolledEvent extends OcrWizardEvent {
 
 class OcrManualFallbackRequestedEvent extends OcrWizardEvent {}
 
-/// User tapped "Продължи" on the preview screen.
+/// User tapped "Продължи" on the preview screen — proceeds to crop editor.
 class OcrPreviewConfirmedEvent extends OcrWizardEvent {
   OcrPreviewConfirmedEvent({required this.step, required this.sessionToken});
   final int step;
   final String sessionToken;
 }
 
-/// User tapped "Повтори" on the preview screen — discard the last image.
+/// User tapped "Повтори" on the preview or crop screen — discard the last image.
 class OcrPreviewRetakeEvent extends OcrWizardEvent {
   OcrPreviewRetakeEvent({required this.step});
   final int step;
@@ -55,3 +58,15 @@ class OcrQualityOkEvent extends OcrWizardEvent {}
 
 /// 5-second timeout expired without quality OK
 class OcrManualAssistEvent extends OcrWizardEvent {}
+/// User confirmed the perspective crop corners.
+class OcrCropConfirmedEvent extends OcrWizardEvent {
+  OcrCropConfirmedEvent({
+    required this.step,
+    required this.corners,
+    required this.sessionToken,
+  });
+  final int step;
+  /// Normalized 0..1 corner points: TL, TR, BR, BL.
+  final List<Offset> corners;
+  final String sessionToken;
+}
