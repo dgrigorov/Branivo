@@ -11,7 +11,7 @@ Three pipelines:
         clahe (low-contrast only, std < 50) →
         mask_glare →
         sharpen →
-        return sharpened grayscale (Otsu skipped — amplifies security lines)
+        otsu_binarize (high-contrast only, std > 65)
       Empirically tested on 13 fixture images — each step retained only when
       it raises Tesseract confidence; NLM and morph-open removed (both hurt).
   - crop_mrz_zone: crops + lightly preprocesses the bottom 38 % (MRZ band)
@@ -78,7 +78,7 @@ def light_preprocess(image_bytes: bytes) -> np.ndarray:
 
 
 def preprocess_step23(image_bytes: bytes) -> np.ndarray:
-    """Adaptive pipeline for steps 2/3 — returns sharpened grayscale image.
+    """Adaptive pipeline for steps 2/3 — returns grayscale or binary image.
 
     Each step is applied conditionally based on measured image characteristics
     so it only runs when it raises Tesseract confidence (empirically validated):
@@ -91,16 +91,14 @@ def preprocess_step23(image_bytes: bytes) -> np.ndarray:
        (low-contrast images).  CLAHE consistently hurts high-contrast images.
     4. Glare mask        — always; cheap, occasionally helps laminate shine.
     5. Sharpen σ=1.5     — always; unsharp-mask recovers blurred text edges.
-    6. Return sharpened grayscale — Otsu binarization deliberately omitted.
-       On talón documents horizontal security lines have intensity close to text
-       strokes; Otsu amplifies them into solid black bands indistinguishable
-       from character glyphs.  Grayscale avoids this artefact.
+    6. Otsu binarize     — only when grayscale std-dev > 65 after sharpening
+       (high-contrast images where binarization adds another +0.09).
 
     Removed vs. previous version:
     - NLM denoising  : ~20 s/image on CPU, hurts more often than it helps.
     - Morph open     : degraded confidence on every tested image.
     - Unconditional CLAHE : hurt all step-2 images; replaced by conditional.
-    - Conditional Otsu : amplified horizontal security lines; removed entirely.
+    - Unconditional Otsu  : hurt when contrast is moderate; replaced by conditional.
     """
     img = _decode(image_bytes)
     img = _resize(img)
@@ -130,11 +128,11 @@ def preprocess_step23(image_bytes: bytes) -> np.ndarray:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
     gray = _sharpen(gray)
 
-    # Step 6: Return sharpened grayscale — Otsu binarization deliberately skipped.
-    # On talón documents the horizontal printed security lines have intensity close
-    # to text strokes, so Otsu amplifies them into solid black bands that destroy
-    # character readability.  Feeding grayscale directly gives Tesseract cleaner
-    # input for these documents.
+    # Step 6: Otsu binarize — only when image contrast is high enough
+    if float(np.std(gray)) > 65:
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        return binary
+
     return gray
 
 
@@ -337,9 +335,12 @@ def preprocess_stages(
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
         sharpened = _sharpen(gray)
         stages.append(("after_sharpen", sharpened.copy()))
-        # Otsu removed: feed sharpened grayscale directly (Otsu amplifies
-        # horizontal security lines into black bands on talón documents)
-        stages.append(("tesseract_input", sharpened.copy()))
+
+        if float(np.std(sharpened)) > 65:
+            _, binary = cv2.threshold(sharpened, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            stages.append(("tesseract_input", binary.copy()))
+        else:
+            stages.append(("tesseract_input", sharpened.copy()))
 
     return stages
 
