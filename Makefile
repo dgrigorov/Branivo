@@ -14,7 +14,8 @@
         flutter-pub-get flutter-test flutter-analyze \
         flutter-run flutter-install flutter-run-clean flutter-clean \
         scrape-vehicles import-vehicles \
-        ocr ocr-rebuild ocr-logs ocr-shell
+        ocr ocr-rebuild ocr-logs ocr-shell \
+        ocr-test ocr-test-ci
 
 # ── Default ──────────────────────────────────────────────────────────────────
 
@@ -217,6 +218,13 @@ ocr-logs: ## Tail branivo-ocr logs
 
 ocr-shell: ## Open shell inside running branivo-ocr container
 	docker exec -it branivo-ocr bash
+
+ocr-test: ## Run OCR end-to-end accuracy tests (requires branivo-ocr running)
+	pip3 install -q -r branivo-ocr/requirements-test.txt
+	pytest branivo-ocr/tests/ -v --api-url http://localhost:8888
+
+ocr-test-ci: ## Run OCR tests without installing deps (for CI)
+	pytest branivo-ocr/tests/ -v --api-url http://localhost:8888
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 
