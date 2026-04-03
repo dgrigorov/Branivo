@@ -85,6 +85,12 @@ _KNOWN_MAKES = [
     "KAWASAKI", "YAMAHA", "DUCATI", "HARLEY", "TRIUMPH",
 ]
 _MAKE_RE = re.compile(r"\b(" + "|".join(re.escape(m) for m in _KNOWN_MAKES) + r")\b", re.I)
+# Model designator patterns: "Z 1000", "307", "S 350", "GOLF", "3 SERIES"
+# Kept narrow to avoid noise:  1-3 uppercase letters optionally followed by 2-4 digits
+# OR pure 3-4 digit code OR 3-8 uppercase-only letters (like GOLF, POLO, SERIES)
+_MODEL_DESIG_RE = re.compile(
+    r"([A-Z]{1,3}[ \t\n]?\d{2,4}|\d{3,4}|[A-Z]{3,8})", re.I
+)
 
 # Fuel type words that appear on Bulgarian talona (bilingual BG/EN)
 _FUEL_WORDS = {
@@ -118,10 +124,14 @@ def parse_step2(text: str) -> Tuple[Dict[str, Optional[str]], float]:
     fields = _extract_labeled_fields(text)
     raw_vin = _first_line(fields.get("E"))
     make_from_fields = _prefer_latin(fields.get("D.1") or fields.get("D1"))
+    model_from_fields = _prefer_latin(fields.get("D.3") or fields.get("D3"))
+    make = make_from_fields or _find_make(text)
     data: Dict[str, Optional[str]] = {
         "registrationNumber": _clean_reg(fields.get("A")) or _find_reg(text),
-        "make": make_from_fields or _find_make(text),
-        "model": _prefer_latin(fields.get("D.3") or fields.get("D3")),
+        "make": make,
+        "model": model_from_fields or (
+            _find_model_near_make(text, make) if make else None
+        ),
         "vin": _normalize_vin(raw_vin) if raw_vin else _find_vin(text),
         "firstRegistration": fields.get("B") or _find_date(text),
     }
@@ -372,6 +382,39 @@ def _find_make(text: str) -> Optional[str]:
     """
     m = _MAKE_RE.search(text)
     return m.group(1).upper() if m else None
+
+
+def _find_model_near_make(text: str, make: str) -> Optional[str]:
+    """Fallback: extract model name from the text immediately after the make.
+
+    Handles patterns like "PEUGEOT:307", "KAWASAKI Z 1000", "BMW\n3 SERIES".
+    After finding the make in the OCR text, takes up to 20 chars following it
+    (stopping before the make name repeats), strips separator characters, and
+    extracts the first alphanumeric token sequence.
+    Returns "{MAKE} {MODEL_TOKEN}" or None if nothing useful is found.
+    """
+    m = _MAKE_RE.search(text)
+    if not m:
+        return None
+    # Limit the scan window to 30 chars; stop before the make name repeats
+    after_raw = text[m.end():m.end() + 30]
+    # If the make name repeats (e.g. "KAWASAKI\nZ\n1000\nKAWASAKI"), cut there
+    make_again = re.search(re.escape(make), after_raw, re.I)
+    if make_again:
+        after_raw = after_raw[:make_again.start()]
+    # Strip leading separators (colon, space, newline)
+    after = re.sub(r"^[:\s]+", "", after_raw)
+    if not after:
+        return None
+    # Extract model designator using a strict pattern to avoid noise tokens
+    model_m = _MODEL_DESIG_RE.match(after)
+    if not model_m:
+        return None
+    # Normalise internal whitespace (newlines → single space)
+    model_token = re.sub(r"\s+", " ", model_m.group(1)).strip()
+    if not model_token:
+        return None
+    return f"{make} {model_token}"
 
 
 def _find_engine_cc(value: Optional[str]) -> Optional[str]:
