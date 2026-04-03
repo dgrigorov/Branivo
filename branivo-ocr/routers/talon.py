@@ -138,8 +138,10 @@ async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
 
 
 def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonResponse:
-    img = preprocessor.light_preprocess(image_bytes)
-    blocks = ocr_engine.extract_blocks(img)
+    # Enhanced pipeline: upscale + sharpen + adaptive threshold (better for
+    # wrinkled/laminated pages than plain grayscale used in light_preprocess).
+    img = preprocessor.preprocess_step23(image_bytes)
+    blocks = ocr_engine.extract_blocks_step23(img)
     text = ocr_engine.blocks_to_text(blocks)
     ocr_conf = ocr_engine.avg_confidence(blocks)
 

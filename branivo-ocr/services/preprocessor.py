@@ -19,7 +19,8 @@ import numpy as np
 from PIL import Image, ExifTags
 
 
-MAX_DIM = 2048  # cap longest side to avoid OOM on high-res photos
+MAX_DIM = 2048   # cap longest side to avoid OOM on high-res photos
+OCR_MIN_DIM = 1600  # upscale to at least this many px on longest side before OCR
 
 
 def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
@@ -65,6 +66,40 @@ def light_preprocess(image_bytes: bytes) -> np.ndarray:
     img = _clahe(img)
     img = _mask_glare(img)
     return img
+
+
+def preprocess_step23(image_bytes: bytes) -> np.ndarray:
+    """Enhanced pipeline for steps 2/3 — returns cleaned binary grayscale.
+
+    Pipeline: decode → resize → bilateral → CLAHE → glare mask →
+              upscale → NLM denoise → sharpen → Otsu binarize → morph open.
+
+    Design decisions for wrinkled / laminated documents:
+    - Upscale: Tesseract needs ~300 DPI; perspective crops are often smaller.
+    - NLM denoise BEFORE sharpening: removes fine wrinkle texture without
+      blurring text strokes, so sharpen amplifies text edges (not noise).
+    - Otsu (global threshold) instead of adaptive: adaptive threshold
+      reacts to local intensity and treats wrinkle shadows as text edges,
+      flooding the output with noise.  The laminated talona background is
+      mostly white/grey, so a single Otsu threshold cleanly separates it
+      from dark text.
+    - Morphological opening (2×2, 1 iter): removes isolated sub-pixel
+      blobs that survive binarization (scanner dust, fine laminate grain).
+    """
+    img = _decode(image_bytes)
+    img = _resize(img)
+    img = _bilateral(img)
+    img = _clahe(img)
+    img = _mask_glare(img)
+    img = _upscale_for_ocr(img)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
+    # Denoise before sharpening: NLM kills wrinkle grain, sharpen restores text edges
+    gray = cv2.fastNlMeansDenoising(gray, h=10, templateWindowSize=7, searchWindowSize=21)
+    gray = _sharpen(gray)
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # Remove isolated noise blobs with a small opening
+    kernel = np.ones((2, 2), np.uint8)
+    return cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
 
 
 def crop_mrz_zone(image_bytes: bytes) -> np.ndarray:
@@ -136,6 +171,32 @@ def _apply_exif_orientation(img: Image.Image) -> Image.Image:
     return img
 
 
+def _upscale_for_ocr(img: np.ndarray) -> np.ndarray:
+    """Upscale image so its longest side reaches OCR_MIN_DIM (≈ 300 DPI equivalent).
+
+    Perspective-cropped regions are often much smaller than the original photo.
+    Tesseract accuracy degrades sharply below ~150 DPI; upscaling with Lanczos4
+    recovers text edge sharpness without introducing blocking artifacts.
+    Does nothing if the image is already large enough.
+    """
+    h, w = img.shape[:2]
+    longest = max(h, w)
+    if longest >= OCR_MIN_DIM:
+        return img
+    scale = OCR_MIN_DIM / longest
+    return cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LANCZOS4)
+
+
+def _sharpen(img: np.ndarray) -> np.ndarray:
+    """Unsharp mask — enhances text edge contrast without amplifying coarse noise.
+
+    Uses a wide Gaussian blur (σ=2) so fine grain (sensor noise) is ignored,
+    while blurred text strokes from wrinkled or out-of-focus images are restored.
+    """
+    blurred = cv2.GaussianBlur(img, (0, 0), sigmaX=2.0)
+    return cv2.addWeighted(img, 1.5, blurred, -0.5, 0)
+
+
 def _bilateral(img: np.ndarray) -> np.ndarray:
     return cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
 
@@ -162,6 +223,61 @@ def _mask_glare(img: np.ndarray) -> np.ndarray:
     kernel = np.ones((3, 3), np.uint8)
     mask_dilated = cv2.dilate(mask, kernel, iterations=1)
     return cv2.inpaint(img, mask_dilated, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+
+
+def preprocess_stages(
+    image_bytes: bytes,
+    points: list[list[float]] | None = None,
+    step: int = 1,
+) -> list[tuple[str, "np.ndarray"]]:
+    """Return (name, image) pairs for each preprocessing stage.
+
+    Used by the debug pipeline endpoint to visualize what Tesseract actually sees.
+    When *points* are provided the perspective crop is applied first (before
+    bilateral / CLAHE / glare-mask), so the stage list mirrors the real pipeline.
+    """
+    stages: list[tuple[str, np.ndarray]] = []
+
+    if points is not None:
+        cropped = perspective_crop(image_bytes, points)
+        img = _decode(cropped)
+    else:
+        img = _decode(image_bytes)
+
+    img = _resize(img)
+    stages.append(("original", img.copy()))
+
+    img = _bilateral(img)
+    stages.append(("after_bilateral", img.copy()))
+
+    img = _clahe(img)
+    stages.append(("after_clahe", img.copy()))
+
+    img = _mask_glare(img)
+    stages.append(("after_glare_mask", img.copy()))
+
+    if step == 1:
+        h = img.shape[0]
+        mrz_crop = img[int(h * 0.62):, :]
+        stages.append(("mrz_crop_final", mrz_crop.copy()))
+        # Tesseract receives grayscale → Otsu binary for MRZ (OCR-B font)
+        gray = cv2.cvtColor(mrz_crop, cv2.COLOR_BGR2GRAY) if mrz_crop.ndim == 3 else mrz_crop.copy()
+        stages.append(("after_grayscale", gray.copy()))
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        stages.append(("tesseract_input", binary.copy()))
+    else:
+        # Steps 2/3: upscale → NLM denoise → sharpen → Otsu binary → morph open
+        img = _upscale_for_ocr(img)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
+        gray = cv2.fastNlMeansDenoising(gray, h=10, templateWindowSize=7, searchWindowSize=21)
+        sharpened = _sharpen(gray)
+        stages.append(("after_sharpen", sharpened.copy()))
+        _, binary = cv2.threshold(sharpened, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        kernel = np.ones((2, 2), np.uint8)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+        stages.append(("tesseract_input", binary.copy()))
+
+    return stages
 
 
 def _auto_orient(img: np.ndarray) -> np.ndarray:

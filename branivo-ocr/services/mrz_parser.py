@@ -37,11 +37,30 @@ FIELD_RE = re.compile(
     r"\(([A-Z](?:[.\d]+)*\.?)\)\s*(.*?)(?=\s*" + FIELD_CODE_PAT + r"|\Z)",
     re.S,
 )
+# Loose variant: tolerates a missing opening parenthesis — OCR on wrinkled
+# documents sometimes drops the "(" before field codes like "A)", "D.1)".
+# Only matches at the start of a line (after \n or at ^ in MULTILINE mode)
+# to avoid false positives on random text containing uppercase letters + ")".
+_LOOSE_FIELD_CODE_PAT = r"(?:^|\n)\s*([A-Z](?:[.\d]+)*\.?)\)\s"
+FIELD_RE_LOOSE = re.compile(
+    r"(?:^|\n)\s*([A-Z](?:[.\d]+)*\.?)\)\s+(.*?)(?=(?:^|\n)\s*[A-Z](?:[.\d]+)*\.?\)|\Z)",
+    re.S | re.M,
+)
 
 VIN_RE = re.compile(r"([A-HJ-NPR-Z0-9]{17})")
 # Trailing (?![A-Z]) instead of \b — handles reg embedded in MRZ without spaces
 # Also accepts O in digit positions (normalised to 0 before matching)
-REG_RE = re.compile(r"\b([A-Z]{1,2}[\s\-]?[0-9O]{4}[\s\-]?[A-Z]{2})(?![A-Z])")
+REG_RE = re.compile(r"\b([A-Z]{1,2}[ \-]?[0-9O]{4}[ \-]?[A-Z]{2})(?![A-Z])")
+
+# Cyrillic characters that are visually identical to Latin equivalents.
+# Tesseract (bul+eng) sometimes outputs Cyrillic glyphs for what are actually
+# Latin characters on the талон (registration number, make/model, VIN).
+# Normalise them to Latin BEFORE regex matching so field extraction works.
+# Map: А→A, В→B, С→C, Е→E, К→K, М→M, Н→H (Н ≈ H shape), О→O, Р→P, Т→T, Х→X
+_CYR_LAT_TABLE = str.maketrans(
+    "АВСЕКМНОРТХавсекмнортх",
+    "ABCEKMHOPTXabcekmhoptx",
+)
 EGN_RE = re.compile(r"(?<!\d)(\d{10})(?!\d)")
 DATE_RE = re.compile(r"\b(\d{2}[.\/\-]\d{2}[.\/\-]\d{4})\b")
 # Primary: strict MRZ (correct OCR with '<' preserved)
@@ -54,6 +73,30 @@ _MRZ_LOOSE_RE = re.compile(r"^[A-Z0-9<\-.\s]{20,}$")
 LATIN_RE = re.compile(r"^[A-Z0-9\s\-./]+$", re.I)
 # Parenthesised English word — used to extract bilingual label (e.g. БЕНЗИН (PETROL))
 _PAREN_LATIN_RE = re.compile(r"\(([A-Z][A-Z\s]+)\)")
+
+# Known vehicle manufacturer names — used as a fallback when field codes
+# are not readable (wrinkled document).  Ordered by prefix length (longest first)
+# so more-specific matches win over shorter prefixes.
+_KNOWN_MAKES = [
+    "MERCEDES-BENZ", "MERCEDES", "VOLKSWAGEN", "RENAULT", "PEUGEOT",
+    "CITROEN", "TOYOTA", "HONDA", "NISSAN", "HYUNDAI", "SUZUKI",
+    "MITSUBISHI", "MAZDA", "SUBARU", "VOLVO", "SKODA", "FORD",
+    "OPEL", "FIAT", "SEAT", "AUDI", "BMW", "KIA", "DACIA",
+    "KAWASAKI", "YAMAHA", "DUCATI", "HARLEY", "TRIUMPH",
+]
+_MAKE_RE = re.compile(r"\b(" + "|".join(re.escape(m) for m in _KNOWN_MAKES) + r")\b", re.I)
+
+# Fuel type words that appear on Bulgarian talona (bilingual BG/EN)
+_FUEL_WORDS = {
+    "PETROL": "PETROL", "BENZIN": "PETROL", "БЕНЗИН": "PETROL",
+    "DIESEL": "DIESEL", "ДИЗЕЛ": "DIESEL",
+    "GAS": "GAS", "CNG": "CNG", "LPG": "LPG",
+    "ELECTRIC": "ELECTRIC", "ЕЛЕКТРИК": "ELECTRIC",
+    "HYBRID": "HYBRID", "ХИБРИД": "HYBRID",
+}
+_FUEL_RE = re.compile(
+    r"\b(" + "|".join(re.escape(w) for w in _FUEL_WORDS) + r")\b", re.I
+)
 
 
 # ── public API ─────────────────────────────────────────────────────────────────
@@ -74,9 +117,10 @@ def parse_step2(text: str) -> Tuple[Dict[str, Optional[str]], float]:
     """Extract vehicle identity fields: make, model, registration, VIN."""
     fields = _extract_labeled_fields(text)
     raw_vin = _first_line(fields.get("E"))
+    make_from_fields = _prefer_latin(fields.get("D.1") or fields.get("D1"))
     data: Dict[str, Optional[str]] = {
         "registrationNumber": _clean_reg(fields.get("A")) or _find_reg(text),
-        "make": _prefer_latin(fields.get("D.1") or fields.get("D1")),
+        "make": make_from_fields or _find_make(text),
         "model": _prefer_latin(fields.get("D.3") or fields.get("D3")),
         "vin": _normalize_vin(raw_vin) if raw_vin else _find_vin(text),
         "firstRegistration": fields.get("B") or _find_date(text),
@@ -88,8 +132,9 @@ def parse_step3(text: str) -> Tuple[Dict[str, Optional[str]], float]:
     """Extract technical specification fields: engine, fuel, seats."""
     fields = _extract_labeled_fields(text)
     data: Dict[str, Optional[str]] = {
-        "engine": _first_numeric_token(fields.get("P.1") or fields.get("P1")),
-        "fuel": _prefer_latin(fields.get("P.3") or fields.get("P3")),
+        "engine": _find_engine_cc(fields.get("P.1") or fields.get("P1")),
+        "fuel": _prefer_latin(fields.get("P.3") or fields.get("P3"))
+                or _find_fuel(text),
         "seats": _first_line(fields.get("S.1") or fields.get("S1")),
         "firstRegistration": fields.get("B") or _find_date(text),
     }
@@ -177,19 +222,42 @@ def _parse_step1_fallback(text: str) -> Dict[str, Optional[str]]:
 
 # ── labeled-field extractor ────────────────────────────────────────────────────
 
+def _cyr_to_lat(text: str) -> str:
+    """Normalise Cyrillic visual lookalikes to Latin equivalents.
+
+    Applied before regex field extraction so that OCR outputs like
+    "С1029МА" (Cyrillic С, М, А) are matched as "B0001CC" (Latin).
+    """
+    return text.translate(_CYR_LAT_TABLE)
+
+
 def _extract_labeled_fields(text: str) -> Dict[str, str]:
     """Extract (FIELD_CODE) VALUE pairs from OCR text.
 
     Handles multi-column layouts where multiple fields appear on one line.
     Strips trailing `***` (redacted fields on the talona).
+    Falls back to a loose pattern that tolerates a missing opening parenthesis
+    (OCR on wrinkled documents sometimes drops the "(" before field codes).
     """
+    # Normalise Cyrillic lookalikes before parsing so field codes are Latin
+    normalised = _cyr_to_lat(text)
     result: Dict[str, str] = {}
-    for match in FIELD_RE.finditer(text):
+    for match in FIELD_RE.finditer(normalised):
         key = match.group(1).rstrip(".")
         value = match.group(2).strip().rstrip("*").strip()
         # Skip empty / redacted / next-field values; keep first valid occurrence
         if value and value != "***" and not value.startswith("(") and key not in result:
             result[key] = value
+
+    # Loose pass: catch field codes where the opening "(" was dropped by OCR
+    for match in FIELD_RE_LOOSE.finditer(normalised):
+        key = match.group(1).rstrip(".")
+        if key in result:
+            continue  # already found via strict pass
+        value = match.group(2).strip().rstrip("*").strip()
+        if value and value != "***" and not value.startswith(")"):
+            result[key] = value
+
     return result
 
 
@@ -218,11 +286,17 @@ def _prefer_latin(value: Optional[str]) -> Optional[str]:
 
 
 def _normalize_vin(raw: str) -> Optional[str]:
-    """Fix common OCR O/0 confusion in VINs and validate 17-char format.
+    """Fix common OCR errors in VINs and validate 17-char format.
 
-    VIN charset excludes I, O, Q — any such character is an OCR error.
+    Handles:
+    - O/0 and I/1 confusion (universal OCR issue)
+    - Cyrillic lookalikes (А→A, С→C, etc.) from bul+eng Tesseract output
+    - VIN charset excludes I, O, Q — any such character is an OCR error.
     """
-    normalized = raw.upper().replace("O", "0").replace("I", "1").replace("Q", "0")
+    # First convert Cyrillic lookalikes, then uppercase
+    step1 = _cyr_to_lat(raw).upper()
+    # Then fix O→0, I→1, Q→0 in VIN charset context
+    normalized = step1.replace("O", "0").replace("I", "1").replace("Q", "0")
     # Strip non-VIN characters
     cleaned = re.sub(r"[^A-HJ-NPR-Z0-9]", "", normalized)
     if len(cleaned) >= 17 and VIN_RE.fullmatch(cleaned[:17]):
@@ -290,13 +364,54 @@ def _fix_reg_ocr(reg: str) -> str:
     return reg[:2] + digits + reg[6:]
 
 
+def _find_make(text: str) -> Optional[str]:
+    """Fallback: find a known manufacturer name in raw OCR text.
+
+    Used when the (D.1) field code is not readable due to wrinkles.
+    Returns the matched manufacturer name in uppercase (normalised).
+    """
+    m = _MAKE_RE.search(text)
+    return m.group(1).upper() if m else None
+
+
+def _find_engine_cc(value: Optional[str]) -> Optional[str]:
+    """Extract engine displacement from a P.1 field value.
+
+    Requires a 3-4 digit number in the realistic cc range (500–9999).
+    Rejects lone digits ("7"), year-like values (outside cc range), etc.
+    """
+    if not value:
+        return None
+    for token in re.split(r"[\s\n]+", value):
+        token = token.strip()
+        if token.isdigit() and 500 <= int(token) <= 9999:
+            return token
+    return None
+
+
+def _find_fuel(text: str) -> Optional[str]:
+    """Fallback: find fuel type keyword in raw OCR text.
+
+    Used when the (P.3) field code is not readable due to wrinkles.
+    Returns a normalised English fuel type string (PETROL, DIESEL, etc.).
+    """
+    m = _FUEL_RE.search(text)
+    if not m:
+        return None
+    return _FUEL_WORDS.get(m.group(1).upper())
+
+
 def _find_vin(text: str) -> Optional[str]:
-    m = VIN_RE.search(text)
-    return m.group(1) if m else None
+    # Normalise Cyrillic lookalikes before VIN search
+    m = VIN_RE.search(_cyr_to_lat(text).upper())
+    if not m:
+        return None
+    return _normalize_vin(m.group(1))
 
 
 def _find_reg(text: str) -> Optional[str]:
-    m = REG_RE.search(text)
+    # Normalise Cyrillic lookalikes before reg number search
+    m = REG_RE.search(_cyr_to_lat(text).upper())
     if not m:
         return None
     raw = m.group(1).replace(" ", "").replace("-", "")
