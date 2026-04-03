@@ -1,104 +1,143 @@
-"""Tesseract OCR wrapper.
+"""PaddleOCR engine for Bulgarian vehicle registration certificates.
 
-Uses pytesseract (Tesseract 5) instead of EasyOCR/PyTorch.
-Memory footprint: ~100 MB vs ~1.5 GB for EasyOCR+PyTorch.
+Replaces the previous Tesseract (pytesseract) implementation.
 
-Tesseract excels at structured printed text (vehicle registration certificates)
-and works on ARM64 without AVX issues.
+Why PaddleOCR over Tesseract:
+- Transformer-based recognition: significantly more accurate on complex
+  backgrounds (security lines, laminate glare, wrinkled documents).
+- Built-in text detection: finds text regions automatically — no PSM tuning.
+- Better mixed-script handling: Cyrillic + Latin on the same document.
+- MRZ accuracy: OCR-B font on white background reads near-perfectly.
+
+Two OCR instances are initialised at startup (via warm_up() in main.py):
+  _ocr_latin    lang='en'       — MRZ zones (A-Z, 0-9, '<' only)
+  _ocr_cyrillic lang='cyrillic' — steps 2/3 (Bulgarian Cyrillic + Latin labels)
+
+Memory: ~900 MB RSS total (vs ~100 MB for Tesseract). Docker limit is 3 GB.
 """
 
 from __future__ import annotations
 
 import re
+import threading
 from typing import List, Tuple
 
 import cv2
 import numpy as np
-import pytesseract
-from pytesseract import Output
+
+# ── singleton PaddleOCR instances ─────────────────────────────────────────────
+# Lazily initialised; protected by a lock so concurrent startup requests don't
+# create duplicate instances.  warm_up() in main.py pre-initialises both before
+# the first HTTP request arrives.
+
+_lock = threading.Lock()
+_ocr_latin: object | None = None
+_ocr_cyrillic: object | None = None
 
 
-# Tesseract page-segmentation modes:
-#   4 = Single column of variable-size text — matches талон labeled-field layout
-#   6 = Assume a single uniform block of text  (good for dense pages)
-#  11 = Sparse text — find as much text as possible  (fallback)
-_PSM_FULL = "--psm 6 --oem 3"
-_PSM_COL = "--psm 4 --oem 3"
-_PSM_SPARSE = "--psm 11 --oem 3"
-# Bulgarian vehicle registration certificates have Cyrillic owner data
-# and Latin-character field codes (A, E, D.1, C.2.1, etc.)
-_LANG = "bul+eng"
+def _get_ocr_latin():
+    global _ocr_latin
+    if _ocr_latin is None:
+        with _lock:
+            if _ocr_latin is None:
+                from paddleocr import PaddleOCR  # type: ignore[import]
+                _ocr_latin = PaddleOCR(
+                    use_angle_cls=False,
+                    lang="en",
+                    use_gpu=False,
+                    show_log=False,
+                )
+    return _ocr_latin
 
-# MRZ zones use OCR-B font with only uppercase Latin, digits, and '<' filler.
-# Using bul+eng here is harmful — the Bulgarian model confuses '<' with random
-# Cyrillic/Latin characters.  Restrict to eng + explicit char whitelist.
-_LANG_MRZ = "eng"
-_PSM_MRZ = (
-    "--psm 6 --oem 3"
-    " -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<"
-)
 
+def _get_ocr_cyrillic():
+    global _ocr_cyrillic
+    if _ocr_cyrillic is None:
+        with _lock:
+            if _ocr_cyrillic is None:
+                from paddleocr import PaddleOCR  # type: ignore[import]
+                _ocr_cyrillic = PaddleOCR(
+                    use_angle_cls=False,
+                    lang="cyrillic",
+                    use_gpu=False,
+                    show_log=False,
+                )
+    return _ocr_cyrillic
+
+
+def warm_up() -> None:
+    """Pre-initialise both OCR models.
+
+    Called once at server startup (see main.py lifespan).  Without this the
+    first HTTP request triggers model loading (~3–5 s) and times out in CI.
+    """
+    _get_ocr_latin()
+    _get_ocr_cyrillic()
+
+
+# ── public API (same interface as previous Tesseract implementation) ───────────
 
 def extract_blocks(image: np.ndarray) -> List[Tuple[str, float]]:
-    """Run Tesseract OCR and return list of (text, confidence) tuples.
+    """Run PaddleOCR (Latin model) and return (text, confidence) tuples.
 
-    Each tuple represents one recognised word / token.
+    Used for the MRZ crop confidence measurement in step 1.
     """
-    gray = _to_gray(image)
-    blocks = _tesseract_blocks(gray, _PSM_FULL)
-
-    # If sparse mode yields more blocks, prefer it
-    if len(blocks) < 5:
-        blocks2 = _tesseract_blocks(gray, _PSM_SPARSE)
-        if len(blocks2) > len(blocks):
-            blocks = blocks2
-
-    return blocks
+    return _run_paddle(_get_ocr_latin(), image)
 
 
 def extract_blocks_step23(image: np.ndarray) -> List[Tuple[str, float]]:
-    """Multi-PSM OCR for Ч.I / Ч.II pages (steps 2 and 3).
+    """PaddleOCR for steps 2/3 — Bulgarian Cyrillic + Latin field labels.
 
-    These pages use a labeled-field table layout.  PSM 4 (single column of
-    variable-size text) matches this structure better than PSM 6 (uniform block).
-
-    Tries PSM 4 and PSM 6 on the supplied image (already preprocessed by
-    preprocess_step23 — upscaled + sharpened + adaptive-binarized) and returns
-    whichever combination produces the highest confidence-weighted block count.
+    The Cyrillic model covers both Cyrillic and Latin characters so a single
+    pass suffices for the mixed-script talón pages.
     """
-    best = _tesseract_blocks(image, _PSM_COL)
-    for config in (_PSM_FULL, _PSM_SPARSE):
-        candidate = _tesseract_blocks(image, config)
-        if _score(candidate) > _score(best):
-            best = candidate
-    return best
-
-
-def full_text(image: np.ndarray) -> str:
-    """Return the full OCR output as a single string preserving layout."""
-    gray = _to_gray(image)
-    return pytesseract.image_to_string(gray, lang=_LANG, config=_PSM_FULL)
+    return _run_paddle(_get_ocr_cyrillic(), image)
 
 
 def full_text_mrz(image: np.ndarray) -> str:
-    """OCR optimized for MRZ zones (OCR-B font, eng-only, '<' in whitelist).
+    """OCR optimised for MRZ zones (OCR-B font, Latin + digits + '<').
 
-    Using bul+eng on MRZ is harmful: the Bulgarian model has no concept of
-    the '<' filler character and substitutes garbage (dashes, newlines, etc.),
-    breaking MRZ positional parsing.  This function uses eng only with an
-    explicit character whitelist so Tesseract stays in the correct charset.
+    Pre-processes the MRZ crop with Otsu binarisation before passing to
+    PaddleOCR: the OCR-B font on a white background binarises cleanly without
+    security-line artefacts (the MRZ zone is at the bottom of the card,
+    below the printed pattern area).
+
+    Returns lines sorted top-to-bottom, filtered to valid MRZ characters
+    (A-Z, 0-9, '<') with common OCR substitutions corrected.
     """
-    gray = _to_gray(image)
-    # Binarize: MRZ text is dark on light background — Otsu gives clean edges
+    gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return pytesseract.image_to_string(binary, lang=_LANG_MRZ, config=_PSM_MRZ)
+
+    result = _get_ocr_latin().ocr(binary, cls=False)
+    if not result or not result[0]:
+        return ""
+
+    # Sort detected text boxes top-to-bottom by minimum Y of bounding polygon
+    sorted_lines = sorted(result[0], key=lambda x: min(p[1] for p in x[0]))
+
+    mrz_lines: List[str] = []
+    for line in sorted_lines:
+        if not line or len(line) < 2:
+            continue
+        raw = str(line[1][0]).strip().upper()
+        # Common PaddleOCR substitutions in MRZ context
+        raw = raw.replace("О", "0").replace("о", "0")  # Cyrillic O → digit 0
+        raw = raw.replace("I", "1").replace("L", "1")  # easy confusion for 1
+        # Keep only valid MRZ characters
+        filtered = re.sub(r"[^A-Z0-9<]", "", raw)
+        if len(filtered) >= 5:
+            mrz_lines.append(filtered)
+
+    return "\n".join(mrz_lines)
 
 
 def blocks_to_text(blocks: List[Tuple[str, float]]) -> str:
+    """Join block texts with newlines (preserves document layout for parser)."""
     return "\n".join(t for t, _ in blocks)
 
 
 def avg_confidence(blocks: List[Tuple[str, float]]) -> float:
+    """Mean confidence over all detected text blocks."""
     if not blocks:
         return 0.0
     return sum(c for _, c in blocks) / len(blocks)
@@ -106,27 +145,33 @@ def avg_confidence(blocks: List[Tuple[str, float]]) -> float:
 
 # ── private ────────────────────────────────────────────────────────────────────
 
-def _to_gray(img: np.ndarray) -> np.ndarray:
-    """Convert BGR → grayscale; Tesseract works best on grayscale."""
-    if img.ndim == 2:
-        return img
-    return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+def _run_paddle(ocr, image: np.ndarray) -> List[Tuple[str, float]]:
+    """Run a PaddleOCR instance and return (text, confidence) pairs.
 
+    Detected text boxes are sorted top-to-bottom then left-to-right so that
+    the concatenated text preserves the natural reading order of the document.
+    This ordering is important for mrz_parser which locates field codes by
+    regex over the joined text.
+    """
+    result = ocr.ocr(image, cls=False)
+    if not result or not result[0]:
+        return []
 
-def _tesseract_blocks(img: np.ndarray, config: str) -> List[Tuple[str, float]]:
-    """Run Tesseract with a specific config and return (text, conf) pairs."""
-    data = pytesseract.image_to_data(img, lang=_LANG, config=config, output_type=Output.DICT)
+    # Sort by (mean_y, mean_x) of the bounding polygon
+    def _sort_key(line) -> Tuple[float, float]:
+        box = line[0]
+        mean_y = sum(p[1] for p in box) / len(box)
+        mean_x = sum(p[0] for p in box) / len(box)
+        return (mean_y, mean_x)
+
+    sorted_lines = sorted(result[0], key=_sort_key)
+
     blocks: List[Tuple[str, float]] = []
-    for text, conf in zip(data["text"], data["conf"]):
-        text = text.strip()
-        conf_val = int(conf) if str(conf).lstrip("-").isdigit() else -1
-        if text and conf_val > 0:
-            blocks.append((text, conf_val / 100.0))
+    for line in sorted_lines:
+        if not line or len(line) < 2:
+            continue
+        text = str(line[1][0]).strip()
+        conf = float(line[1][1])
+        if text and conf > 0.05:
+            blocks.append((text, conf))
     return blocks
-
-
-def _score(blocks: List[Tuple[str, float]]) -> float:
-    """Confidence-weighted block count — higher is better."""
-    if not blocks:
-        return 0.0
-    return len(blocks) * avg_confidence(blocks)

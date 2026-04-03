@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Diagnostic script: test each preprocessing step and measure Tesseract confidence.
+"""Diagnostic script: test each preprocessing step and measure PaddleOCR confidence.
 
 Usage (from branivo-ocr/):
   python tools/diagnose_preprocess.py [--dir tests/fixtures] [--step 2]
 
 For each fixture image, applies preprocessing cumulatively and reports
-the average Tesseract word confidence after each stage.
+the average PaddleOCR word confidence after each stage.
 Skips NLM denoising (slow, ~20s/image) — tested separately via --nlm flag.
 """
 
@@ -18,33 +18,32 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import pytesseract
 from PIL import Image, ExifTags
-from pytesseract import Output
 
-_LANG = "bul+eng"
-_PSM_COL  = "--psm 4 --oem 3"
-_PSM_FULL = "--psm 6 --oem 3"
+# Lazy import — avoids 3-5 s model-load penalty when --help is used
+_paddle_ocr = None
 
 
-# ── Tesseract measurement ────────────────────────────────────────────────────
+def _get_paddle():
+    global _paddle_ocr
+    if _paddle_ocr is None:
+        from paddleocr import PaddleOCR  # type: ignore[import]
+        _paddle_ocr = PaddleOCR(
+            use_angle_cls=False, lang="cyrillic", use_gpu=False, show_log=False
+        )
+    return _paddle_ocr
+
+
+# ── PaddleOCR measurement ─────────────────────────────────────────────────────
 
 def _measure(img: np.ndarray) -> float:
-    """Average word-level confidence from the best of PSM 4 and PSM 6."""
-    gray = img if img.ndim == 2 else cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    best = 0.0
-    for cfg in (_PSM_COL, _PSM_FULL):
-        data = pytesseract.image_to_data(
-            gray, lang=_LANG, config=cfg, output_type=Output.DICT
-        )
-        confs = [
-            int(c) for c, t in zip(data["conf"], data["text"])
-            if t.strip() and str(c).lstrip("-").isdigit() and int(c) > 0
-        ]
-        if confs:
-            val = sum(confs) / len(confs) / 100.0
-            best = max(best, val)
-    return best
+    """Average line-level confidence from PaddleOCR (cyrillic model)."""
+    ocr = _get_paddle()
+    result = ocr.ocr(img, cls=False)
+    if not result or not result[0]:
+        return 0.0
+    confs = [float(line[1][1]) for line in result[0] if line and len(line) >= 2]
+    return sum(confs) / len(confs) if confs else 0.0
 
 
 # ── transforms ───────────────────────────────────────────────────────────────

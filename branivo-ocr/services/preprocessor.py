@@ -11,9 +11,8 @@ Three pipelines:
         clahe (low-contrast only, std < 50) →
         mask_glare →
         sharpen →
-        otsu_binarize (high-contrast only, std > 65)
-      Empirically tested on 13 fixture images — each step retained only when
-      it raises Tesseract confidence; NLM and morph-open removed (both hurt).
+        sharpen in LAB L channel → return BGR (PaddleOCR detection input)
+      Otsu binarisation removed — PaddleOCR thresholds internally per region.
   - crop_mrz_zone: crops + lightly preprocesses the bottom 38 % (MRZ band)
 
 All operations are in-memory — no disk writes.
@@ -78,7 +77,7 @@ def light_preprocess(image_bytes: bytes) -> np.ndarray:
 
 
 def preprocess_step23(image_bytes: bytes) -> np.ndarray:
-    """Adaptive pipeline for steps 2/3 — returns grayscale or binary image.
+    """Adaptive pipeline for steps 2/3 — returns sharpened BGR image for PaddleOCR.
 
     Each step is applied conditionally based on measured image characteristics
     so it only runs when it raises Tesseract confidence (empirically validated):
@@ -91,14 +90,16 @@ def preprocess_step23(image_bytes: bytes) -> np.ndarray:
        (low-contrast images).  CLAHE consistently hurts high-contrast images.
     4. Glare mask        — always; cheap, occasionally helps laminate shine.
     5. Sharpen σ=1.5     — always; unsharp-mask recovers blurred text edges.
-    6. Otsu binarize     — only when grayscale std-dev > 65 after sharpening
-       (high-contrast images where binarization adds another +0.09).
+    6. Sharpen in LAB lightness — unsharp-mask in L channel, returns BGR.
+       PaddleOCR's text-detection model works on colour input (trained on BGR);
+       returning BGR gives better bounding-box recall than grayscale.
+       Otsu binarisation removed: PaddleOCR thresholds internally per region.
 
     Removed vs. previous version:
-    - NLM denoising  : ~20 s/image on CPU, hurts more often than it helps.
-    - Morph open     : degraded confidence on every tested image.
-    - Unconditional CLAHE : hurt all step-2 images; replaced by conditional.
-    - Unconditional Otsu  : hurt when contrast is moderate; replaced by conditional.
+    - NLM denoising         : ~20 s/image on CPU, hurts more often than helps.
+    - Morph open            : degraded confidence on every tested image.
+    - Unconditional CLAHE   : hurt step-2 images; replaced by conditional.
+    - Otsu binarisation     : not needed — PaddleOCR handles thresholding.
     """
     img = _decode(image_bytes)
     img = _resize(img)
@@ -124,16 +125,16 @@ def preprocess_step23(image_bytes: bytes) -> np.ndarray:
     # Step 4: Glare mask — inpaint overexposed laminate highlights
     img = _mask_glare(img)
 
-    # Step 5: Grayscale + sharpen — unsharp-mask recovers blurred text edges
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
-    gray = _sharpen(gray)
-
-    # Step 6: Otsu binarize — only when image contrast is high enough
-    if float(np.std(gray)) > 65:
-        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        return binary
-
-    return gray
+    # Step 5: Sharpen in LAB lightness channel — preserves colour for PaddleOCR
+    # detection while recovering blurred text edges.  Returning BGR (not grayscale)
+    # because PaddleOCR's detection model was trained on colour images and gives
+    # better bounding-box recall on colour input.  Otsu binarisation removed:
+    # PaddleOCR handles thresholding internally per detected text region.
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    l_ch, a_ch, b_ch = cv2.split(lab)
+    l_ch = _sharpen(l_ch)
+    img = cv2.cvtColor(cv2.merge((l_ch, a_ch, b_ch)), cv2.COLOR_LAB2BGR)
+    return img
 
 
 def crop_mrz_zone(image_bytes: bytes) -> np.ndarray:
@@ -309,7 +310,7 @@ def preprocess_stages(
         gray = cv2.cvtColor(mrz_crop, cv2.COLOR_BGR2GRAY) if mrz_crop.ndim == 3 else mrz_crop.copy()
         stages.append(("after_grayscale", gray.copy()))
         _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        stages.append(("tesseract_input", binary.copy()))
+        stages.append(("paddle_input", binary.copy()))
     else:
         # Steps 2/3: adaptive pipeline mirrors preprocess_step23() exactly
         img = _upscale_for_ocr(img)
@@ -332,15 +333,12 @@ def preprocess_stages(
         img = _mask_glare(img)
         stages.append(("after_glare_mask", img.copy()))
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.copy()
-        sharpened = _sharpen(gray)
-        stages.append(("after_sharpen", sharpened.copy()))
-
-        if float(np.std(sharpened)) > 65:
-            _, binary = cv2.threshold(sharpened, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            stages.append(("tesseract_input", binary.copy()))
-        else:
-            stages.append(("tesseract_input", sharpened.copy()))
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        l_ch, a_ch, b_ch = cv2.split(lab)
+        l_ch = _sharpen(l_ch)
+        sharpened_bgr = cv2.cvtColor(cv2.merge((l_ch, a_ch, b_ch)), cv2.COLOR_LAB2BGR)
+        stages.append(("after_sharpen", sharpened_bgr.copy()))
+        stages.append(("paddle_input", sharpened_bgr.copy()))
 
     return stages
 
