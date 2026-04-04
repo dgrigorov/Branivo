@@ -1,8 +1,11 @@
-"""POST /ocr/debug/pipeline — return all preprocessing stages as base64 JPEG.
+"""POST /ocr/debug/pipeline — return the image(s) that will be sent to Claude.
 
-Used by Super Admin to diagnose why the OCR pipeline produces bad results.
-Returns each intermediate stage so every transformation is visible:
-  original → after_bilateral → after_clahe → after_glare_mask → mrz_crop_final (step 1 only)
+Since the preprocessing pipeline was removed (replaced by Claude Vision), this
+endpoint now returns up to 2 stages:
+  1. original — the uploaded image as-is (EXIF-corrected + resized to MAX_DIM)
+  2. perspective_corrected — after warpPerspective (only when points are provided)
+
+Used by the Flutter crop-preview to show exactly what Claude will receive.
 """
 from __future__ import annotations
 
@@ -39,27 +42,33 @@ async def pipeline_debug(
     step: int = Query(..., ge=1, le=3),
     points: Optional[str] = Form(None),
 ) -> dict:
-    """Return all preprocessing stages for a given image and OCR step.
+    """Return the image(s) that will be passed to Claude for the given step.
 
-    Each stage is a base64-encoded JPEG so the caller can render it directly.
-    The stages list mirrors the real OCR pipeline in execution order.
+    Stages returned:
+    - "original": uploaded image after EXIF correction + MAX_DIM resize
+    - "perspective_corrected": after 4-point warp (only when points are provided)
     """
     image_bytes = await file.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
 
     pts = _parse_points(points)
-    stages = preprocessor.preprocess_stages(image_bytes, points=pts, step=step)
 
     result = []
-    for name, img in stages:
-        _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 75])
-        b64 = base64.b64encode(buf).decode("utf-8")
-        result.append({
-            "name": name,
-            "image_b64": b64,
-            "shape": list(img.shape[:2]),
-        })
-        logger.info("pipeline_debug step=%d stage=%s shape=%s", step, name, img.shape[:2])
 
+    # Stage 1: original (EXIF-corrected + resized) — always present
+    original_bytes = preprocessor.decode_and_resize(image_bytes)
+    original_b64 = base64.b64encode(original_bytes).decode("utf-8")
+    result.append({"name": "original", "image_b64": original_b64})
+
+    # Stage 2: perspective-corrected — only when crop points are provided
+    if pts is not None:
+        try:
+            cropped_bytes = preprocessor.perspective_crop(image_bytes, pts)
+            cropped_b64 = base64.b64encode(cropped_bytes).decode("utf-8")
+            result.append({"name": "perspective_corrected", "image_b64": cropped_b64})
+        except Exception as exc:
+            logger.warning("perspective_crop failed in debug: %s", exc)
+
+    logger.info("pipeline_debug step=%d stages=%s", step, [s["name"] for s in result])
     return {"step": step, "stages": result}

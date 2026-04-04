@@ -27,6 +27,14 @@ from PIL import Image, ExifTags
 MAX_DIM = 2048  # cap longest side to avoid OOM on high-res photos
 
 
+def decode_and_resize(image_bytes: bytes) -> bytes:
+    """Decode image bytes, apply EXIF orientation, cap at MAX_DIM, return JPEG bytes."""
+    img = _decode(image_bytes)
+    img = _resize(img)
+    _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    return buf.tobytes()
+
+
 def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
     """Apply 4-point perspective correction and return JPEG bytes.
 
