@@ -16,6 +16,7 @@ interface ImageBounds {
 
 export interface CropEditorProps {
   imageFile: File;
+  step: 1 | 2 | 3;
   onConfirm: (points: Quad) => void;
   onCancel: () => void;
 }
@@ -44,7 +45,9 @@ function canvasToNorm(cx: number, cy: number, b: ImageBounds): Pt {
   ];
 }
 
-export function CropEditor({ imageFile, onConfirm, onCancel }: CropEditorProps) {
+type Phase = 'edit' | 'loading' | 'preview';
+
+export function CropEditor({ imageFile, step, onConfirm, onCancel }: CropEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const quadRef = useRef<Quad>([
@@ -55,6 +58,9 @@ export function CropEditor({ imageFile, onConfirm, onCancel }: CropEditorProps) 
   ]);
   const dragIdxRef = useRef<number | null>(null);
   const [canvasW, setCanvasW] = useState(360);
+  const [phase, setPhase] = useState<Phase>('edit');
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -203,11 +209,78 @@ export function CropEditor({ imageFile, onConfirm, onCancel }: CropEditorProps) 
     dragIdxRef.current = null;
   }, []);
 
+  const handleConfirmClick = useCallback(async () => {
+    setPhase('loading');
+    setPreviewError(null);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', imageFile);
+      fd.append('points', JSON.stringify(quadRef.current));
+
+      const res = await fetch(`/api/v1/ocr/preview?step=${step}`, {
+        method: 'POST',
+        body: fd,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Preview failed: ${res.status}`);
+      }
+
+      const json = await res.json() as { image_b64?: string };
+      if (!json.image_b64) throw new Error('No preview image returned');
+
+      setPreviewSrc(`data:image/jpeg;base64,${json.image_b64}`);
+      setPhase('preview');
+    } catch {
+      setPreviewError('Неуспешен преглед. Опитайте отново.');
+      setPhase('edit');
+    }
+  }, [imageFile, step]);
+
+  // ── Preview phase ────────────────────────────────────────────────────────────
+  if (phase === 'preview' && previewSrc) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-center text-xs text-gray-500">
+          Така изглежда изправеният талон — проверете дали е четлив
+        </p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewSrc}
+          alt="Изрязан и изправен талон"
+          className="w-full rounded-xl border border-green-300 object-contain"
+          style={{ maxHeight: CANVAS_H, background: '#111827' }}
+        />
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setPhase('edit')}
+            className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Назад
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(quadRef.current)}
+            className="flex-1 rounded-lg bg-green-600 py-2.5 text-sm font-medium text-white hover:bg-green-700"
+          >
+            Анализирай
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Edit phase ───────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-3">
       <p className="text-center text-xs text-gray-500">
         Влачете ъглите така, че зелената рамка да покрива само талона
       </p>
+      {previewError && (
+        <p className="text-center text-xs text-red-500">{previewError}</p>
+      )}
       <div className="w-full" style={{ touchAction: 'none' }}>
         <canvas
           ref={canvasRef}
@@ -231,10 +304,11 @@ export function CropEditor({ imageFile, onConfirm, onCancel }: CropEditorProps) 
         </button>
         <button
           type="button"
-          onClick={() => onConfirm(quadRef.current)}
-          className="flex-1 rounded-lg bg-green-600 py-2.5 text-sm font-medium text-white hover:bg-green-700"
+          onClick={() => { void handleConfirmClick(); }}
+          disabled={phase === 'loading'}
+          className="flex-1 rounded-lg bg-green-600 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
         >
-          Потвърди изрязването
+          {phase === 'loading' ? 'Зарежда…' : 'Потвърди изрязването'}
         </button>
       </div>
     </div>

@@ -99,6 +99,7 @@ export function TalonUploadSection({ onSlotsChange }: TalonUploadSectionProps) {
         </p>
         <CropEditor
           imageFile={cropTarget.file}
+          step={SLOT_META[cropTarget.slotIdx].step}
           onConfirm={handleCropConfirm}
           onCancel={handleCropCancel}
         />
