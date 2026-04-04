@@ -116,6 +116,7 @@ _STEP2_PROMPT = (
     '"make": "vehicle manufacturer in Latin script from field D.1 — the first word(s) before the model designation (e.g. PEUGEOT, KAWASAKI, MERCEDES)", '
     '"model": "model designation from the same line as field D.1 — NOTE: field D.3 is always redacted (***) on Bulgarian talons so read the model token that appears after the make name on the D.1 line (e.g. if D.1 reads \'PEUGEOT 307\' the model is \'307\') — do NOT include the make name in this field", '
     '"year": "4-digit year of first registration from field B (e.g. if field B shows 13.05.2002 return 2002)", '
+    '"color": "vehicle color in English from field R (e.g. WHITE, BLACK, RED, SILVER, BLUE, GREY) — translate from Bulgarian if needed", '
     '"ownerLastName": "owner surname from field C.2.1", '
     '"ownerFirstName": "first token of field C.2.2 (owner first name)", '
     '"ownerMiddleName": "second token of field C.2.2 (owner middle/patronymic name), or null if absent", '

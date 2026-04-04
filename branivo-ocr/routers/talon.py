@@ -38,7 +38,7 @@ router = APIRouter()
 
 COMPLETE_THRESHOLD = 0.90
 
-_STEP2_FIELDS = ["vin", "registrationNumber", "certNumber", "make", "model", "year"]
+_STEP2_FIELDS = ["vin", "registrationNumber", "certNumber", "color", "make", "model", "year"]
 _STEP3_FIELDS = ["engine", "fuel", "seats"]
 
 
@@ -161,6 +161,7 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
             vin=extracted.get("vin"),
             registrationNumber=extracted.get("registrationNumber"),
             certNumber=extracted.get("certNumber"),
+            color=extracted.get("color"),
             make=make_val,
             model=model_val,
             year=_to_int(extracted.get("year")),

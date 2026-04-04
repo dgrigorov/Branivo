@@ -41,6 +41,7 @@ const FIELD_LABELS: Record<string, string> = {
   vin: 'VIN',
   registrationNumber: 'Рег. номер',
   certNumber: 'Номер на талон',
+  color: 'Цвят',
   ownerLastName: 'Фамилия',
   ownerFirstName: 'Собствено',
   ownerMiddleName: 'Презиме',
