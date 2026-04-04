@@ -54,4 +54,29 @@ export class CreateVehicleDto {
   @IsOptional()
   @IsString()
   firstRegistrationDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 20)
+  certNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 10)
+  powerKw?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  seats?: number;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 10)
+  vehicleCategory?: string;
+
+  @IsOptional()
+  @IsString()
+  registrationValidity?: string;
 }

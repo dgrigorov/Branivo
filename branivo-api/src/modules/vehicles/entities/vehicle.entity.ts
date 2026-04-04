@@ -54,6 +54,26 @@ export class Vehicle {
   @Column({ name: 'first_registration_date', nullable: true, type: 'date' })
   firstRegistrationDate!: string | null;
 
+  @Column({ name: 'cert_number', nullable: true, type: 'varchar', length: 20 })
+  certNumber!: string | null;
+
+  @Column({ name: 'power_kw', nullable: true, type: 'varchar', length: 10 })
+  powerKw!: string | null;
+
+  @Column({ name: 'seats', nullable: true, type: 'smallint' })
+  seats!: number | null;
+
+  @Column({
+    name: 'vehicle_category',
+    nullable: true,
+    type: 'varchar',
+    length: 10,
+  })
+  vehicleCategory!: string | null;
+
+  @Column({ name: 'registration_validity', nullable: true, type: 'date' })
+  registrationValidity!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

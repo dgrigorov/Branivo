@@ -150,7 +150,7 @@ async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
 
 def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonResponse:
     if step == 2:
-        extracted = ocr_engine.extract_step2(image_bytes)
+        extracted, raw_response = ocr_engine.extract_step2(image_bytes)
         confidence = _claude_confidence(extracted, _STEP2_FIELDS)
         make_val = extracted.get("make")
         model_val = extracted.get("model")
@@ -171,7 +171,7 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
             egn=extracted.get("egn"),
         )
     else:
-        extracted = ocr_engine.extract_step3(image_bytes)
+        extracted, raw_response = ocr_engine.extract_step3(image_bytes)
         confidence = _claude_confidence(extracted, _STEP3_FIELDS)
         # Derive year from firstRegistration date (DD.MM.YYYY → YYYY)
         first_reg = extracted.get("firstRegistration")
@@ -195,7 +195,7 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
         confidence=confidence,
         data=data,
         complete=False,
-        debug_info={"extracted": extracted} if debug else None,
+        debug_info={"extracted": extracted, "raw_claude_response": raw_response} if debug else None,
         preview_b64=base64.b64encode(image_bytes).decode("utf-8") if debug else None,
     )
 

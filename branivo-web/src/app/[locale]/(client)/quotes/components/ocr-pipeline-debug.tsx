@@ -37,26 +37,27 @@ const STAGE_LABELS: Record<string, string> = {
   tesseract_input: 'Tesseract вход',
 };
 
-const FIELD_LABELS: Record<string, string> = {
-  vin: 'VIN',
-  registrationNumber: 'Рег. номер',
-  certNumber: 'Номер на талон',
-  color: 'Цвят',
-  ownerLastName: 'Фамилия',
-  ownerFirstName: 'Собствено',
-  ownerMiddleName: 'Презиме',
-  ownerAddress: 'Адрес',
-  egn: 'ЕГН',
-  make: 'Марка',
-  model: 'Модел',
-  year: 'Година',
-  fuel: 'Гориво',
-  engine: 'Двигател (cc)',
-  powerKw: 'Мощност (kW)',
-  seats: 'Места',
-  vehicleCategory: 'Категория МПС',
-  firstRegistration: 'Първа регистрация',
-  registrationValidity: 'Дата на регистрация',
+// label + talion field code shown in the debug table
+const FIELD_META: Record<string, { label: string; code: string }> = {
+  vin:                 { label: 'VIN',               code: '(E)' },
+  registrationNumber:  { label: 'Рег. номер',        code: '(A)' },
+  certNumber:          { label: 'Номер на талон',     code: '(№)' },
+  color:               { label: 'Цвят',               code: '(R)' },
+  ownerLastName:       { label: 'Фамилия',            code: '(C.2.1)' },
+  ownerFirstName:      { label: 'Собствено',          code: '(C.2.2)' },
+  ownerMiddleName:     { label: 'Презиме',            code: '(C.2.2)' },
+  ownerAddress:        { label: 'Адрес',              code: '(C.2.3)' },
+  egn:                 { label: 'ЕГН',               code: '(ЕГН)' },
+  make:                { label: 'Марка',              code: '(D.1)' },
+  model:               { label: 'Модел',              code: '(D.1)' },
+  year:                { label: 'Година',             code: '(B)' },
+  fuel:                { label: 'Гориво',             code: '(P.3)' },
+  engine:              { label: 'Двигател (cc)',       code: '(P.1)' },
+  powerKw:             { label: 'Мощност (kW)',        code: '(P.2)' },
+  seats:               { label: 'Места',              code: '(S.1)' },
+  vehicleCategory:     { label: 'Категория МПС',      code: '(J)' },
+  firstRegistration:   { label: 'Първа регистрация',  code: '(B)' },
+  registrationValidity:{ label: 'Регистрация до',     code: '(I)' },
 };
 
 const SLOT_STEP_LABELS = ['Ч.I задна (MRZ)', 'Ч.I предна', 'Ч.II'];
@@ -203,20 +204,31 @@ function OcrPipelineDebug({ imageFile, points, step, label }: OcrPipelineDebugPr
 
               {data.ocr.data && Object.keys(data.ocr.data).length > 0 && (
                 <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-amber-200">
+                      <th className="py-1 pr-2 text-left text-gray-400 font-normal w-14">Код</th>
+                      <th className="py-1 pr-3 text-left text-gray-400 font-normal w-1/3">Поле</th>
+                      <th className="py-1 text-left text-gray-400 font-normal">Стойност</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {Object.entries(data.ocr.data)
                       .filter(([, v]) => v !== null && v !== undefined)
-                      .map(([k, v]) => (
-                        <tr key={k} className="border-b border-amber-100 last:border-0">
-                          <td className="py-1 pr-3 text-gray-500 whitespace-nowrap w-1/3">{FIELD_LABELS[k] ?? k}</td>
-                          <td className="py-1 font-medium text-gray-900 break-all">{String(v)}</td>
-                        </tr>
-                      ))}
+                      .map(([k, v]) => {
+                        const meta = FIELD_META[k];
+                        return (
+                          <tr key={k} className="border-b border-amber-100 last:border-0">
+                            <td className="py-1 pr-2 font-mono text-amber-600 whitespace-nowrap">{meta?.code ?? ''}</td>
+                            <td className="py-1 pr-3 text-gray-500 whitespace-nowrap">{meta?.label ?? k}</td>
+                            <td className="py-1 font-medium text-gray-900 break-all">{String(v)}</td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               )}
 
-              {data.ocr.raw_text && (
+              {(data.ocr.raw_text ?? data.ocr.debug_info?.raw_claude_response) && (
                 <div>
                   <button
                     type="button"
@@ -227,7 +239,7 @@ function OcrPipelineDebug({ imageFile, points, step, label }: OcrPipelineDebugPr
                   </button>
                   {showRaw && (
                     <pre className="mt-1 max-h-32 overflow-auto rounded bg-gray-900 p-2 text-xs text-green-400 whitespace-pre-wrap">
-                      {data.ocr.raw_text}
+                      {data.ocr.raw_text ?? String(data.ocr.debug_info?.raw_claude_response ?? '')}
                     </pre>
                   )}
                 </div>

@@ -158,16 +158,16 @@ def extract_step1(image_bytes: bytes) -> dict:
     return result
 
 
-def extract_step2(image_bytes: bytes) -> dict:
-    """Return vehicle identity fields: vin, registrationNumber, make, model."""
+def extract_step2(image_bytes: bytes) -> tuple[dict, str]:
+    """Return (parsed_dict, raw_text) for vehicle identity fields."""
     raw = _call_claude(_STEP2_PROMPT, image_bytes)
-    return _parse_json(raw)
+    return _parse_json(raw), raw
 
 
-def extract_step3(image_bytes: bytes) -> dict:
-    """Return technical spec fields: engine, fuel, seats."""
+def extract_step3(image_bytes: bytes) -> tuple[dict, str]:
+    """Return (parsed_dict, raw_text) for technical spec fields."""
     raw = _call_claude(_STEP3_PROMPT, image_bytes)
-    return _parse_json(raw)
+    return _parse_json(raw), raw
 
 
 def _parse_json(raw: str) -> dict:
