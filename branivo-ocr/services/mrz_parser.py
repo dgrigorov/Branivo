@@ -15,9 +15,11 @@ EU Directive 1999/37/EC field codes (Bulgarian талон format):
   P.3    — Fuel type
   S.1    — Number of seats  (may be "4+1" — we sum all parts)
 
-Bulgarian талон MRZ structure (3 lines, fixed-width):
-  Line 1: M<BGR<{doc_no}<{reg_number}{year_digit}<{check}<
-  Line 2: {VIN[0:17]}{EGN[0:10]}{check}<
+Bulgarian талон MRZ structure (3 lines, 30 chars each):
+  Line 1: M<BGR<{doc_number:10}<{series:6}{check}<{check}<<
+    Registration plate is embedded in the series field (positions 18–24).
+  Line 2: {VIN:17}{YYMMDD:6}{check:1}{internal:3}<<<
+    No EGN — positions 18–23 are the first-registration date, not a personal ID.
   Line 3: {SURNAME}<<{NAME}<{PATRONYMIC}<<<
 """
 
@@ -177,33 +179,38 @@ def _detect_mrz_lines(text: str) -> List[str]:
 
 
 def _parse_mrz_positional(lines: List[str]) -> Dict[str, Optional[str]]:
-    """Parse VIN, EGN, reg number and owner from Bulgarian талон MRZ lines.
+    """Parse VIN, reg number and owner from Bulgarian талон MRZ lines.
 
-    Line 2 layout: [0:17] VIN  [17:27] EGN  [27:] trailing check + filler
-    Line 3 layout: SURNAME<<GIVEN<NAMES<<<
+    Line 1: M<BGR<{doc_number:10}<{series:6}{check}<{check}<<
+      Registration number is embedded in the series field (positions 18-23 or 18-24).
+      Extracted via _find_reg_in_mrz1() which splits on '<' and matches the reg pattern.
+
+    Line 2: {VIN:17}{YYMMDD:6}{check:1}{internal:3}<<<
+      Positions [0:17] = VIN.
+      Positions [17:23] = date of first registration (YYMMDD) — NOT EGN.
+      No EGN is present in the Bulgarian vehicle registration MRZ.
+
+    Line 3: {SURNAME}<<{NAME}<{MIDDLENAME}<<<
     """
-    # line 2 → VIN + EGN
+    # line 2 → VIN only (positions [0:17])
     line2 = lines[1] if len(lines) >= 2 else ""
     raw_vin = line2[0:17] if len(line2) >= 17 else None
-    raw_egn = line2[17:27] if len(line2) >= 27 else None
 
-    # Normalise O→0 / I→1 before VIN_RE fullmatch (OCR confuses O and 0)
     vin = _normalize_vin(raw_vin) if raw_vin else _find_vin(line2)
-    egn = raw_egn if raw_egn and raw_egn.isdigit() else None
 
     # line 3 → owner name
     owner_name: Optional[str] = None
     if len(lines) >= 3:
         owner_name = _parse_mrz_name(lines[2])
 
-    # Reg number: extract from MRZ line 1 fields (split by '<')
+    # Reg number: extract from line 1 fields (split by '<')
     reg = _find_reg_in_mrz1(lines[0]) or _find_reg("\n".join(lines))
 
     return {
         "vin": vin,
         "registrationNumber": reg,
         "ownerName": owner_name,
-        "egn": egn,
+        "egn": None,
     }
 
 
@@ -226,7 +233,7 @@ def _parse_step1_fallback(text: str) -> Dict[str, Optional[str]]:
         "vin": fields.get("E") or _find_vin(text),
         "registrationNumber": _clean_reg(fields.get("A")) or _find_reg(text),
         "ownerName": _find_owner_labeled(fields) or _find_owner_egn_header(text),
-        "egn": _find_egn(text),
+        "egn": None,
     }
 
 
