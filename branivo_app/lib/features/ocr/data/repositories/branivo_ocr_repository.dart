@@ -117,8 +117,11 @@ class BranivoOcrRepository implements OcrRepository {
     'certNumber': 'cert_number',
     'fuel': 'fuel_type',
     'engine': 'engine_volume',
+    'powerKw': 'power_kw',
+    'vehicleCategory': 'vehicle_category',
     'egn': 'owner_egn',
     'firstRegistration': 'first_registration_date',
+    'registrationValidity': 'registration_validity',
   };
 
   // Owner name split into 3 parts in Python model — skip individually, combine below.

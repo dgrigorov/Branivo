@@ -128,8 +128,13 @@ _STEP3_PROMPT = (
     "This is the technical specifications page of a Bulgarian registration certificate. "
     "Extract the following fields and return a JSON object with no markdown fences and no explanation:\n"
     '{"engine": "engine displacement in cc as a plain number string from field P.1", '
+    '"powerKw": "engine power in kW as a plain number string from field P.2", '
     '"fuel": "fuel type in English — one of: PETROL, DIESEL, GAS, ELECTRIC, HYBRID — from field P.3", '
-    '"seats": "total seat count as a plain number string from field S.1"}\n'
+    '"seats": "total seat count as a plain number string from field S.1 (e.g. \'4+1\' or \'5\')", '
+    '"vehicleCategory": "vehicle category code from field J (e.g. M1, N1, L3)", '
+    '"firstRegistration": "first registration date from field B in DD.MM.YYYY format (e.g. 13.05.2002)", '
+    '"registrationValidity": "date of current registration from field I in DD.MM.YYYY format (e.g. 29.03.2018)", '
+    '"certNumber": "certificate serial number from № in the bottom-right corner — digits only (e.g. 008888485)"}\n'
     "Use null for any field you cannot read clearly."
 )
 

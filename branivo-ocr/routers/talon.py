@@ -39,7 +39,7 @@ router = APIRouter()
 COMPLETE_THRESHOLD = 0.90
 
 _STEP2_FIELDS = ["vin", "registrationNumber", "certNumber", "color", "make", "model", "year"]
-_STEP3_FIELDS = ["engine", "fuel", "seats"]
+_STEP3_FIELDS = ["engine", "fuel", "seats", "firstRegistration"]
 
 
 @router.post("/talon", response_model=TalonResponse)
@@ -164,7 +164,7 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
             color=extracted.get("color"),
             make=make_val,
             model=model_val,
-            year=_to_int(extracted.get("year")),
+            year=_to_int(extracted.get("year")) or _year_from_date(extracted.get("firstRegistration")),
             ownerLastName=extracted.get("ownerLastName"),
             ownerFirstName=extracted.get("ownerFirstName"),
             ownerMiddleName=extracted.get("ownerMiddleName"),
@@ -173,10 +173,19 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
     else:
         extracted = ocr_engine.extract_step3(image_bytes)
         confidence = _claude_confidence(extracted, _STEP3_FIELDS)
+        # Derive year from firstRegistration date (DD.MM.YYYY → YYYY)
+        first_reg = extracted.get("firstRegistration")
+        year_from_reg = _year_from_date(first_reg)
         data = TalonData(
             engine=extracted.get("engine"),
+            powerKw=extracted.get("powerKw"),
             fuel=extracted.get("fuel"),
             seats=_to_int(extracted.get("seats")),
+            vehicleCategory=extracted.get("vehicleCategory"),
+            firstRegistration=first_reg,
+            registrationValidity=extracted.get("registrationValidity"),
+            certNumber=extracted.get("certNumber"),
+            year=year_from_reg,
         )
 
     _log_step(step, confidence, extracted)
@@ -223,6 +232,16 @@ def _log_step(step: int, confidence: float, parsed: dict) -> None:
         "parsed_fields": {k: v for k, v in parsed.items() if v is not None},
     }
     logger.info("OCR_STEP %s", json.dumps(payload, ensure_ascii=False))
+
+
+def _year_from_date(date_str: Optional[str]) -> Optional[int]:
+    """Extract 4-digit year from DD.MM.YYYY date string."""
+    if not date_str:
+        return None
+    parts = str(date_str).strip().split(".")
+    if len(parts) == 3 and parts[2].isdigit() and len(parts[2]) == 4:
+        return int(parts[2])
+    return None
 
 
 def _to_int(value: Optional[str]) -> Optional[int]:

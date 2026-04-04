@@ -52,8 +52,11 @@ const FIELD_LABELS: Record<string, string> = {
   year: 'Година',
   fuel: 'Гориво',
   engine: 'Двигател (cc)',
+  powerKw: 'Мощност (kW)',
   seats: 'Места',
+  vehicleCategory: 'Категория МПС',
   firstRegistration: 'Първа регистрация',
+  registrationValidity: 'Дата на регистрация',
 };
 
 const SLOT_STEP_LABELS = ['Ч.I задна (MRZ)', 'Ч.I предна', 'Ч.II'];
