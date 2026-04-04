@@ -15,7 +15,9 @@ class TalonData(BaseModel):
     engine: Optional[str] = None
     seats: Optional[int] = None
     firstRegistration: Optional[str] = None
-    ownerName: Optional[str] = None
+    ownerLastName: Optional[str] = None
+    ownerFirstName: Optional[str] = None
+    ownerMiddleName: Optional[str] = None
     egn: Optional[str] = None
 
 

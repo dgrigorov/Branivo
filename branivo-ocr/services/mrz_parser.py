@@ -4,16 +4,18 @@ Steps 2 and 3 are handled by Claude Vision directly (JSON output) — no parsing
 
 EU Directive 1999/37/EC field codes used for fallback:
   A      — Registration number
-  C.2.1  — Owner surname
-  C.2.2  — Owner given names
+  C.2.1  — Owner last name (surname)
+  C.2.2  — Owner first name + middle name (given names)
   E      — VIN
 
-Bulgarian талон MRZ structure (3 lines, 30 chars each):
-  Line 1: M<BGR<{doc_number:10}<{series:6}{check}<{check}<<
-    Registration plate is embedded in the series field (positions 18–24).
-  Line 2: {VIN:17}{YYMMDD:6}{check:1}{internal:3}<<<
-    No EGN — positions 17–23 are the first-registration date, not a personal ID.
-  Line 3: {SURNAME}<<{NAME}<{PATRONYMIC}<<<
+Bulgarian талон MRZ structure (3 lines):
+  Line 1: M<BGR<{doc_number:10}<{series}{check}<{check}<<
+    Series field is 6, 7, or 8 characters depending on the region.
+    Registration plate is embedded in the series field.
+  Line 2: {VIN:17}{EGN:10}...<<<
+    Positions [0:17] = VIN.
+    Positions [17:27] = Bulgarian personal ID (ЕГН) of the owner — 10 digits.
+  Line 3: {LAST_NAME}<<{FIRST_NAME}<{MIDDLE_NAME}<<<
 """
 
 from __future__ import annotations
@@ -99,29 +101,34 @@ def _detect_mrz_lines(text: str) -> List[str]:
 
 
 def _parse_mrz_positional(lines: List[str]) -> Dict[str, Optional[str]]:
-    """Parse VIN, reg number and owner from Bulgarian талон MRZ lines.
+    """Parse VIN, EGN, reg number and owner from Bulgarian талон MRZ lines.
 
-    Line 1: M<BGR<{doc_number:10}<{series:6}{check}<{check}<<
-      Registration number is embedded in the series field (positions 18-23 or 18-24).
+    Line 1: M<BGR<{doc_number:10}<{series}{check}<{check}<<
+      Series is 6-8 chars depending on the region/oblast.
+      Registration number is embedded in the series field.
       Extracted via _find_reg_in_mrz1() which splits on '<' and matches the reg pattern.
 
-    Line 2: {VIN:17}{YYMMDD:6}{check:1}{internal:3}<<<
+    Line 2: {VIN:17}{EGN:10}...<<<
       Positions [0:17] = VIN.
-      Positions [17:23] = date of first registration (YYMMDD) — NOT EGN.
-      No EGN is present in the Bulgarian vehicle registration MRZ.
+      Positions [17:27] = Bulgarian personal ID (ЕГН) — 10 digits.
 
-    Line 3: {SURNAME}<<{NAME}<{MIDDLENAME}<<<
+    Line 3: {LAST_NAME}<<{FIRST_NAME}<{MIDDLE_NAME}<<<
     """
-    # line 2 → VIN only (positions [0:17])
+    # line 2 → VIN (positions [0:17]) and EGN (positions [17:27])
     line2 = lines[1] if len(lines) >= 2 else ""
     raw_vin = line2[0:17] if len(line2) >= 17 else None
-
     vin = _normalize_vin(raw_vin) if raw_vin else _find_vin(line2)
 
-    # line 3 → owner name
-    owner_name: Optional[str] = None
+    egn: Optional[str] = None
+    if len(line2) >= 27:
+        raw_egn = line2[17:27]
+        if re.fullmatch(r"\d{10}", raw_egn):
+            egn = raw_egn
+
+    # line 3 → owner name parts
+    owner: Dict[str, Optional[str]] = {"lastName": None, "firstName": None, "middleName": None}
     if len(lines) >= 3:
-        owner_name = _parse_mrz_name(lines[2])
+        owner = _parse_mrz_name(lines[2])
 
     # Reg number: extract from line 1 fields (split by '<')
     reg = _find_reg_in_mrz1(lines[0]) or _find_reg("\n".join(lines))
@@ -129,31 +136,48 @@ def _parse_mrz_positional(lines: List[str]) -> Dict[str, Optional[str]]:
     return {
         "vin": vin,
         "registrationNumber": reg,
-        "ownerName": owner_name,
-        "egn": None,
+        "ownerLastName": owner["lastName"],
+        "ownerFirstName": owner["firstName"],
+        "ownerMiddleName": owner["middleName"],
+        "egn": egn,
     }
 
 
-def _parse_mrz_name(line3: str) -> Optional[str]:
-    """Convert 'PETROV<<IVAN<TESTOV<<<' → 'IVAN TESTOV PETROV'."""
+def _parse_mrz_name(line3: str) -> Dict[str, Optional[str]]:
+    """Convert 'PETROV<<IVAN<TESTOV<<<' → {lastName, firstName, middleName}."""
     line3 = line3.rstrip("<")
     parts = line3.split("<<")
-    if not parts:
-        return None
-    surname = parts[0].strip("<").replace("<", " ")
-    given = parts[1].replace("<", " ").strip() if len(parts) > 1 else ""
-    name_parts = [p for p in [given, surname] if p]
-    return " ".join(name_parts) if name_parts else None
+    last_name = parts[0].replace("<", " ").strip() or None if parts else None
+    given_parts = parts[1].split("<") if len(parts) > 1 else []
+    first_name = given_parts[0].strip() or None if given_parts else None
+    middle_name = given_parts[1].strip() or None if len(given_parts) > 1 else None
+    return {"lastName": last_name, "firstName": first_name, "middleName": middle_name}
 
 
 def _parse_step1_fallback(text: str) -> Dict[str, Optional[str]]:
     """Regex-based fallback when MRZ lines cannot be detected."""
     fields = _extract_labeled_fields(text)
+
+    # C.2.1 = last name; C.2.2 = first name + middle name (space-separated)
+    last_name = fields.get("C.2.1") or fields.get("C21")
+    first_middle = fields.get("C.2.2") or fields.get("C22")
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    if first_middle:
+        name_parts = first_middle.split()
+        first_name = name_parts[0] if name_parts else None
+        middle_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else None
+
+    if not last_name:
+        last_name = _find_owner_egn_header(text)
+
     return {
         "vin": fields.get("E") or _find_vin(text),
         "registrationNumber": _clean_reg(fields.get("A")) or _find_reg(text),
-        "ownerName": _find_owner_labeled(fields) or _find_owner_egn_header(text),
-        "egn": None,
+        "ownerLastName": last_name,
+        "ownerFirstName": first_name,
+        "ownerMiddleName": middle_name,
+        "egn": _find_egn(text),
     }
 
 
@@ -222,6 +246,8 @@ def _normalize_vin(raw: str) -> Optional[str]:
 def _find_reg_in_mrz1(line1: str) -> Optional[str]:
     """Extract reg number from MRZ line 1 '<'-delimited fields.
 
+    Series field is 6-8 chars depending on region; splitting on '<' handles
+    all variants automatically.
     e.g. 'M<BGR<0000000002<AA0000BB1<2<' → 'AA0000BB'
     Uppercases each field before matching (OCR may produce lowercase).
     """
@@ -286,16 +312,16 @@ def _find_reg(text: str) -> Optional[str]:
     return fixed
 
 
-def _find_owner_labeled(fields: Dict[str, str]) -> Optional[str]:
-    """Reconstruct owner name from C.2.1 (surname) + C.2.2 (given names)."""
-    surname = fields.get("C.2.1") or fields.get("C21")
-    given = fields.get("C.2.2") or fields.get("C22")
-    parts = [p.strip() for p in [given, surname] if p]
-    return " ".join(parts) if parts else None
+def _find_egn(text: str) -> Optional[str]:
+    """Find Bulgarian EGN (10 digits) from 'ЕГН/ID' label in OCR text."""
+    m = re.search(r"(?:ЕГН|EGN)[^0-9]*(\d{10})", text, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    return None
 
 
 def _find_owner_egn_header(text: str) -> Optional[str]:
-    """Fallback: line before 'ЕГН/ID' often contains the owner name."""
+    """Fallback: line before 'ЕГН/ID' often contains the owner last name."""
     lines = text.splitlines()
     for i, line in enumerate(lines):
         if "ЕГН" in line or "EGN" in line.upper():
@@ -309,6 +335,6 @@ def _find_owner_egn_header(text: str) -> Optional[str]:
 # ── confidence calculator ──────────────────────────────────────────────────────
 
 def _confidence_step1(data: Dict[str, Optional[str]]) -> float:
-    """VIN is the primary field (0.5); reg + owner together make up the rest."""
-    weights = {"vin": 0.5, "registrationNumber": 0.3, "ownerName": 0.2}
+    """VIN is the primary field (0.5); reg + owner last name together make up the rest."""
+    weights = {"vin": 0.5, "registrationNumber": 0.3, "ownerLastName": 0.2}
     return sum(weights.get(k, 0.0) for k, v in data.items() if v is not None)

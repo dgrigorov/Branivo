@@ -48,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 vin: vin,
                 licensePlate: plate,
                 sessionToken: sessionToken,
+                ocrFields: fields,
               ),
             );
           },

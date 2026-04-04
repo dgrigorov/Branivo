@@ -356,7 +356,7 @@ class _DebugSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '🔬 Tesseract input (preprocessed)',
+            '🔬 Claude input (perspective-corrected)',
             style: TextStyle(
               color: kOcrBlue,
               fontSize: 12,
@@ -364,32 +364,33 @@ class _DebugSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
+          Column(
             children: [
               for (int i = 0; i < images.length; i++)
                 if (images[i].isNotEmpty)
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(right: i < images.length - 1 ? 8 : 0),
-                      child: Column(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.memory(
-                              base64Decode(images[i]),
-                              fit: BoxFit.cover,
-                            ),
+                  Padding(
+                    padding: EdgeInsets.only(bottom: i < images.length - 1 ? 12 : 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.memory(
+                            base64Decode(images[i]),
+                            fit: BoxFit.contain,
+                            width: double.infinity,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Стъпка ${i + 1}',
-                            style: const TextStyle(
-                              color: kOcrMuted,
-                              fontSize: 10,
-                            ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Стъпка ${i + 1}',
+                          style: const TextStyle(
+                            color: kOcrMuted,
+                            fontSize: 10,
                           ),
-                        ],
-                      ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ),
             ],

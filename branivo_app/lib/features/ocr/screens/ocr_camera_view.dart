@@ -162,9 +162,10 @@ class _ThumbnailStack extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: Container(
-            width: 60,
-            height: 44,
+            width: 80,
+            height: 60,
             decoration: BoxDecoration(
+              color: Colors.black87,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kOcrGreen, width: 2),
               boxShadow: [
@@ -180,7 +181,7 @@ class _ThumbnailStack extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.file(File(e.value), fit: BoxFit.cover),
+                  Image.file(File(e.value), fit: BoxFit.contain),
                   Positioned(
                     bottom: 2, right: 4,
                     child: Text(

@@ -88,6 +88,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                 vin: vin,
                 licensePlate: plate,
                 sessionToken: sessionToken,
+                ocrFields: fields,
               ),
             );
           },

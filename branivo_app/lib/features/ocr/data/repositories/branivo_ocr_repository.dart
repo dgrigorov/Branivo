@@ -111,16 +111,45 @@ class BranivoOcrRepository implements OcrRepository {
     return response.data!;
   }
 
+  // Maps Python TalonData field names → Flutter kFieldLabels keys.
+  static const _fieldNameMap = {
+    'registrationNumber': 'license_plate',
+    'fuel': 'fuel_type',
+    'engine': 'engine_volume',
+    'egn': 'owner_egn',
+    'firstRegistration': 'first_registration_date',
+  };
+
+  // Owner name split into 3 parts in Python model — skip individually, combine below.
+  static const _ownerNameParts = {'ownerLastName', 'ownerFirstName', 'ownerMiddleName'};
+
   Map<String, OcrField> _toFields(Map<String, dynamic> data, double conf) {
     final fields = <String, OcrField>{};
     for (final entry in data.entries) {
       if (entry.value == null) continue;
-      fields[entry.key] = OcrField(
+      if (_ownerNameParts.contains(entry.key)) continue;
+      final key = _fieldNameMap[entry.key] ?? entry.key;
+      fields[key] = OcrField(
         value: entry.value.toString(),
         confidence: conf,
         autoFilled: true,
       );
     }
+
+    // Combine owner name parts into a single owner_name field.
+    final nameParts = [
+      data['ownerLastName'],
+      data['ownerFirstName'],
+      data['ownerMiddleName'],
+    ].whereType<String>().where((s) => s.isNotEmpty).toList();
+    if (nameParts.isNotEmpty) {
+      fields['owner_name'] = OcrField(
+        value: nameParts.join(' '),
+        confidence: conf,
+        autoFilled: true,
+      );
+    }
+
     return fields;
   }
 

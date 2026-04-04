@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../ocr/data/repositories/ocr_models.dart';
 import '../../quotes/screens/offers_screen.dart';
 import '../bloc/vehicle_validation_bloc.dart';
 
@@ -18,11 +19,13 @@ class VehicleValidationScreen extends StatefulWidget {
     required this.vin,
     required this.licensePlate,
     this.sessionToken,
+    this.ocrFields,
   });
 
   final String vin;
   final String licensePlate;
   final String? sessionToken;
+  final Map<String, OcrField>? ocrFields;
 
   @override
   State<VehicleValidationScreen> createState() =>
@@ -45,16 +48,17 @@ class _VehicleValidationScreenState extends State<VehicleValidationScreen> {
   @override
   void initState() {
     super.initState();
+    final ocr = widget.ocrFields;
     _vinCtrl = TextEditingController(text: widget.vin);
     _plateCtrl = TextEditingController(text: widget.licensePlate);
-    _makeCtrl = TextEditingController();
-    _modelCtrl = TextEditingController();
-    _yearCtrl = TextEditingController();
-    _colorCtrl = TextEditingController();
-    _fuelCtrl = TextEditingController();
-    _engineCtrl = TextEditingController();
-    _powerCtrl = TextEditingController();
-    _seatsCtrl = TextEditingController();
+    _makeCtrl = TextEditingController(text: ocr?['make']?.value ?? '');
+    _modelCtrl = TextEditingController(text: ocr?['model']?.value ?? '');
+    _yearCtrl = TextEditingController(text: ocr?['year']?.value ?? '');
+    _colorCtrl = TextEditingController(text: ocr?['color']?.value ?? '');
+    _fuelCtrl = TextEditingController(text: ocr?['fuel_type']?.value ?? '');
+    _engineCtrl = TextEditingController(text: ocr?['engine_volume']?.value ?? '');
+    _powerCtrl = TextEditingController(text: ocr?['power_kw']?.value ?? '');
+    _seatsCtrl = TextEditingController(text: ocr?['seats']?.value ?? '');
 
     if (widget.vin.isNotEmpty && widget.licensePlate.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

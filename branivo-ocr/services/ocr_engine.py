@@ -105,8 +105,12 @@ _STEP2_PROMPT = (
     "Extract the following fields and return a JSON object with no markdown fences and no explanation:\n"
     '{"vin": "17-character VIN from field E", '
     '"registrationNumber": "registration plate number from field A", '
-    '"make": "vehicle manufacturer in Latin script from field D.1 (e.g. PEUGEOT, KAWASAKI, MERCEDES)", '
-    '"model": "commercial model designation from field D.3, or the model token near the make name (e.g. 307, Z 1000, S 350) — do NOT include the make name in this field"}\n'
+    '"make": "vehicle manufacturer in Latin script from field D.1 — the first word(s) before the model designation (e.g. PEUGEOT, KAWASAKI, MERCEDES)", '
+    '"model": "model designation from the same line as field D.1 — NOTE: field D.3 is always redacted (***) on Bulgarian talons so read the model token that appears after the make name on the D.1 line (e.g. if D.1 reads \'PEUGEOT 307\' the model is \'307\') — do NOT include the make name in this field", '
+    '"ownerLastName": "owner surname from field C.2.1", '
+    '"ownerFirstName": "first token of field C.2.2 (owner first name)", '
+    '"ownerMiddleName": "second token of field C.2.2 (owner middle/patronymic name), or null if absent", '
+    '"egn": "10-digit Bulgarian personal ID shown after the ЕГН/ID label, or null if not visible"}\n'
     "Use null for any field you cannot read clearly."
 )
 

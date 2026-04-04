@@ -55,11 +55,18 @@ async def process_talon(
 
     pts = _parse_points(points)
     if pts is not None:
-        image_bytes = preprocessor.perspective_crop(image_bytes, pts)
+        try:
+            image_bytes = preprocessor.perspective_crop(image_bytes, pts)
+        except Exception as exc:
+            logger.warning("perspective_crop failed — using original: %s", exc)
 
-    if step == 1:
-        return await _step1(image_bytes, debug=debug)
-    return _step_n(image_bytes, step, debug=debug)
+    try:
+        if step == 1:
+            return await _step1(image_bytes, debug=debug)
+        return _step_n(image_bytes, step, debug=debug)
+    except Exception as exc:
+        logger.error("OCR step %d error: %s", step, exc, exc_info=True)
+        raise HTTPException(status_code=503, detail=str(exc))
 
 
 @router.post("/preview")
@@ -95,7 +102,9 @@ async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
     data = TalonData(
         vin=parsed.get("vin"),
         registrationNumber=parsed.get("registrationNumber"),
-        ownerName=parsed.get("ownerName"),
+        ownerLastName=parsed.get("ownerLastName"),
+        ownerFirstName=parsed.get("ownerFirstName"),
+        ownerMiddleName=parsed.get("ownerMiddleName"),
         egn=parsed.get("egn"),
         make=vin_decoded.get("make"),
         model=vin_decoded.get("model"),
@@ -113,6 +122,7 @@ async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
         complete=confidence >= COMPLETE_THRESHOLD,
         raw_text=text,
         debug_info={"field_confidence": field_conf, "parsed_fields": {k: v for k, v in parsed.items() if v is not None}} if debug else None,
+        preview_b64=base64.b64encode(image_bytes).decode("utf-8") if debug else None,
     )
 
 
@@ -130,6 +140,10 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
             registrationNumber=extracted.get("registrationNumber"),
             make=make_val,
             model=model_val,
+            ownerLastName=extracted.get("ownerLastName"),
+            ownerFirstName=extracted.get("ownerFirstName"),
+            ownerMiddleName=extracted.get("ownerMiddleName"),
+            egn=extracted.get("egn"),
         )
     else:
         extracted = ocr_engine.extract_step3(image_bytes)
@@ -148,6 +162,7 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
         data=data,
         complete=False,
         debug_info={"extracted": extracted} if debug else None,
+        preview_b64=base64.b64encode(image_bytes).decode("utf-8") if debug else None,
     )
 
 
