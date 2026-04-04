@@ -141,7 +141,16 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
     # Enhanced pipeline: upscale + sharpen + adaptive threshold (better for
     # wrinkled/laminated pages than plain grayscale used in light_preprocess).
     img = preprocessor.preprocess_step23(image_bytes)
-    blocks = ocr_engine.extract_blocks_step23(img)
+
+    # Step 2 (vehicle identity: VIN, reg number, make, model) is predominantly
+    # Latin script — use the Latin model to avoid Cyrillic OCR converting digits
+    # to visually similar Cyrillic letters (1→І, 0→О, 3→З, etc.).
+    # Step 3 (technical specs) keeps the Cyrillic model for bilingual fuel labels
+    # (БЕНЗИН/PETROL, ДИЗЕЛ/DIESEL).
+    if step == 2:
+        blocks = ocr_engine.extract_blocks(img)
+    else:
+        blocks = ocr_engine.extract_blocks_step23(img)
     text = ocr_engine.blocks_to_text(blocks)
     ocr_conf = ocr_engine.avg_confidence(blocks)
 

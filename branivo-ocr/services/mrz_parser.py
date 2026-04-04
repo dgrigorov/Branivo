@@ -402,8 +402,8 @@ def _find_model_near_make(text: str, make: str) -> Optional[str]:
     make_again = re.search(re.escape(make), after_raw, re.I)
     if make_again:
         after_raw = after_raw[:make_again.start()]
-    # Strip leading separators (colon, space, newline)
-    after = re.sub(r"^[:\s]+", "", after_raw)
+    # Strip leading separators (colon, space, newline, period)
+    after = re.sub(r"^[:\s.]+", "", after_raw)
     if not after:
         return None
     # Extract model designator using a strict pattern to avoid noise tokens
@@ -454,11 +454,28 @@ def _find_vin(text: str) -> Optional[str]:
 
 def _find_reg(text: str) -> Optional[str]:
     # Normalise Cyrillic lookalikes before reg number search
-    m = REG_RE.search(_cyr_to_lat(text).upper())
+    normalized = _cyr_to_lat(text).upper()
+    m = REG_RE.search(normalized)
     if not m:
         return None
     raw = m.group(1).replace(" ", "").replace("-", "")
-    return _fix_reg_ocr(raw)
+    fixed = _fix_reg_ocr(raw)
+    # PaddleOCR often merges the field label 'A' with the registration value
+    # (parentheses dropped): "(A) B0001CC" → "AB0001CC".
+    # If the result is 8 chars, starts with a single uppercase letter that
+    # looks like a field label, and removing it yields a valid 7-char reg,
+    # prefer the shorter version — Bulgarian 1-letter prefixes are uncommon.
+    # PaddleOCR merges the field label 'A' with the registration value when
+    # parentheses are dropped: "(A) B0001CC" → "AB0001CC".  If the match
+    # starts at the beginning of a line and the first character is 'A'
+    # (the EU field code for registration number), strip it.
+    if len(fixed) == 8 and fixed[0] == 'A':
+        candidate = fixed[1:]
+        match_pos = m.start(1)
+        is_line_start = (match_pos == 0) or (normalized[match_pos - 1] in "\n\r")
+        if is_line_start and REG_RE.search(candidate):
+            return _fix_reg_ocr(candidate)
+    return fixed
 
 
 def _find_egn(text: str) -> Optional[str]:
