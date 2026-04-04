@@ -114,6 +114,7 @@ class BranivoOcrRepository implements OcrRepository {
   // Maps Python TalonData field names → Flutter kFieldLabels keys.
   static const _fieldNameMap = {
     'registrationNumber': 'license_plate',
+    'certNumber': 'cert_number',
     'fuel': 'fuel_type',
     'engine': 'engine_volume',
     'egn': 'owner_egn',

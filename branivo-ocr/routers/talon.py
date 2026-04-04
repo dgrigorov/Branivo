@@ -38,7 +38,7 @@ router = APIRouter()
 
 COMPLETE_THRESHOLD = 0.90
 
-_STEP2_FIELDS = ["vin", "registrationNumber", "make", "model"]
+_STEP2_FIELDS = ["vin", "registrationNumber", "certNumber", "make", "model", "year"]
 _STEP3_FIELDS = ["engine", "fuel", "seats"]
 
 
@@ -91,26 +91,45 @@ async def debug_preview(
 # ── step handlers ──────────────────────────────────────────────────────────────
 
 async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
-    text = ocr_engine.extract_step1(image_bytes)
-    parsed, field_conf = mrz_parser.parse_step1(text)
-    confidence = round(field_conf, 3)
+    # Claude returns JSON: mrz lines + labeled owner fields (C.2.1, C.2.2, C.2.3, EGN)
+    extracted = ocr_engine.extract_step1(image_bytes)
+
+    # MRZ positional parsing for VIN + registration number (most reliable source)
+    mrz_text = "\n".join(extracted.get("mrz") or [])
+    parsed, _ = mrz_parser.parse_step1(mrz_text)
+
+    # Claude-read labeled fields take priority for owner data (printed text,
+    # may be Cyrillic); fall back to MRZ transliteration if Claude returned null
+    owner_last = extracted.get("ownerLastName") or parsed.get("ownerLastName")
+    owner_first = extracted.get("ownerFirstName") or parsed.get("ownerFirstName")
+    owner_middle = extracted.get("ownerMiddleName") or parsed.get("ownerMiddleName")
+    egn = extracted.get("egn") or parsed.get("egn")
+
+    # Confidence: VIN(0.5) + reg(0.3) + ownerLastName(0.2) — after merge
+    confidence = round(
+        (0.5 if parsed.get("vin") else 0.0)
+        + (0.3 if parsed.get("registrationNumber") else 0.0)
+        + (0.2 if owner_last else 0.0),
+        3,
+    )
 
     vin_decoded: dict = {}
     if parsed.get("vin"):
         vin_decoded = await vin_service.decode_vin(parsed["vin"])
 
+    # NHTSA vPIC is US-centric: make/model are reliable but year/fuel/engine
+    # are inaccurate for EU VINs (e.g. year from position 10 is wrong for PSA/VW).
+    # year → step 2 reads field B; fuel/engine → step 3 reads fields P.1/P.3.
     data = TalonData(
         vin=parsed.get("vin"),
         registrationNumber=parsed.get("registrationNumber"),
-        ownerLastName=parsed.get("ownerLastName"),
-        ownerFirstName=parsed.get("ownerFirstName"),
-        ownerMiddleName=parsed.get("ownerMiddleName"),
-        egn=parsed.get("egn"),
+        ownerLastName=owner_last,
+        ownerFirstName=owner_first,
+        ownerMiddleName=owner_middle,
+        ownerAddress=extracted.get("ownerAddress"),
+        egn=egn,
         make=vin_decoded.get("make"),
         model=vin_decoded.get("model"),
-        year=_to_int(vin_decoded.get("year")),
-        fuel=vin_decoded.get("fuel"),
-        engine=vin_decoded.get("engine"),
     )
 
     _log_step(1, confidence, parsed)
@@ -120,8 +139,11 @@ async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
         confidence=confidence,
         data=data,
         complete=confidence >= COMPLETE_THRESHOLD,
-        raw_text=text,
-        debug_info={"field_confidence": field_conf, "parsed_fields": {k: v for k, v in parsed.items() if v is not None}} if debug else None,
+        raw_text=mrz_text or None,
+        debug_info={
+            "mrz_parsed": {k: v for k, v in parsed.items() if v is not None},
+            "claude_extracted": {k: v for k, v in extracted.items() if v is not None and k != "mrz"},
+        } if debug else None,
         preview_b64=base64.b64encode(image_bytes).decode("utf-8") if debug else None,
     )
 
@@ -138,8 +160,10 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
         data = TalonData(
             vin=extracted.get("vin"),
             registrationNumber=extracted.get("registrationNumber"),
+            certNumber=extracted.get("certNumber"),
             make=make_val,
             model=model_val,
+            year=_to_int(extracted.get("year")),
             ownerLastName=extracted.get("ownerLastName"),
             ownerFirstName=extracted.get("ownerFirstName"),
             ownerMiddleName=extracted.get("ownerMiddleName"),

@@ -95,9 +95,16 @@ def _call_claude(prompt: str, image_bytes: bytes) -> str:
 
 _STEP1_PROMPT = (
     "This is a Bulgarian vehicle registration certificate (талон). "
-    "Extract the MRZ (machine-readable zone) text from the bottom strip of the document. "
-    "The MRZ contains 3 lines of uppercase Latin letters, digits, and '<' characters. "
-    "Return ONLY the raw MRZ text, one line per row, with no explanation or extra text."
+    "Extract ALL of the following and return a single JSON object with no markdown fences and no explanation:\n"
+    '{"mrz": ["<MRZ line 1>", "<MRZ line 2>", "<MRZ line 3>"], '
+    '"ownerLastName": "owner surname from field C.2.1 — as printed on the document (may be Cyrillic)", '
+    '"ownerFirstName": "owner first name — first token of field C.2.2", '
+    '"ownerMiddleName": "owner middle/patronymic name — second token of field C.2.2, or null if absent", '
+    '"ownerAddress": "permanent address from field C.2.3 — full text as printed", '
+    '"egn": "10-digit Bulgarian personal ID (ЕГН) shown after the ЕГН/ID label, or null if not visible"}\n'
+    "The mrz array must contain the 3 lines of the machine-readable zone at the bottom of the document "
+    "(uppercase Latin letters, digits, and \'<\' characters). "
+    "Use null for any field you cannot read clearly."
 )
 
 _STEP2_PROMPT = (
@@ -105,8 +112,10 @@ _STEP2_PROMPT = (
     "Extract the following fields and return a JSON object with no markdown fences and no explanation:\n"
     '{"vin": "17-character VIN from field E", '
     '"registrationNumber": "registration plate number from field A", '
+    '"certNumber": "certificate serial number printed in the top-right corner of the document (format: № followed by 9 digits, e.g. 008888485) — return only the digits", '
     '"make": "vehicle manufacturer in Latin script from field D.1 — the first word(s) before the model designation (e.g. PEUGEOT, KAWASAKI, MERCEDES)", '
     '"model": "model designation from the same line as field D.1 — NOTE: field D.3 is always redacted (***) on Bulgarian talons so read the model token that appears after the make name on the D.1 line (e.g. if D.1 reads \'PEUGEOT 307\' the model is \'307\') — do NOT include the make name in this field", '
+    '"year": "4-digit year of first registration from field B (e.g. if field B shows 13.05.2002 return 2002)", '
     '"ownerLastName": "owner surname from field C.2.1", '
     '"ownerFirstName": "first token of field C.2.2 (owner first name)", '
     '"ownerMiddleName": "second token of field C.2.2 (owner middle/patronymic name), or null if absent", '
@@ -124,9 +133,23 @@ _STEP3_PROMPT = (
 )
 
 
-def extract_step1(image_bytes: bytes) -> str:
-    """Return raw MRZ text for mrz_parser.parse_step1()."""
-    return _call_claude(_STEP1_PROMPT, image_bytes)
+def extract_step1(image_bytes: bytes) -> dict:
+    """Return dict with mrz lines + labeled owner fields for step 1 processing.
+
+    Keys: mrz (list[str]), ownerLastName, ownerFirstName, ownerMiddleName,
+          ownerAddress, egn.
+    The mrz lines are passed to mrz_parser for VIN/reg extraction.
+    Owner fields are read directly from the printed document (may be Cyrillic).
+    """
+    raw = _call_claude(_STEP1_PROMPT, image_bytes)
+    result = _parse_json(raw)
+    # Normalise mrz to list[str]; tolerate Claude returning a plain string
+    mrz = result.get("mrz")
+    if isinstance(mrz, str):
+        result["mrz"] = [line for line in mrz.splitlines() if line.strip()]
+    elif not isinstance(mrz, list):
+        result["mrz"] = []
+    return result
 
 
 def extract_step2(image_bytes: bytes) -> dict:

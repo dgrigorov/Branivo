@@ -8,6 +8,7 @@ from pydantic import BaseModel
 class TalonData(BaseModel):
     vin: Optional[str] = None
     registrationNumber: Optional[str] = None
+    certNumber: Optional[str] = None
     make: Optional[str] = None
     model: Optional[str] = None
     year: Optional[int] = None
@@ -18,6 +19,7 @@ class TalonData(BaseModel):
     ownerLastName: Optional[str] = None
     ownerFirstName: Optional[str] = None
     ownerMiddleName: Optional[str] = None
+    ownerAddress: Optional[str] = None
     egn: Optional[str] = None
 
 

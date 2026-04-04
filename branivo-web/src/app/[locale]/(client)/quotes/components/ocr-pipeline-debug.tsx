@@ -40,6 +40,7 @@ const STAGE_LABELS: Record<string, string> = {
 const FIELD_LABELS: Record<string, string> = {
   vin: 'VIN',
   registrationNumber: 'Рег. номер',
+  certNumber: 'Номер на талон',
   ownerLastName: 'Фамилия',
   ownerFirstName: 'Собствено',
   ownerMiddleName: 'Презиме',
@@ -49,7 +50,7 @@ const FIELD_LABELS: Record<string, string> = {
   model: 'Модел',
   year: 'Година',
   fuel: 'Гориво',
-  engine: 'Двигател',
+  engine: 'Двигател (cc)',
   seats: 'Места',
   firstRegistration: 'Първа регистрация',
 };
@@ -197,16 +198,18 @@ function OcrPipelineDebug({ imageFile, points, step, label }: OcrPipelineDebugPr
               </div>
 
               {data.ocr.data && Object.keys(data.ocr.data).length > 0 && (
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  {Object.entries(data.ocr.data)
-                    .filter(([, v]) => v !== null && v !== undefined)
-                    .map(([k, v]) => (
-                      <div key={k} className="flex gap-1 text-xs">
-                        <span className="text-gray-500">{FIELD_LABELS[k] ?? k}:</span>
-                        <span className="font-medium text-gray-900">{String(v)}</span>
-                      </div>
-                    ))}
-                </div>
+                <table className="w-full text-xs border-collapse">
+                  <tbody>
+                    {Object.entries(data.ocr.data)
+                      .filter(([, v]) => v !== null && v !== undefined)
+                      .map(([k, v]) => (
+                        <tr key={k} className="border-b border-amber-100 last:border-0">
+                          <td className="py-1 pr-3 text-gray-500 whitespace-nowrap w-1/3">{FIELD_LABELS[k] ?? k}</td>
+                          <td className="py-1 font-medium text-gray-900 break-all">{String(v)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               )}
 
               {data.ocr.raw_text && (

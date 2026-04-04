@@ -50,15 +50,14 @@ export function TalonUploadSection({ onSlotsChange }: TalonUploadSectionProps) {
   }, []);
 
   const handleCropConfirm = useCallback(
-    (points: Quad) => {
+    (points: Quad, correctedPreviewUrl: string) => {
       if (!cropTarget) return;
-      const previewUrl = URL.createObjectURL(cropTarget.file);
       setSlots((prev) => {
         const next = [...prev] as (TalonSlot | null)[];
-        // Revoke previous blob URL if any
+        // Revoke previous blob URL if any (only revoke object:// URLs, not data: URLs)
         const old = next[cropTarget.slotIdx];
-        if (old?.previewUrl) URL.revokeObjectURL(old.previewUrl);
-        next[cropTarget.slotIdx] = { file: cropTarget.file, points, previewUrl };
+        if (old?.previewUrl.startsWith('blob:')) URL.revokeObjectURL(old.previewUrl);
+        next[cropTarget.slotIdx] = { file: cropTarget.file, points, previewUrl: correctedPreviewUrl };
         onSlotsChange(next);
         return next;
       });
@@ -140,7 +139,7 @@ export function TalonUploadSection({ onSlotsChange }: TalonUploadSectionProps) {
                   <img
                     src={slot.previewUrl}
                     alt={meta.label}
-                    className="h-20 w-full rounded-lg border-2 border-green-400 object-cover"
+                    className="h-20 w-full rounded-lg border-2 border-green-400 object-contain bg-gray-900"
                   />
                   {/* Green checkmark */}
                   <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-green-500">

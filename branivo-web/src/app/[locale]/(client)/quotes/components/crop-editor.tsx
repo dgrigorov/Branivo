@@ -17,7 +17,7 @@ interface ImageBounds {
 export interface CropEditorProps {
   imageFile: File;
   step: 1 | 2 | 3;
-  onConfirm: (points: Quad) => void;
+  onConfirm: (points: Quad, correctedPreviewUrl: string) => void;
   onCancel: () => void;
 }
 
@@ -262,7 +262,7 @@ export function CropEditor({ imageFile, step, onConfirm, onCancel }: CropEditorP
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(quadRef.current)}
+            onClick={() => onConfirm(quadRef.current, previewSrc)}
             className="flex-1 rounded-lg bg-green-600 py-2.5 text-sm font-medium text-white hover:bg-green-700"
           >
             Анализирай
