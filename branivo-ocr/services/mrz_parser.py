@@ -50,7 +50,7 @@ FIELD_RE_LOOSE = re.compile(
 VIN_RE = re.compile(r"([A-HJ-NPR-Z0-9]{17})")
 # Trailing (?![A-Z]) instead of \b — handles reg embedded in MRZ without spaces
 # Also accepts O in digit positions (normalised to 0 before matching)
-REG_RE = re.compile(r"\b([A-Z]{1,2}[ \-]?[0-9O]{4}[ \-]?[A-Z]{2})(?![A-Z])")
+REG_RE = re.compile(r"\b([A-Z]{1,2}[ \-]?[0-9O]{4}[ \-]?[A-Z]{1,2})(?![A-Z])")
 
 # Cyrillic characters that are visually identical to Latin equivalents.
 # Tesseract (bul+eng) sometimes outputs Cyrillic glyphs for what are actually
@@ -342,7 +342,7 @@ def _find_reg_in_mrz1(line1: str) -> Optional[str]:
     e.g. 'M<BGR<0000000002<AA0000BB1<2<' → 'AA0000BB'
     Uppercases each field before matching (OCR may produce lowercase).
     """
-    REG_LOOSE = re.compile(r"^([A-Z]{1,2}\d{4}[A-Z]{2})")
+    REG_LOOSE = re.compile(r"^([A-Z]{1,2}\d{4}[A-Z]{1,2})")
     for field in line1.split("<"):
         m = REG_LOOSE.match(field.upper())
         if m:
@@ -363,15 +363,16 @@ def _clean_reg(value: Optional[str]) -> Optional[str]:
 
 
 def _fix_reg_ocr(reg: str) -> str:
-    """Normalise OCR errors in Bulgarian reg numbers (AA0000BB format).
+    """Normalise OCR errors in Bulgarian reg numbers.
 
-    Position layout: [0-1] letters, [2-5] digits, [6-7] letters.
+    Format: PREFIX_LETTERS(1-2) + DIGITS(4) + SUFFIX_LETTERS(1-2).
     O in digit positions → 0.
     """
-    if len(reg) != 8:
+    m = re.match(r"^([A-Z]{1,2})([0-9O]{4})([A-Z]{1,2})$", reg)
+    if not m:
         return reg
-    digits = reg[2:6].replace("O", "0")
-    return reg[:2] + digits + reg[6:]
+    prefix, digits, suffix = m.groups()
+    return prefix + digits.replace("O", "0") + suffix
 
 
 def _find_make(text: str) -> Optional[str]:

@@ -76,19 +76,18 @@ services:
     restart: unless-stopped
     ports:
       - '8888:8000'
-    mem_limit: 3g
-    memswap_limit: 3g
-    volumes:
-      - paddleocr_models:/root/.paddleocr
+    mem_limit: 512m
+    memswap_limit: 512m
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 120s
+      start_period: 30s
 
 volumes:
   postgres_data:
   redis_data:
   pgadmin_data:
-  paddleocr_models:

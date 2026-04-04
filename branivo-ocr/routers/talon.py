@@ -1,16 +1,15 @@
 """POST /ocr/talon?step=1|2|3
 
-step=1  MRZ zone → VIN + reg number + owner + EGN → VIN decode
+step=1  MRZ zone → Claude extracts raw MRZ text → mrz_parser parses VIN/reg/owner/EGN → VIN decode
         If confidence >= 0.90 → complete=true (caller may stop here)
-step=2  Vehicle identity page (A, D.1, D.3, E, B)
-step=3  Technical specs page  (P.1, P.3, S.1)
+step=2  Vehicle identity page → Claude returns {vin, registrationNumber, make, model} as JSON
+step=3  Technical specs page  → Claude returns {engine, fuel, seats} as JSON
 
 Optional params:
   points  — JSON string [[x,y]×4] normalized 0..1 (top-left, top-right,
             bottom-right, bottom-left).  When present, perspective crop is
-            applied BEFORE the normal preprocessing pipeline.
-  debug   — boolean; when true the response includes preview_b64 (base64
-            JPEG of the image that Tesseract actually processes).
+            applied BEFORE the OCR call.
+  debug   — boolean; when true the response includes debug_info with extracted fields.
 
 All images are processed in-memory. No disk writes.
 """
@@ -40,6 +39,9 @@ router = APIRouter()
 
 COMPLETE_THRESHOLD = 0.90
 
+_STEP2_FIELDS = ["vin", "registrationNumber", "make", "model"]
+_STEP3_FIELDS = ["engine", "fuel", "seats"]
+
 
 @router.post("/talon", response_model=TalonResponse)
 async def process_talon(
@@ -67,11 +69,7 @@ async def debug_preview(
     step: int = Query(..., ge=1, le=3),
     points: Optional[str] = Form(None),
 ) -> dict:
-    """Debug: return the preprocessed image Tesseract will actually see.
-
-    Useful for diagnosing why OCR fails — call this endpoint with the same
-    image + points as /ocr/talon to see the exact input to the OCR engine.
-    """
+    """Debug: return the preprocessed image as base64 JPEG."""
     image_bytes = await file.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
@@ -90,23 +88,9 @@ async def debug_preview(
 # ── step handlers ──────────────────────────────────────────────────────────────
 
 async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
-    mrz_img = preprocessor.crop_mrz_zone(image_bytes)
-
-    # MRZ-optimized OCR: eng-only + char whitelist so '<' is read correctly
-    text = ocr_engine.full_text_mrz(mrz_img)
-
-    # If MRZ crop yields no useful content, fall back to full-image MRZ scan
-    if len(text.strip()) < 10:
-        full_img = preprocessor.light_preprocess(image_bytes)
-        text = ocr_engine.full_text_mrz(full_img)
-        logger.info("step1: MRZ crop empty — fell back to full-image scan")
-
-    # Confidence measured on general blocks (both Cyrillic owner text + Latin MRZ)
-    blocks = ocr_engine.extract_blocks(mrz_img)
-    ocr_conf = ocr_engine.avg_confidence(blocks)
-
+    text = ocr_engine.extract_step1(image_bytes)
     parsed, field_conf = mrz_parser.parse_step1(text)
-    confidence = round(ocr_conf * 0.6 + field_conf * 0.4, 3)
+    confidence = round(field_conf, 3)
 
     vin_decoded: dict = {}
     if parsed.get("vin"):
@@ -124,7 +108,7 @@ async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
         engine=vin_decoded.get("engine"),
     )
 
-    _log_step(1, text, blocks, ocr_conf, field_conf, confidence, parsed)
+    _log_step(1, confidence, parsed)
     return TalonResponse(
         success=True,
         step=1,
@@ -132,72 +116,58 @@ async def _step1(image_bytes: bytes, *, debug: bool = False) -> TalonResponse:
         data=data,
         complete=confidence >= COMPLETE_THRESHOLD,
         raw_text=text,
-        debug_info=_build_debug_info(blocks, ocr_conf, field_conf, parsed) if debug else None,
-        preview_b64=_encode_preview(mrz_img) if debug else None,
+        debug_info={"field_confidence": field_conf, "parsed_fields": {k: v for k, v in parsed.items() if v is not None}} if debug else None,
     )
 
 
 def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonResponse:
-    # Enhanced pipeline: upscale + sharpen + adaptive threshold (better for
-    # wrinkled/laminated pages than plain grayscale used in light_preprocess).
-    img = preprocessor.preprocess_step23(image_bytes)
-
-    # Step 2 (vehicle identity: VIN, reg number, make, model) is predominantly
-    # Latin script — use the Latin model to avoid Cyrillic OCR converting digits
-    # to visually similar Cyrillic letters (1→І, 0→О, 3→З, etc.).
-    # Step 3 (technical specs) keeps the Cyrillic model for bilingual fuel labels
-    # (БЕНЗИН/PETROL, ДИЗЕЛ/DIESEL).
     if step == 2:
-        blocks = ocr_engine.extract_blocks(img)
+        extracted = ocr_engine.extract_step2(image_bytes)
+        confidence = _claude_confidence(extracted, _STEP2_FIELDS)
+        make_val = extracted.get("make")
+        model_val = extracted.get("model")
+        # Prefix model with make when the model designation doesn't already include it
+        if make_val and model_val and not model_val.upper().startswith(make_val.upper()):
+            model_val = f"{make_val} {model_val}"
+        data = TalonData(
+            vin=extracted.get("vin"),
+            registrationNumber=extracted.get("registrationNumber"),
+            make=make_val,
+            model=model_val,
+        )
     else:
-        blocks = ocr_engine.extract_blocks_step23(img)
-    text = ocr_engine.blocks_to_text(blocks)
-    ocr_conf = ocr_engine.avg_confidence(blocks)
+        extracted = ocr_engine.extract_step3(image_bytes)
+        confidence = _claude_confidence(extracted, _STEP3_FIELDS)
+        data = TalonData(
+            engine=extracted.get("engine"),
+            fuel=extracted.get("fuel"),
+            seats=_to_int(extracted.get("seats")),
+        )
 
-    if step == 2:
-        parsed, field_conf = mrz_parser.parse_step2(text)
-        # VIN on the vehicle identity page uses OCR-B font — run a dedicated
-        # Latin-only pass if the general OCR missed it.
-        if not parsed.get("vin"):
-            vin_text = ocr_engine.full_text_mrz(img)
-            vin_parsed, _ = mrz_parser.parse_step2(vin_text)
-            if vin_parsed.get("vin"):
-                parsed["vin"] = vin_parsed["vin"]
-                logger.info("step2: VIN recovered via MRZ-pass: %s", parsed["vin"])
-    else:
-        parsed, field_conf = mrz_parser.parse_step3(text)
-
-    confidence = round(ocr_conf * 0.6 + field_conf * 0.4, 3)
-
-    data = TalonData(
-        vin=parsed.get("vin"),
-        registrationNumber=parsed.get("registrationNumber"),
-        make=parsed.get("make"),
-        model=parsed.get("model"),
-        year=_to_int(parsed.get("year")),
-        fuel=parsed.get("fuel"),
-        engine=parsed.get("engine"),
-        seats=_to_int(parsed.get("seats")),
-        firstRegistration=parsed.get("firstRegistration"),
-    )
-
-    _log_step(step, text, blocks, ocr_conf, field_conf, confidence, parsed)
+    _log_step(step, confidence, extracted)
     return TalonResponse(
         success=True,
         step=step,
         confidence=confidence,
         data=data,
         complete=False,
-        raw_text=text,
-        debug_info=_build_debug_info(blocks, ocr_conf, field_conf, parsed) if debug else None,
-        preview_b64=_encode_preview(img) if debug else None,
+        debug_info={"extracted": extracted} if debug else None,
     )
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
+def _claude_confidence(data: dict, required_keys: list[str]) -> float:
+    """0.95 if all required fields present, 0.5 if partial, 0.0 if empty."""
+    filled = sum(1 for k in required_keys if data.get(k) is not None)
+    if filled == len(required_keys):
+        return 0.95
+    if filled > 0:
+        return 0.5
+    return 0.0
+
+
 def _parse_points(raw: Optional[str]) -> Optional[list]:
-    """Parse JSON points string → list of [x,y] pairs or None."""
     if not raw:
         return None
     try:
@@ -209,52 +179,14 @@ def _parse_points(raw: Optional[str]) -> Optional[list]:
     return None
 
 
-def _encode_preview(img) -> str:
-    """Encode numpy BGR image as base64 JPEG (low quality for transfer)."""
-    import numpy as np
-    if not isinstance(img, np.ndarray):
-        return ""
-    _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 65])
-    return base64.b64encode(buf).decode("utf-8")
-
-
-def _log_step(
-    step: int,
-    raw_text: str,
-    blocks: list,
-    ocr_conf: float,
-    field_conf: float,
-    merged_conf: float,
-    parsed: dict,
-) -> None:
-    """Structured JSON log for every OCR step — use docker logs for analysis."""
+def _log_step(step: int, confidence: float, parsed: dict) -> None:
     payload = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "step": step,
-        "ocr_confidence": round(ocr_conf, 3),
-        "field_confidence": round(field_conf, 3),
-        "merged_confidence": round(merged_conf, 3),
-        "blocks_count": len(blocks),
+        "confidence": round(confidence, 3),
         "parsed_fields": {k: v for k, v in parsed.items() if v is not None},
-        "raw_text": raw_text.replace("\n", "↵"),
     }
     logger.info("OCR_STEP %s", json.dumps(payload, ensure_ascii=False))
-
-
-def _build_debug_info(
-    blocks: list,
-    ocr_conf: float,
-    field_conf: float,
-    parsed: dict,
-) -> dict:
-    """Full debug payload returned when debug=true."""
-    return {
-        "ocr_confidence": round(ocr_conf, 3),
-        "field_confidence": round(field_conf, 3),
-        "blocks_count": len(blocks),
-        "blocks": [{"text": t, "conf": round(c, 3)} for t, c in blocks],
-        "parsed_fields": {k: v for k, v in parsed.items() if v is not None},
-    }
 
 
 def _to_int(value: Optional[str]) -> Optional[int]:

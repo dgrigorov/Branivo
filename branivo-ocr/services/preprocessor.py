@@ -1,19 +1,9 @@
-"""Image preprocessing pipeline for Bulgarian vehicle registration certificates.
+"""Image preprocessing utilities for Bulgarian vehicle registration certificates.
 
-Three pipelines:
-  - light_preprocess: bilateral → CLAHE → glare mask (color output, step 1 MRZ)
-  - preprocess_step23: adaptive pipeline (step 2 / step 3)
-      Adapts to per-image brightness and contrast so that each step is only
-      applied when it actually improves OCR confidence:
-        decode → resize → upscale →
-        gamma_correct (dark images only, mean < 110) →
-        bilateral →
-        clahe (low-contrast only, std < 50) →
-        mask_glare →
-        sharpen →
-        sharpen in LAB L channel → return BGR (PaddleOCR detection input)
-      Otsu binarisation removed — PaddleOCR thresholds internally per region.
-  - crop_mrz_zone: crops + lightly preprocesses the bottom 38 % (MRZ band)
+Three public functions (Claude Vision does not need heavy preprocessing):
+  perspective_crop  — 4-point perspective correction (corner-crop UI)
+  light_preprocess  — bilateral + CLAHE + glare mask (used by /preview debug endpoint)
+  crop_mrz_zone     — crops + lightly preprocesses the bottom 38 % (MRZ band)
 
 All operations are in-memory — no disk writes.
 """
@@ -27,8 +17,7 @@ import numpy as np
 from PIL import Image, ExifTags
 
 
-MAX_DIM = 2048   # cap longest side to avoid OOM on high-res photos
-OCR_MIN_DIM = 1600  # upscale to at least this many px on longest side before OCR
+MAX_DIM = 2048  # cap longest side to avoid OOM on high-res photos
 
 
 def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
@@ -36,8 +25,6 @@ def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
 
     points: [[x0,y0],[x1,y1],[x2,y2],[x3,y3]] — normalized 0..1 in image space.
     Order: top-left, top-right, bottom-right, bottom-left.
-    Scales to pixel coords, computes homography, warps to axis-aligned output.
-    Returns the corrected image as JPEG bytes (max MAX_DIM on longest side).
     """
     img = _decode(image_bytes)
     img = _resize(img)
@@ -49,7 +36,6 @@ def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
     out_w = int(max(np.linalg.norm(tr - tl), np.linalg.norm(br - bl)))
     out_h = int(max(np.linalg.norm(bl - tl), np.linalg.norm(br - tr)))
     if out_w < 4 or out_h < 4:
-        # Degenerate quad — return original resized image
         _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])
         return buf.tobytes()
 
@@ -61,13 +47,7 @@ def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
 
 
 def light_preprocess(image_bytes: bytes) -> np.ndarray:
-    """Light pipeline for Tesseract — returns BGR color image.
-
-    resize → bilateral → CLAHE → glare inpaint.
-    EXIF orientation is handled in _decode, so _auto_orient is not needed.
-    _deskew_color is omitted: it uses dark pixel distribution to detect skew,
-    which is unreliable for hand-held photos with significant background.
-    """
+    """Light pipeline — returns BGR color image (used by /preview debug endpoint)."""
     img = _decode(image_bytes)
     img = _resize(img)
     img = _bilateral(img)
@@ -76,81 +56,9 @@ def light_preprocess(image_bytes: bytes) -> np.ndarray:
     return img
 
 
-def preprocess_step23(image_bytes: bytes) -> np.ndarray:
-    """Adaptive pipeline for steps 2/3 — returns sharpened BGR image for PaddleOCR.
-
-    Each step is applied conditionally based on measured image characteristics
-    so it only runs when it raises Tesseract confidence (empirically validated):
-
-    1. Gamma correction  — only when mean brightness < 110 (dark photos).
-       Darkness auto-scale: γ=2.0 for very dark (mean<70), γ=1.5 otherwise.
-    2. Bilateral filter  — always; consistently +0.08–+0.16 for step-3 images
-       and neutral-to-positive for step-2.
-    3. CLAHE             — only when grayscale std-dev < 50 after bilateral
-       (low-contrast images).  CLAHE consistently hurts high-contrast images.
-    4. Glare mask        — always; cheap, occasionally helps laminate shine.
-    5. Sharpen σ=1.5     — always; unsharp-mask recovers blurred text edges.
-    6. Sharpen in LAB lightness — unsharp-mask in L channel, returns BGR.
-       PaddleOCR's text-detection model works on colour input (trained on BGR);
-       returning BGR gives better bounding-box recall than grayscale.
-       Otsu binarisation removed: PaddleOCR thresholds internally per region.
-
-    Removed vs. previous version:
-    - NLM denoising         : ~20 s/image on CPU, hurts more often than helps.
-    - Morph open            : degraded confidence on every tested image.
-    - Unconditional CLAHE   : hurt step-2 images; replaced by conditional.
-    - Otsu binarisation     : not needed — PaddleOCR handles thresholding.
-    """
-    img = _decode(image_bytes)
-    img = _resize(img)
-    img = _upscale_for_ocr(img)
-
-    # Measure brightness of the raw image before any enhancement
-    gray0 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
-    mean_brightness = float(np.mean(gray0))
-
-    # Step 1: Gamma correction — lift underexposed photos before bilateral
-    if mean_brightness < 110:
-        gamma_val = 2.0 if mean_brightness < 70 else 1.5
-        img = _gamma_correct(img, gamma_val)
-
-    # Step 2: Bilateral filter — smooths laminate grain while preserving edges
-    img = _bilateral(img)
-
-    # Step 3: CLAHE — only for low-contrast images; hurts already-sharp images
-    gray_bi = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
-    if float(np.std(gray_bi)) < 50:
-        img = _clahe(img)
-
-    # Step 4: Glare mask — inpaint overexposed laminate highlights
-    img = _mask_glare(img)
-
-    # Step 5: Sharpen in LAB lightness channel — preserves colour for PaddleOCR
-    # detection while recovering blurred text edges.  Returning BGR (not grayscale)
-    # because PaddleOCR's detection model was trained on colour images and gives
-    # better bounding-box recall on colour input.  Otsu binarisation removed:
-    # PaddleOCR handles thresholding internally per detected text region.
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-    l_ch, a_ch, b_ch = cv2.split(lab)
-    l_ch = _sharpen(l_ch)
-    img = cv2.cvtColor(cv2.merge((l_ch, a_ch, b_ch)), cv2.COLOR_LAB2BGR)
-    return img
-
-
 def crop_mrz_zone(image_bytes: bytes) -> np.ndarray:
-    """Crop + light-preprocess the MRZ zone (bottom 38 % of image).
-
-    Auto-orient and deskew are intentionally skipped here:
-    - Auto-orient was rotating hand-held portrait photos CCW, moving the
-      owner-text region into the crop window instead of the MRZ lines.
-    - Deskew on a partial card image picks up background/hand pixels and
-      applies large incorrect rotations that break OCR.
-    The MRZ is always at the physical bottom of a correctly-held registration
-    certificate, so a generous bottom crop (38 %) reliably captures it without
-    orientation guessing.  Bilateral + CLAHE + glare inpaint are still applied
-    to improve contrast on laminated card surfaces.
-    """
-    img = _decode(image_bytes)   # EXIF rotation applied here
+    """Crop + light-preprocess the MRZ zone (bottom 38 % of image)."""
+    img = _decode(image_bytes)
     img = _resize(img)
     h = img.shape[0]
     mrz = img[int(h * 0.62):, :]
@@ -162,23 +70,8 @@ def crop_mrz_zone(image_bytes: bytes) -> np.ndarray:
 
 # ── private helpers ────────────────────────────────────────────────────────────
 
-def _resize(img: np.ndarray) -> np.ndarray:
-    """Resize so the longest side does not exceed MAX_DIM (prevents OOM on high-res photos)."""
-    h, w = img.shape[:2]
-    longest = max(h, w)
-    if longest <= MAX_DIM:
-        return img
-    scale = MAX_DIM / longest
-    return cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-
-
 def _decode(image_bytes: bytes) -> np.ndarray:
-    """Decode image bytes to BGR, applying EXIF orientation if present.
-
-    OpenCV's imdecode ignores EXIF rotation tags, producing upside-down or
-    sideways images for phone photos.  PIL reads EXIF and corrects orientation
-    before we convert back to a BGR numpy array for OpenCV.
-    """
+    """Decode image bytes to BGR, applying EXIF orientation if present."""
     pil_img = Image.open(io.BytesIO(image_bytes))
     pil_img = _apply_exif_orientation(pil_img)
     rgb = np.array(pil_img.convert("RGB"))
@@ -206,44 +99,13 @@ def _apply_exif_orientation(img: Image.Image) -> Image.Image:
     return img
 
 
-def _upscale_for_ocr(img: np.ndarray) -> np.ndarray:
-    """Upscale image so its longest side reaches OCR_MIN_DIM (≈ 300 DPI equivalent).
-
-    Perspective-cropped regions are often much smaller than the original photo.
-    Tesseract accuracy degrades sharply below ~150 DPI; upscaling with Lanczos4
-    recovers text edge sharpness without introducing blocking artifacts.
-    Does nothing if the image is already large enough.
-    """
+def _resize(img: np.ndarray) -> np.ndarray:
     h, w = img.shape[:2]
     longest = max(h, w)
-    if longest >= OCR_MIN_DIM:
+    if longest <= MAX_DIM:
         return img
-    scale = OCR_MIN_DIM / longest
-    return cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LANCZOS4)
-
-
-def _sharpen(img: np.ndarray) -> np.ndarray:
-    """Unsharp mask — enhances text edge contrast without amplifying coarse noise.
-
-    σ=1.5 chosen empirically: wins over σ=2.0 in 7/13 fixture images and ties
-    in the rest.  A smaller sigma makes the mask more targeted to fine strokes
-    (font lines) rather than coarser gradients (background texture).
-    """
-    blurred = cv2.GaussianBlur(img, (0, 0), sigmaX=1.5)
-    return cv2.addWeighted(img, 1.5, blurred, -0.5, 0)
-
-
-def _gamma_correct(img: np.ndarray, gamma: float = 1.5) -> np.ndarray:
-    """Apply gamma correction to lift underexposed images.
-
-    gamma > 1 brightens the image (lifts shadows), gamma < 1 darkens it.
-    Applies the same LUT to all channels so colour balance is preserved.
-    """
-    inv_gamma = 1.0 / gamma
-    table = np.array(
-        [(i / 255.0) ** inv_gamma * 255 for i in range(256)], dtype=np.uint8
-    )
-    return cv2.LUT(img, table)
+    scale = MAX_DIM / longest
+    return cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
 
 
 def _bilateral(img: np.ndarray) -> np.ndarray:
@@ -255,16 +117,11 @@ def _clahe(img: np.ndarray) -> np.ndarray:
     l, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
     l = clahe.apply(l)
-    merged = cv2.merge((l, a, b))
-    return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
+    return cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
 
 
 def _mask_glare(img: np.ndarray) -> np.ndarray:
-    """Remove laminate glare via inpainting (reconstructs texture under highlights).
-
-    Replaces overexposed pixels using Navier-Stokes inpainting rather than
-    flat grey fill — preserves text that partially overlaps with the glare.
-    """
+    """Remove laminate glare via inpainting."""
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, np.array([0, 0, 220]), np.array([180, 30, 255]))
     if not mask.any():
@@ -272,110 +129,3 @@ def _mask_glare(img: np.ndarray) -> np.ndarray:
     kernel = np.ones((3, 3), np.uint8)
     mask_dilated = cv2.dilate(mask, kernel, iterations=1)
     return cv2.inpaint(img, mask_dilated, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
-
-
-def preprocess_stages(
-    image_bytes: bytes,
-    points: list[list[float]] | None = None,
-    step: int = 1,
-) -> list[tuple[str, "np.ndarray"]]:
-    """Return (name, image) pairs for each preprocessing stage.
-
-    Used by the debug pipeline endpoint to visualize what Tesseract actually sees.
-    When *points* are provided the perspective crop is applied first (before
-    bilateral / CLAHE / glare-mask), so the stage list mirrors the real pipeline.
-    """
-    stages: list[tuple[str, np.ndarray]] = []
-
-    if points is not None:
-        cropped = perspective_crop(image_bytes, points)
-        img = _decode(cropped)
-    else:
-        img = _decode(image_bytes)
-
-    img = _resize(img)
-    stages.append(("original", img.copy()))
-
-    if step == 1:
-        # Step-1 MRZ pipeline: bilateral → CLAHE → glare → crop → Otsu
-        img = _bilateral(img)
-        stages.append(("after_bilateral", img.copy()))
-        img = _clahe(img)
-        stages.append(("after_clahe", img.copy()))
-        img = _mask_glare(img)
-        stages.append(("after_glare_mask", img.copy()))
-        h = img.shape[0]
-        mrz_crop = img[int(h * 0.62):, :]
-        stages.append(("mrz_crop_final", mrz_crop.copy()))
-        gray = cv2.cvtColor(mrz_crop, cv2.COLOR_BGR2GRAY) if mrz_crop.ndim == 3 else mrz_crop.copy()
-        stages.append(("after_grayscale", gray.copy()))
-        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        stages.append(("paddle_input", binary.copy()))
-    else:
-        # Steps 2/3: adaptive pipeline mirrors preprocess_step23() exactly
-        img = _upscale_for_ocr(img)
-        gray0 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
-        mean_brightness = float(np.mean(gray0))
-
-        if mean_brightness < 110:
-            gamma_val = 2.0 if mean_brightness < 70 else 1.5
-            img = _gamma_correct(img, gamma_val)
-            stages.append((f"after_gamma_{gamma_val}", img.copy()))
-
-        img = _bilateral(img)
-        stages.append(("after_bilateral", img.copy()))
-
-        gray_bi = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
-        if float(np.std(gray_bi)) < 50:
-            img = _clahe(img)
-            stages.append(("after_clahe", img.copy()))
-
-        img = _mask_glare(img)
-        stages.append(("after_glare_mask", img.copy()))
-
-        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-        l_ch, a_ch, b_ch = cv2.split(lab)
-        l_ch = _sharpen(l_ch)
-        sharpened_bgr = cv2.cvtColor(cv2.merge((l_ch, a_ch, b_ch)), cv2.COLOR_LAB2BGR)
-        stages.append(("after_sharpen", sharpened_bgr.copy()))
-        stages.append(("paddle_input", sharpened_bgr.copy()))
-
-    return stages
-
-
-def _auto_orient(img: np.ndarray) -> np.ndarray:
-    """Rotate portrait images 90° CCW so text runs horizontally.
-
-    Open-booklet photos are often taken with the document oriented sideways
-    (pages run top-to-bottom in the photo). Detecting this: if the image is
-    significantly taller than wide AND gradient energy is higher on the
-    vertical axis (text columns), rotate 90° CCW.
-    """
-    h, w = img.shape[:2]
-    if h <= w * 1.3:          # already roughly landscape or square — skip
-        return img
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0)
-    gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1)
-    ex = float(np.sum(np.abs(gx)))
-    ey = float(np.sum(np.abs(gy)))
-    # If vertical gradients dominate, text is running top-to-bottom → rotate CCW
-    if ey > ex * 1.2:
-        return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    return img
-
-
-def _deskew_color(img: np.ndarray) -> np.ndarray:
-    """Correct skew on a BGR color image."""
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    coords = np.column_stack(np.where(gray < 128))
-    if len(coords) < 10:
-        return img
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = 90.0 + angle
-    if abs(angle) < 0.5:
-        return img
-    h, w = img.shape[:2]
-    M = cv2.getRotationMatrix2D((w // 2, h // 2), angle, 1.0)
-    return cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
