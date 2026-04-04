@@ -16,6 +16,7 @@ import { OcrScanEntity } from './entities/ocr-scan.entity';
 import { TenantContextModule } from '../../common/tenant-context/tenant-context.module';
 import { OcrAnalyticsController } from './ocr-analytics.controller';
 import { OcrAnalyticsService } from './ocr-analytics.service';
+import { TalonProxyController } from './talon-proxy.controller';
 import { EmailService } from '../../common/email/email.service';
 
 @Module({
@@ -25,7 +26,7 @@ import { EmailService } from '../../common/email/email.service';
     MulterModule.register({ storage: memoryStorage() }),
     TenantContextModule,
   ],
-  controllers: [OcrController, OcrAnalyticsController],
+  controllers: [OcrController, OcrAnalyticsController, TalonProxyController],
   providers: [
     OcrService,
     OcrJobRepository,

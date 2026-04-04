@@ -26,7 +26,7 @@ class BranivoOcrRepository implements OcrRepository {
 
   static Dio _buildDio() => Dio(
         BaseOptions(
-          baseUrl: ApiEndpoints.ocrServiceBaseUrl,
+          baseUrl: ApiEndpoints.baseUrl,
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 120),
         ),
@@ -104,7 +104,7 @@ class BranivoOcrRepository implements OcrRepository {
     }
 
     final response = await _dio.post<Map<String, dynamic>>(
-      '/ocr/talon',
+      '/api/v1/ocr/talon',
       queryParameters: {'step': step, 'debug': true},
       data: FormData.fromMap(fields),
     );
