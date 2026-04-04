@@ -1,11 +1,18 @@
-"""Image preprocessing utilities for Bulgarian vehicle registration certificates.
+"""Minimal image preprocessing for branivo-ocr.
 
-Three public functions (Claude Vision does not need heavy preprocessing):
-  perspective_crop  — 4-point perspective correction (corner-crop UI)
-  light_preprocess  — bilateral + CLAHE + glare mask (used by /preview debug endpoint)
-  crop_mrz_zone     — crops + lightly preprocesses the bottom 38 % (MRZ band)
+Claude Vision works best with the original, unprocessed photo — no blurring,
+no CLAHE, no glare inpainting.
 
-All operations are in-memory — no disk writes.
+Only one public function is exposed:
+  perspective_crop  — 4-point perspective correction when the Flutter crop
+                      editor provides corner points.  The image is returned
+                      as a JPEG.  If no points are provided the original
+                      image bytes are passed to Claude as-is.
+
+EXIF orientation is corrected on decode so portrait/landscape photos from
+phones appear upright regardless of how the camera stored the metadata.
+The longest side is capped at 2048 px to prevent container OOM on
+high-res phone photos.
 """
 
 from __future__ import annotations
@@ -46,28 +53,6 @@ def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
     return buf.tobytes()
 
 
-def light_preprocess(image_bytes: bytes) -> np.ndarray:
-    """Light pipeline — returns BGR color image (used by /preview debug endpoint)."""
-    img = _decode(image_bytes)
-    img = _resize(img)
-    img = _bilateral(img)
-    img = _clahe(img)
-    img = _mask_glare(img)
-    return img
-
-
-def crop_mrz_zone(image_bytes: bytes) -> np.ndarray:
-    """Crop + light-preprocess the MRZ zone (bottom 38 % of image)."""
-    img = _decode(image_bytes)
-    img = _resize(img)
-    h = img.shape[0]
-    mrz = img[int(h * 0.62):, :]
-    mrz = _bilateral(mrz)
-    mrz = _clahe(mrz)
-    mrz = _mask_glare(mrz)
-    return mrz
-
-
 # ── private helpers ────────────────────────────────────────────────────────────
 
 def _decode(image_bytes: bytes) -> np.ndarray:
@@ -106,26 +91,3 @@ def _resize(img: np.ndarray) -> np.ndarray:
         return img
     scale = MAX_DIM / longest
     return cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-
-
-def _bilateral(img: np.ndarray) -> np.ndarray:
-    return cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
-
-
-def _clahe(img: np.ndarray) -> np.ndarray:
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    l = clahe.apply(l)
-    return cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
-
-
-def _mask_glare(img: np.ndarray) -> np.ndarray:
-    """Remove laminate glare via inpainting."""
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, np.array([0, 0, 220]), np.array([180, 30, 255]))
-    if not mask.any():
-        return img
-    kernel = np.ones((3, 3), np.uint8)
-    mask_dilated = cv2.dilate(mask, kernel, iterations=1)
-    return cv2.inpaint(img, mask_dilated, inpaintRadius=3, flags=cv2.INPAINT_TELEA)

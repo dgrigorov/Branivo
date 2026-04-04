@@ -27,7 +27,7 @@ import anthropic
 
 logger = logging.getLogger("branivo.ocr")
 
-MODEL = "claude-opus-4-6"
+MODEL = "claude-sonnet-4-6"
 TIMEOUT = 30.0
 MAX_RETRIES = 1
 

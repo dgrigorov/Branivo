@@ -23,7 +23,6 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
-import cv2
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
 from models.talon_response import TalonData, TalonResponse
@@ -69,7 +68,7 @@ async def debug_preview(
     step: int = Query(..., ge=1, le=3),
     points: Optional[str] = Form(None),
 ) -> dict:
-    """Debug: return the preprocessed image as base64 JPEG."""
+    """Debug: return the image that will be sent to Claude (perspective-cropped if points provided)."""
     image_bytes = await file.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
@@ -78,11 +77,8 @@ async def debug_preview(
     if pts is not None:
         image_bytes = preprocessor.perspective_crop(image_bytes, pts)
 
-    img = preprocessor.crop_mrz_zone(image_bytes) if step == 1 else preprocessor.light_preprocess(image_bytes)
-
-    _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 75])
-    b64 = base64.b64encode(buf).decode("utf-8")
-    return {"step": step, "image_b64": b64, "shape": list(img.shape[:2])}
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    return {"step": step, "image_b64": b64}
 
 
 # ── step handlers ──────────────────────────────────────────────────────────────
