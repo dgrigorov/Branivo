@@ -9,20 +9,14 @@ import type { Quad } from './crop-editor';
 interface PipelineStage {
   name: string;
   image_b64: string;
-  shape: [number, number];
-}
-
-interface OcrDebugInfo {
-  ocr_confidence: number;
-  field_confidence: number;
-  parsed_fields: Record<string, string | number>;
 }
 
 interface OcrDebugResult {
   success: boolean;
   confidence: number;
+  data?: Record<string, string | number | null>;
   raw_text?: string;
-  debug_info?: OcrDebugInfo;
+  debug_info?: Record<string, Record<string, string | number | null>>;
 }
 
 interface FetchedData {
@@ -44,9 +38,19 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 const FIELD_LABELS: Record<string, string> = {
-  vin: 'VIN', registrationNumber: 'Рег. номер', ownerName: 'Собственик',
-  egn: 'ЕГН', make: 'Марка', model: 'Модел', year: 'Година',
-  fuel: 'Гориво', engine: 'Двигател', seats: 'Места',
+  vin: 'VIN',
+  registrationNumber: 'Рег. номер',
+  ownerLastName: 'Фамилия',
+  ownerFirstName: 'Собствено',
+  ownerMiddleName: 'Презиме',
+  ownerAddress: 'Адрес',
+  egn: 'ЕГН',
+  make: 'Марка',
+  model: 'Модел',
+  year: 'Година',
+  fuel: 'Гориво',
+  engine: 'Двигател',
+  seats: 'Места',
   firstRegistration: 'Първа регистрация',
 };
 
@@ -177,7 +181,6 @@ function OcrPipelineDebug({ imageFile, points, step, label }: OcrPipelineDebugPr
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={src} alt={alt} className="h-24 w-auto rounded border border-gray-300 object-contain" />
                   <span className="max-w-16 text-center text-xs text-gray-700">{alt}</span>
-                  <span className="text-xs text-gray-400">{stage.shape[1]}×{stage.shape[0]}</span>
                 </button>
               );
             })}
@@ -193,14 +196,16 @@ function OcrPipelineDebug({ imageFile, points, step, label }: OcrPipelineDebugPr
                 </span>
               </div>
 
-              {data.ocr.debug_info && Object.keys(data.ocr.debug_info.parsed_fields).length > 0 && (
+              {data.ocr.data && Object.keys(data.ocr.data).length > 0 && (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  {Object.entries(data.ocr.debug_info.parsed_fields).map(([k, v]) => (
-                    <div key={k} className="flex gap-1 text-xs">
-                      <span className="text-gray-500">{FIELD_LABELS[k] ?? k}:</span>
-                      <span className="font-medium text-gray-900">{String(v)}</span>
-                    </div>
-                  ))}
+                  {Object.entries(data.ocr.data)
+                    .filter(([, v]) => v !== null && v !== undefined)
+                    .map(([k, v]) => (
+                      <div key={k} className="flex gap-1 text-xs">
+                        <span className="text-gray-500">{FIELD_LABELS[k] ?? k}:</span>
+                        <span className="font-medium text-gray-900">{String(v)}</span>
+                      </div>
+                    ))}
                 </div>
               )}
 
