@@ -47,8 +47,8 @@ class ApiEndpoints {
   // Vehicle enrichment
   static String get vehicleEnrich => '$_baseUrl/api/v1/vehicles/enrich';
 
-  // branivo-ocr Python microservice (proxied through NestJS /api/v1/ocr/talon)
-  static String ocrTalon(int step) => '$_baseUrl/api/v1/ocr/talon?step=$step';
+  // branivo-ocr Python microservice
+  static String ocrTalon(int step) => '$_ocrServiceUrl/ocr/talon?step=$step';
 
   // Health
   static String get health => '$_baseUrl/health';
