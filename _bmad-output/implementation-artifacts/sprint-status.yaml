@@ -140,7 +140,7 @@ development_status:
   22-2-broker-password-reset-flow: done               # КРИТИЧНО — operational blocker
   22-3-gdpr-client-data-export: done                    # Законово задължително (FR63)
   22-4-pwa-browser-push-notifications: done    # Phase 1 requirement (FR42)
-  22-5-guarantee-fund-api-integration: backlog        # Phase 1 requirement (FR20)
+  22-5-guarantee-fund-api-integration: done             # Phase 1 requirement (FR20)
   22-6-terraform-iac-infrastructure: backlog          # Infrastructure (NFR38)
   epic-22-retrospective: optional
 

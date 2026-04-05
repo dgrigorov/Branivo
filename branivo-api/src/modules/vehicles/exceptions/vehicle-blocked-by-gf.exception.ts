@@ -4,7 +4,7 @@ export class VehicleBlockedByGfException extends ForbiddenException {
   constructor() {
     super({
       message:
-        'Вашето МПС има нерегламентиран статус и не може да бъде застраховано.',
+        'Проверката на МПС показа нередност. Моля, свържете се с брокера.',
       code: 'GF_BLOCKED',
     });
   }

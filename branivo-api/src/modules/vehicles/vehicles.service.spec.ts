@@ -13,6 +13,7 @@ import { ValidateVehicleDto } from './dto/validate-vehicle.dto';
 import { VehiclesRepository } from './vehicles.repository';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { Vehicle } from './entities/vehicle.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const VALID_VIN = 'WVWZZZ3BZ3E123456';
 const SESSION_TOKEN = 'test-session-token';
@@ -37,6 +38,10 @@ const mockVehiclesRepository = {
   save: jest.fn(),
   findByOwner: jest.fn(),
   findByOwnerAndId: jest.fn(),
+};
+
+const mockNotificationsService = {
+  notifyBroker: jest.fn().mockResolvedValue(true),
 };
 
 function buildVehicle(overrides: Partial<Vehicle> = {}): Vehicle {
@@ -65,6 +70,7 @@ function buildService(): VehiclesService {
     mockGfAdapter as unknown as GarantsionenFondAdapter,
     mockRedis as unknown as Redis,
     mockVehiclesRepository as unknown as VehiclesRepository,
+    mockNotificationsService as unknown as NotificationsService,
   );
 }
 
@@ -153,8 +159,8 @@ describe('VehiclesService — validateVehicle', () => {
     expect(result.canProceedToQuote).toBe(true);
   });
 
-  // Test 4: KAT OK + GF flagged → VehicleBlockedByGfException, session updated with gf_blocked
-  it('KAT OK + GF flagged → VehicleBlockedByGfException, session gf_blocked', async () => {
+  // Test 4: KAT OK + GF flagged → VehicleBlockedByGfException, session updated + broker notified
+  it('KAT OK + GF flagged → VehicleBlockedByGfException, session gf_blocked + broker notified', async () => {
     mockKatAdapter.validateVin.mockResolvedValue({
       available: true,
       status: 'ok',
@@ -173,6 +179,34 @@ describe('VehiclesService — validateVehicle', () => {
       172800,
       expect.stringContaining('"validation_status":"gf_blocked"'),
     );
+    // Allow broker notification promise to resolve
+    await new Promise((r) => setImmediate(r));
+    expect(mockNotificationsService.notifyBroker).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tid',
+        subject: 'МПС с нередовен статус',
+      }),
+    );
+  });
+
+  // Test 4b: KAT OK + GF flagged + no session tenant_id → broker notification NOT sent
+  it('KAT OK + GF flagged + no session → VehicleBlockedByGfException, broker NOT notified', async () => {
+    mockKatAdapter.validateVin.mockResolvedValue({
+      available: true,
+      status: 'ok',
+    });
+    mockGfAdapter.checkVehicle.mockResolvedValue({
+      flagged: true,
+      source: 'api',
+    });
+    mockRedis.get.mockResolvedValue(null); // No session
+
+    await expect(
+      service.validateVehicle(validDto(), SESSION_TOKEN),
+    ).rejects.toThrow(VehicleBlockedByGfException);
+
+    await new Promise((r) => setImmediate(r));
+    expect(mockNotificationsService.notifyBroker).not.toHaveBeenCalled();
   });
 
   // Test 5: KAT OK + GF unavailable → gfStatus: 'unavailable', proceed allowed

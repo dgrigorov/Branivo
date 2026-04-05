@@ -223,7 +223,7 @@ export class OcrService {
     }
   }
 
-  private async updateAnonymousSession(
+  async updateAnonymousSession(
     sessionToken: string,
     tenantId: string,
     ocrResult: OcrFieldResult,

@@ -27,6 +27,14 @@ void main() {
     validatedAt: '2026-03-19T10:00:00.000Z',
   );
 
+  final gfUnavailableResult = VehicleValidationResult(
+    canProceedToQuote: true,
+    katStatus: 'ok',
+    gfStatus: 'unavailable',
+    vinValid: true,
+    validatedAt: '2026-03-19T10:00:00.000Z',
+  );
+
   setUp(() {
     mockRepository = MockVehicleApiRepository();
   });
@@ -121,7 +129,47 @@ void main() {
       ).called(1);
     });
 
-    // Test 5: VIN invalid → VehicleValidationError
+    // Test 5: GF unavailable → VehicleValidationGfUnavailable (AC4 — shows warning, does not auto-navigate)
+    test('ValidateVehicleEvent → GF unavailable → VehicleValidationGfUnavailable', () async {
+      when(
+        () => mockRepository.validateVehicle(vin, licensePlate),
+      ).thenAnswer((_) async => gfUnavailableResult);
+
+      final bloc = buildBloc();
+      bloc.add(const ValidateVehicleEvent(vin: vin, licensePlate: licensePlate));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          isA<VehicleValidationLoading>(),
+          isA<VehicleValidationGfUnavailable>(),
+        ]),
+      );
+    });
+
+    // Test 6: KatManualConfirm + GF unavailable → VehicleValidationGfUnavailable
+    test('KatManualConfirmEvent + GF unavailable → VehicleValidationGfUnavailable', () async {
+      when(
+        () => mockRepository.validateVehicle(
+          vin,
+          licensePlate,
+          katManuallyConfirmed: true,
+        ),
+      ).thenAnswer((_) async => gfUnavailableResult);
+
+      final bloc = buildBloc();
+      bloc.add(KatManualConfirmEvent(vin: vin, licensePlate: licensePlate));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          isA<VehicleValidationLoading>(),
+          isA<VehicleValidationGfUnavailable>(),
+        ]),
+      );
+    });
+
+    // Test 7: VIN invalid → VehicleValidationError
     test('ValidateVehicleEvent with invalid VIN → VehicleValidationError', () async {
       when(
         () => mockRepository.validateVehicle(vin, licensePlate),

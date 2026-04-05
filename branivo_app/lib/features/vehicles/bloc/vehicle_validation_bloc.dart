@@ -32,12 +32,14 @@ class VehicleValidationBloc
         emit(VehicleValidationKatFallback(
           'Не успяхме да верифицираме VIN автоматично. Моля, проверете ръчно.',
         ));
+      } else if (result.gfStatus == 'unavailable') {
+        emit(const VehicleValidationGfUnavailable());
       } else {
         emit(VehicleValidationSuccess(result));
       }
     } on VehicleGfBlockedException {
       emit(const VehicleValidationGfBlocked(
-        'Вашето МПС има нерегламентиран статус и не може да бъде застраховано.',
+        'Проверката на МПС показа нередност. Моля, свържете се с брокера.',
       ));
     } on VehicleVinInvalidException {
       emit(const VehicleValidationError('VIN невалиден формат'));
@@ -58,10 +60,14 @@ class VehicleValidationBloc
         event.licensePlate,
         katManuallyConfirmed: true,
       );
-      emit(VehicleValidationSuccess(result));
+      if (result.gfStatus == 'unavailable') {
+        emit(const VehicleValidationGfUnavailable());
+      } else {
+        emit(VehicleValidationSuccess(result));
+      }
     } on VehicleGfBlockedException {
       emit(const VehicleValidationGfBlocked(
-        'Вашето МПС има нерегламентиран статус и не може да бъде застраховано.',
+        'Проверката на МПС показа нередност. Моля, свържете се с брокера.',
       ));
     } catch (e) {
       log('VehicleValidationBloc KatManualConfirm error', error: e);

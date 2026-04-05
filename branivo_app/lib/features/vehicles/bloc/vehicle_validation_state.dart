@@ -27,6 +27,10 @@ class VehicleValidationKatFallback extends VehicleValidationState {
   final String message;
 }
 
+class VehicleValidationGfUnavailable extends VehicleValidationState {
+  const VehicleValidationGfUnavailable();
+}
+
 class VehicleValidationError extends VehicleValidationState {
   const VehicleValidationError(this.message);
   final String message;
