@@ -18,6 +18,7 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { VehicleResponseDto } from './dto/vehicle-response.dto';
 import { VehiclesRepository } from './vehicles.repository';
 import { Vehicle } from './entities/vehicle.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const VIN_REGEX = /^[A-HJ-NPR-Z0-9]{17}$/;
 const SESSION_TTL_SECONDS = 172800; // 48h
@@ -38,6 +39,7 @@ export class VehiclesService {
     private readonly gfAdapter: GarantsionenFondAdapter,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly vehiclesRepository: VehiclesRepository,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async saveVehicle(
@@ -97,6 +99,7 @@ export class VehiclesService {
       });
     }
 
+    const tenantId = await this.extractTenantIdFromSession(sessionToken);
     const katStatus = await this.runKatValidation(dto.vin);
 
     if (katStatus === 'failed') {
@@ -113,6 +116,17 @@ export class VehiclesService {
       if (err instanceof VehicleBlockedByGfException) {
         const blocked = this.buildResult(false, katStatus, 'flagged');
         await this.updateValidationStatus(sessionToken, blocked);
+        if (tenantId) {
+          void this.notificationsService
+            .notifyBroker({
+              tenantId,
+              subject: 'МПС с нередовен статус',
+              message: `МПС с VIN <strong>${dto.vin}</strong> (рег. №: ${dto.licensePlate}) е блокирано от Гаранционен фонд. Необходима е ръчна проверка.`,
+            })
+            .catch((notifErr: unknown) =>
+              this.logger.error('GF broker notification failed', notifErr),
+            );
+        }
         throw err;
       }
       throw err;
@@ -199,6 +213,21 @@ export class VehiclesService {
       vinValid: true,
       validatedAt: new Date().toISOString(),
     };
+  }
+
+  private async extractTenantIdFromSession(
+    sessionToken: string,
+  ): Promise<string | null> {
+    if (!sessionToken) return null;
+    try {
+      const sessionKey = `anon:${sessionToken}:session`;
+      const raw = await this.redis.get(sessionKey);
+      if (!raw) return null;
+      const data = JSON.parse(raw) as AnonSessionData;
+      return typeof data.tenant_id === 'string' ? data.tenant_id : null;
+    } catch {
+      return null;
+    }
   }
 
   private async updateValidationStatus(

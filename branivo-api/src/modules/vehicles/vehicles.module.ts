@@ -11,6 +11,7 @@ import { Vehicle } from './entities/vehicle.entity';
 import { VehicleEnrichmentController } from './vehicle-enrichment.controller';
 import { VehicleEnrichmentService } from './vehicle-enrichment.service';
 import { Policy } from '../policies/entities/policy.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { Policy } from '../policies/entities/policy.entity';
       maxRedirects: 2,
     }),
     TenantContextModule,
+    NotificationsModule,
   ],
   controllers: [VehiclesController, VehicleEnrichmentController],
   providers: [

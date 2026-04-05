@@ -413,6 +413,7 @@ class _SuccessView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isGfUnavailable = state.result.gfStatus == 'unavailable';
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -433,6 +434,31 @@ class _SuccessView extends StatelessWidget {
             'КАТ: ${state.result.katStatus} · ГФ: ${state.result.gfStatus}',
             style: const TextStyle(color: _kTextSub, fontSize: 13),
           ),
+          if (isGfUnavailable) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withAlpha(20),
+                border: Border.all(color: Colors.amber.withAlpha(80)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.amber, size: 18),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Проверката на МПС не е налична — брокерът ще верифицира ръчно.',
+                      style: TextStyle(
+                          color: Colors.amber, fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

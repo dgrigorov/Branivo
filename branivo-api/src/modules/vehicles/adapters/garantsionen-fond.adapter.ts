@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom, timeout, catchError } from 'rxjs';
+import CircuitBreaker from 'opossum';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../../infrastructure/redis/redis.module';
 import { GfApiUnavailableError } from '../exceptions/gf-api-unavailable.exception';
@@ -29,6 +30,7 @@ export class GarantsionenFondAdapter {
   private readonly logger = new Logger(GarantsionenFondAdapter.name);
   private readonly gfApiBaseUrl: string;
   private readonly gfApiKey: string;
+  private readonly breaker: CircuitBreaker;
 
   constructor(
     private readonly httpService: HttpService,
@@ -37,6 +39,25 @@ export class GarantsionenFondAdapter {
   ) {
     this.gfApiBaseUrl = this.config.get<string>('GF_API_BASE_URL') ?? '';
     this.gfApiKey = this.config.get<string>('GF_API_KEY') ?? '';
+
+    this.breaker = new CircuitBreaker(
+      async (fn: () => Promise<GfCheckResult>) => fn(),
+      {
+        timeout: 3000,
+        volumeThreshold: 5,
+        resetTimeout: 30000,
+        errorThresholdPercentage: 50,
+      },
+    );
+    this.breaker.on('open', () =>
+      this.logger.warn('GF API circuit breaker OPEN'),
+    );
+    this.breaker.on('halfOpen', () =>
+      this.logger.log('GF API circuit breaker HALF-OPEN'),
+    );
+    this.breaker.on('close', () =>
+      this.logger.log('GF API circuit breaker CLOSED'),
+    );
   }
 
   async checkVehicle(
@@ -56,6 +77,24 @@ export class GarantsionenFondAdapter {
     }
 
     try {
+      const result = await (this.breaker.fire(() =>
+        this.callGfApi(vin, licensePlate, cacheKey),
+      ) as Promise<GfCheckResult>);
+      return result;
+    } catch (err) {
+      if (err instanceof GfApiUnavailableError) throw err;
+      // Circuit breaker open or other error
+      this.logger.error('GF API circuit/unexpected error', err);
+      throw new GfApiUnavailableError();
+    }
+  }
+
+  private async callGfApi(
+    vin: string,
+    licensePlate: string,
+    cacheKey: string,
+  ): Promise<GfCheckResult> {
+    try {
       const response = await firstValueFrom(
         this.httpService
           .post<GfApiResponse>(
@@ -64,7 +103,7 @@ export class GarantsionenFondAdapter {
             { headers: { Authorization: `Bearer ${this.gfApiKey}` } },
           )
           .pipe(
-            timeout(5000),
+            timeout(3000),
             catchError((err: unknown) => {
               this.logger.error('GF API HTTP/timeout error', err);
               throw new GfApiUnavailableError();
