@@ -1,6 +1,7 @@
 'use client';
 
 import { PillToggle } from './pill-toggle';
+import { SelectField } from '@/components/ui/select-field';
 import type { DetailsData } from '../hooks/use-wizard-state';
 
 interface StepDetailsProps {
@@ -51,32 +52,30 @@ export function StepDetails({ data, onChange, onNext }: StepDetailsProps) {
         <label htmlFor="experience" className="mb-1 block text-sm font-medium text-gray-700">
           Шофьорски стаж
         </label>
-        <select
+        <SelectField
           id="experience"
           value={data.experience}
           onChange={(e) => set('experience', e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-[var(--color-primary,#2563eb)] focus:outline-none"
         >
           {EXPERIENCE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
-        </select>
+        </SelectField>
       </div>
 
       <div>
         <label htmlFor="usage" className="mb-1 block text-sm font-medium text-gray-700">
           Автомобилът се използва за
         </label>
-        <select
+        <SelectField
           id="usage"
           value={data.usage}
           onChange={(e) => set('usage', e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-[var(--color-primary,#2563eb)] focus:outline-none"
         >
           {USAGE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
-        </select>
+        </SelectField>
       </div>
 
       <div>

@@ -30,17 +30,11 @@ class PaymentApiRepository {
 
   Future<PaymentIntentResponse> createPaymentIntent({
     required String quoteId,
-    required String bearerToken,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/v1/payments/intent',
       data: {'quoteId': quoteId},
-      options: Options(
-        headers: {'Authorization': 'Bearer $bearerToken'},
-      ),
     );
-    return PaymentIntentResponse.fromJson(
-      response.data!,
-    );
+    return PaymentIntentResponse.fromJson(response.data!);
   }
 }

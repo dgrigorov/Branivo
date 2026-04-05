@@ -8,7 +8,6 @@ import 'package:branivo_app/features/payments/data/payment_api_repository.dart';
 class MockPaymentApiRepository extends Mock implements PaymentApiRepository {}
 
 const _quoteId = 'quote-uuid-001';
-const _bearerToken = 'test-bearer-token';
 
 final _mockResponse = PaymentIntentResponse(
   clientSecret: 'pi_test_secret_123',
@@ -23,7 +22,7 @@ void main() {
 
   setUp(() {
     mockRepo = MockPaymentApiRepository();
-    bloc = PaymentBloc(paymentRepo: mockRepo, bearerToken: _bearerToken);
+    bloc = PaymentBloc(paymentRepo: mockRepo);
   });
 
   tearDown(() {
@@ -33,10 +32,7 @@ void main() {
   group('PaymentIntentRequestedEvent', () {
     test('emits LoadingState then ReadyState on success', () async {
       when(
-        () => mockRepo.createPaymentIntent(
-          quoteId: _quoteId,
-          bearerToken: _bearerToken,
-        ),
+        () => mockRepo.createPaymentIntent(quoteId: _quoteId),
       ).thenAnswer((_) async => _mockResponse);
 
       bloc.add(const PaymentIntentRequestedEvent(quoteId: _quoteId));
@@ -57,10 +53,7 @@ void main() {
 
     test('emits LoadingState then FailedState on API error', () async {
       when(
-        () => mockRepo.createPaymentIntent(
-          quoteId: _quoteId,
-          bearerToken: _bearerToken,
-        ),
+        () => mockRepo.createPaymentIntent(quoteId: _quoteId),
       ).thenThrow(Exception('Network error'));
 
       bloc.add(const PaymentIntentRequestedEvent(quoteId: _quoteId));
@@ -99,10 +92,7 @@ void main() {
   group('PaymentCanceledEvent (AC6)', () {
     test('emits PaymentReadyState (not PaymentFailedState) when user cancels', () async {
       when(
-        () => mockRepo.createPaymentIntent(
-          quoteId: _quoteId,
-          bearerToken: _bearerToken,
-        ),
+        () => mockRepo.createPaymentIntent(quoteId: _quoteId),
       ).thenAnswer((_) async => _mockResponse);
 
       // Load PaymentIntent first to store clientSecret
@@ -137,10 +127,7 @@ void main() {
   group('PaymentRetryRequestedEvent', () {
     test('retries using same quoteId for idempotency (AC6)', () async {
       when(
-        () => mockRepo.createPaymentIntent(
-          quoteId: _quoteId,
-          bearerToken: _bearerToken,
-        ),
+        () => mockRepo.createPaymentIntent(quoteId: _quoteId),
       ).thenAnswer((_) async => _mockResponse);
 
       // Първо зареждаме intent
@@ -165,10 +152,7 @@ void main() {
 
       // createPaymentIntent трябва да е извикан 2 пъти с СЪЩИЯ quoteId
       verify(
-        () => mockRepo.createPaymentIntent(
-          quoteId: _quoteId,
-          bearerToken: _bearerToken,
-        ),
+        () => mockRepo.createPaymentIntent(quoteId: _quoteId),
       ).called(2);
     });
   });

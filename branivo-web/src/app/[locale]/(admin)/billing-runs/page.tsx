@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { webPost } from '@/lib/web-fetch';
 
 interface BillingRunBody {
   tenantId?: string;
@@ -23,17 +24,7 @@ interface InvoiceRow {
 }
 
 async function triggerBillingRun(body: BillingRunBody): Promise<BillingRunResponse> {
-  const res = await fetch('/api/v1/admin/billing/run', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(body),
-  });
-  const json = await res.json() as BillingRunResponse;
-  if (!res.ok) {
-    throw new Error(json.error ?? `HTTP ${res.status}`);
-  }
-  return json;
+  return webPost<BillingRunResponse>('/api/v1/admin/billing/run', body);
 }
 
 export default function AdminBillingPage() {

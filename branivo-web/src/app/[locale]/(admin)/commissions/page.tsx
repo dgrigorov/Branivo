@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { webFetch } from '@/lib/web-fetch';
 
 type ProductType = 'GO' | 'KASKO' | 'PROPERTY';
 
@@ -24,11 +25,7 @@ interface UpsertResponse {
 }
 
 async function fetchCommissions(): Promise<CommissionEntry[]> {
-  const res = await fetch('/api/v1/admin/commissions', {
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error('Грешка при зареждане на комисионни');
-  const body = await res.json() as CommissionsResponse;
+  const body = await webFetch<CommissionsResponse>('/api/v1/admin/commissions');
   return body.data;
 }
 
@@ -37,20 +34,14 @@ async function upsertCommission(
   productType: ProductType,
   ratePct: number,
 ): Promise<CommissionEntry> {
-  const res = await fetch(
+  const body = await webFetch<UpsertResponse>(
     `/api/v1/admin/commissions/${insurerId}/${productType}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ productType, ratePct }),
     },
   );
-  if (!res.ok) {
-    const body = await res.json() as { message?: string };
-    throw new Error(body.message ?? 'Грешка при запис на ставка');
-  }
-  const body = await res.json() as UpsertResponse;
   return body.data;
 }
 

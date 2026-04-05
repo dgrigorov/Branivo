@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { SelectField } from '@/components/ui/select-field';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -66,11 +67,11 @@ export function ChangeRoleModal({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Нова роля</label>
-            <select {...register('role')} className="w-full border rounded px-3 py-2 text-sm">
+            <SelectField {...register('role')}>
               <option value="broker_admin">Администратор</option>
               <option value="broker_agent">Брокер агент</option>
               <option value="broker_viewer">Само четене</option>
-            </select>
+            </SelectField>
             {errors.role && (
               <p className="text-red-500 text-xs mt-1">{errors.role.message}</p>
             )}

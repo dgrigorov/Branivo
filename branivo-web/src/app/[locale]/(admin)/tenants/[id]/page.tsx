@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { SelectField } from '@/components/ui/select-field';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useParams } from 'next/navigation';
+import { webFetch, webPost } from '@/lib/web-fetch';
 
 interface PendingDowngradeInfo {
   newPlan: string;
@@ -43,43 +45,26 @@ const PLAN_BADGE_COLORS: Record<string, string> = {
 };
 
 async function fetchTenantDetail(tenantId: string): Promise<TenantHealthDetail> {
-  const res = await fetch(`/api/v1/admin/health/${tenantId}`, {
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    if (res.status === 404) throw new Error('Тенантът не е намерен');
-    throw new Error('Грешка при зареждане на детайли');
-  }
-  return res.json() as Promise<TenantHealthDetail>;
+  return webFetch<TenantHealthDetail>(`/api/v1/admin/health/${tenantId}`);
 }
 
 async function fetchTierPreview(
   tenantId: string,
   newPlan: string,
 ): Promise<TierChangePreview> {
-  const res = await fetch(
+  return webFetch<TierChangePreview>(
     `/api/v1/admin/tenants/${tenantId}/subscription/preview?newPlan=${newPlan}`,
-    { credentials: 'include' },
   );
-  if (!res.ok) throw new Error('Грешка при зареждане на preview');
-  return res.json() as Promise<TierChangePreview>;
 }
 
 async function applyTierChange(
   tenantId: string,
   newPlan: string,
 ): Promise<TierChangePreview> {
-  const res = await fetch(
+  return webPost<TierChangePreview>(
     `/api/v1/admin/tenants/${tenantId}/subscription/tier`,
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newPlan }),
-    },
+    { newPlan },
   );
-  if (!res.ok) throw new Error('Грешка при промяна на план');
-  return res.json() as Promise<TierChangePreview>;
 }
 
 export default function TenantHealthDetailPage() {
@@ -281,10 +266,9 @@ export default function TenantHealthDetailPage() {
         )}
 
         <div className="mt-4 flex items-center gap-3">
-          <select
+          <SelectField
             value={selectedPlan}
             onChange={(e) => handlePlanSelect(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Избери нов план"
           >
             <option value="">Избери нов план</option>
@@ -293,7 +277,7 @@ export default function TenantHealthDetailPage() {
                 {PLAN_LABELS[plan] ?? plan}
               </option>
             ))}
-          </select>
+          </SelectField>
 
           <button
             onClick={() => void handlePreview()}

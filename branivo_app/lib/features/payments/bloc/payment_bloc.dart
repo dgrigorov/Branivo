@@ -5,7 +5,6 @@ import 'payment_state.dart';
 
 class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   final PaymentApiRepository _paymentRepo;
-  final String _bearerToken;
 
   /// Запазваме quoteId за retry (idempotency — същият quoteId → без дублиране)
   String? _currentQuoteId;
@@ -17,9 +16,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
 
   PaymentBloc({
     required PaymentApiRepository paymentRepo,
-    required String bearerToken,
   })  : _paymentRepo = paymentRepo,
-        _bearerToken = bearerToken,
         super(const PaymentInitialState()) {
     on<PaymentIntentRequestedEvent>(_onPaymentIntentRequested);
     on<PaymentConfirmedEvent>(_onPaymentConfirmed);
@@ -39,7 +36,6 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     try {
       final response = await _paymentRepo.createPaymentIntent(
         quoteId: event.quoteId,
-        bearerToken: _bearerToken,
       );
       _lastClientSecret = response.clientSecret;
       _lastAmount = response.amount;

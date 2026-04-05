@@ -38,6 +38,8 @@ import '../../features/payments/screens/policy_confirmation_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/anonymous_session/data/repositories/anonymous_session_repository.dart';
+import '../../features/auth/services/biometric_auth_service.dart';
+import '../../features/settings/screens/settings_screen.dart';
 
 /// Navigation extras for /fleet route
 class FleetRouteArgs {
@@ -87,6 +89,7 @@ class AuthGateRouteArgs {
 }
 
 const _storage = FlutterSecureStorage();
+final _biometricService = BiometricAuthService(storage: _storage);
 
 /// Routes accessible without authentication (anonymous users allowed).
 const _publicRoutes = {
@@ -168,8 +171,12 @@ class AppRouter {
             create: (_) => AuthBloc(
               dio: DioClient.instance,
               storage: _storage,
+              biometricService: _biometricService,
             ),
-            child: LoginScreen(authRedirect: redirect),
+            child: LoginScreen(
+              authRedirect: redirect,
+              biometricService: _biometricService,
+            ),
           );
         },
       ),
@@ -177,8 +184,15 @@ class AppRouter {
         path: '/',
         builder: (context, state) {
           final policyRepo = context.read<PolicyRepository>();
-          return BlocProvider(
-            create: (_) => PolicyWalletBloc(policyRepository: policyRepo),
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (_) => PolicyWalletBloc(policyRepository: policyRepo),
+              ),
+              RepositoryProvider<BiometricAuthService>.value(
+                value: _biometricService,
+              ),
+            ],
             child: const HomeScreen(),
           );
         },
@@ -335,7 +349,6 @@ class AppRouter {
           return BlocProvider(
             create: (_) => PaymentBloc(
               paymentRepo: repo,
-              bearerToken: '',
             ),
             child: PaymentScreen(
               quoteId: args.quoteId,
@@ -345,6 +358,12 @@ class AppRouter {
             ),
           );
         },
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => SettingsScreen(
+          biometricService: _biometricService,
+        ),
       ),
     ],
   );

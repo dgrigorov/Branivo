@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { webFetch, webPatch } from '@/lib/web-fetch';
 import { InviteTenantModal } from '@/components/admin/invite-tenant-modal';
 import { ConfirmStatusModal } from '@/components/admin/confirm-status-modal';
 import { useTenantView } from '@/lib/context/tenant-view-context';
@@ -49,22 +50,11 @@ const DEMO_CREDENTIALS: Record<string, DemoCredential[]> = {
 };
 
 async function fetchTenantsHealth(): Promise<TenantHealthSummary[]> {
-  const res = await fetch('/api/v1/admin/health', { credentials: 'include' });
-  if (!res.ok) throw new Error('Failed to fetch tenant health');
-  return res.json() as Promise<TenantHealthSummary[]>;
+  return webFetch<TenantHealthSummary[]>('/api/v1/admin/health');
 }
 
 async function updateTenantStatus(id: string, status: 'active' | 'suspended'): Promise<void> {
-  const res = await fetch(`/api/v1/admin/tenants/${id}/status`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ status }),
-  });
-  if (!res.ok && res.status !== 204) {
-    const body = await res.json() as { message?: string };
-    throw new Error(body.message ?? 'Грешка при смяна на статус');
-  }
+  await webPatch<unknown>(`/api/v1/admin/tenants/${id}/status`, { status });
 }
 
 interface StatusAction {

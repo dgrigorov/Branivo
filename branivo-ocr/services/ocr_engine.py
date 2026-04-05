@@ -134,7 +134,8 @@ _STEP3_PROMPT = (
     '"vehicleCategory": "vehicle category code from field J (e.g. M1, N1, L3)", '
     '"firstRegistration": "first registration date from field B in DD.MM.YYYY format (e.g. 13.05.2002)", '
     '"registrationValidity": "date of current registration from field I in DD.MM.YYYY format (e.g. 29.03.2018)", '
-    '"certNumber": "certificate serial number from № in the bottom-right corner — digits only (e.g. 008888485)"}\n'
+    '"certNumber": "certificate serial number from № in the bottom-right corner — digits only (e.g. 008888485)", '
+    '"euroStandard": "EURO emission standard from field V.9 — return exactly as printed, e.g. EURO 4, EURO 5, EURO 6 — this field is typically in the bottom-right area of the page"}\n'
     "Use null for any field you cannot read clearly."
 )
 

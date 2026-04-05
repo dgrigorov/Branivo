@@ -35,7 +35,10 @@ expected.json schema
   "step1": {
     "vin":                "WDDTESTVIN0000001",   ← null → field is not asserted
     "registrationNumber": "AA0000BB",
-    "ownerName":          "IVAN TESTOV PETROV",
+    "ownerLastName":      "ПЕТРОВ",            ← Cyrillic as printed on document
+    "ownerFirstName":     "ДАНИЕЛ",
+    "ownerMiddleName":    "ТЕСТОВ",
+    "ownerAddress":       null,                  ← null skips assertion
     "egn":                "0000000000"
   },
   "step2": {

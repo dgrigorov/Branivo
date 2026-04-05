@@ -39,7 +39,7 @@ router = APIRouter()
 COMPLETE_THRESHOLD = 0.90
 
 _STEP2_FIELDS = ["vin", "registrationNumber", "certNumber", "color", "make", "model", "year"]
-_STEP3_FIELDS = ["engine", "fuel", "seats", "firstRegistration"]
+_STEP3_FIELDS = ["engine", "fuel", "seats", "firstRegistration", "euroStandard"]
 
 
 @router.post("/talon", response_model=TalonResponse)
@@ -186,6 +186,7 @@ def _step_n(image_bytes: bytes, step: int, *, debug: bool = False) -> TalonRespo
             registrationValidity=extracted.get("registrationValidity"),
             certNumber=extracted.get("certNumber"),
             year=year_from_reg,
+            euroStandard=extracted.get("euroStandard"),
         )
 
     _log_step(step, confidence, extracted)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class PolicyConfirmationRouteArgs {
   const PolicyConfirmationRouteArgs({
@@ -66,11 +67,7 @@ class PolicyConfirmationScreen extends StatelessWidget {
   }
 
   void _onDownloadPdf(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('PDF ще бъде готов след потвърждение от застрахователя'),
-      ),
-    );
+    AppToast.info(context, 'PDF ще бъде готов след потвърждение от застрахователя');
   }
 }
 

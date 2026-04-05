@@ -119,9 +119,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (msg is String) return msg;
     }
     return switch (e.response?.statusCode) {
-      401 => 'Invalid credentials',
-      429 => 'Account locked. Try again later.',
-      _ => 'An error occurred. Please try again.',
+      401 => 'Невалидни данни за вход.',
+      429 => 'Акаунтът е заключен. Опитайте по-късно.',
+      _ => 'Възникна грешка. Моля, опитайте отново.',
     };
   }
 }
