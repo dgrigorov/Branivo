@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../vehicle_catalog/data/models/catalog_make_model.dart';
+import '../../vehicle_catalog/data/repositories/vehicle_catalog_repository.dart';
+import '../../vehicle_catalog/widgets/vehicle_catalog_picker.dart';
 import '../data/repositories/ocr_models.dart';
 import 'ocr_wizard_constants.dart';
 
@@ -12,6 +16,7 @@ class OcrResultsView extends StatefulWidget {
     required this.onManualEntry,
     this.rawText,
     this.debugImages,
+    this.catalogRepository,
   });
 
   final Map<String, OcrField> fields;
@@ -20,6 +25,8 @@ class OcrResultsView extends StatefulWidget {
   final String? rawText;
   /// Base64 JPEG previews of what Tesseract actually processed, one per step.
   final List<String>? debugImages;
+  /// When provided, make/model fields use the vehicle catalog picker.
+  final VehicleCatalogRepository? catalogRepository;
 
   @override
   State<OcrResultsView> createState() => _OcrResultsViewState();
@@ -36,6 +43,25 @@ class _OcrResultsViewState extends State<OcrResultsView> {
       for (final key in kFieldLabels.keys)
         key: TextEditingController(text: widget.fields[key]?.value ?? ''),
     };
+  }
+
+  void _onCatalogSelection(VehicleCatalogSelection? selection) {
+    if (selection == null) return;
+    setState(() {
+      _controllers['make']?.text = selection.makeName;
+      _controllers['model']?.text = selection.modelName ?? '';
+      _controllers['modification']?.text = selection.modificationName ?? '';
+      if (selection.powerKw != null) {
+        _controllers['power_kw']?.text = selection.powerKw.toString();
+      }
+      if (selection.engineSizeCc != null) {
+        _controllers['engine_volume']?.text =
+            selection.engineSizeCc.toString();
+      }
+      if (selection.engineType != null) {
+        _controllers['fuel_type']?.text = selection.engineType!;
+      }
+    });
   }
 
   @override
@@ -78,20 +104,117 @@ class _OcrResultsViewState extends State<OcrResultsView> {
                     const Divider(color: Colors.white12),
                     const SizedBox(height: 8),
                   ],
-                  ...kFieldLabels.entries.map(
-                    (e) => _FieldCard(
-                      label: e.value,
-                      fieldKey: e.key,
-                      field: widget.fields[e.key],
-                      controller: _controllers[e.key]!,
-                    ),
+                  _buildSection(
+                    icon: Icons.badge_outlined,
+                    title: 'Документ',
+                    keys: const ['license_plate', 'cert_number'],
                   ),
+                  _buildSection(
+                    icon: Icons.directions_car_rounded,
+                    title: 'Марка / Модел',
+                    keys: const [],
+                    catalogSlot: widget.catalogRepository != null
+                        ? _CatalogPickerCard(
+                            repository: widget.catalogRepository!,
+                            initialMakeText: widget.fields['make']?.value,
+                            initialModelText: widget.fields['model']?.value,
+                            initialModificationText: widget.fields['modification']?.value,
+                            onChanged: _onCatalogSelection,
+                          )
+                        : null,
+                    fallbackKeys: widget.catalogRepository == null
+                        ? const ['make', 'model', 'modification']
+                        : const [],
+                  ),
+                  _buildSection(
+                    icon: Icons.settings_outlined,
+                    title: 'Технически характеристики',
+                    keys: const [
+                      'year', 'color', 'engine_volume', 'power_kw',
+                      'fuel_type', 'seats', 'vehicle_category', 'euro_standard',
+                    ],
+                  ),
+                  _buildSection(
+                    icon: Icons.calendar_today_outlined,
+                    title: 'Регистрация',
+                    keys: const [
+                      'first_registration_date',
+                      'registration_validity',
+                    ],
+                  ),
+                  _buildSection(
+                    icon: Icons.person_outline_rounded,
+                    title: 'Собственик',
+                    keys: const ['owner_name', 'owner_egn', 'owner_address'],
+                  ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
             _buildProceedButton(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSection({
+    required IconData icon,
+    required String title,
+    required List<String> keys,
+    Widget? catalogSlot,
+    List<String> fallbackKeys = const [],
+  }) {
+    final allKeys = [...keys, ...fallbackKeys];
+    final hasContent = catalogSlot != null ||
+        allKeys.any((k) => _controllers[k]?.text.isNotEmpty == true ||
+            widget.fields.containsKey(k));
+    if (!hasContent) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF12122A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withAlpha(18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            child: Row(
+              children: [
+                Icon(icon, color: kOcrIndigo, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  title.toUpperCase(),
+                  style: const TextStyle(
+                    color: kOcrIndigo,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (catalogSlot != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: catalogSlot,
+            ),
+          for (final key in allKeys)
+            if (_controllers.containsKey(key))
+              _SectionFieldRow(
+                label: kFieldLabels[key] ?? key,
+                fieldKey: key,
+                field: widget.fields[key],
+                controller: _controllers[key]!,
+              ),
+          if (catalogSlot != null || allKeys.isNotEmpty)
+            const SizedBox(height: 4),
+        ],
       ),
     );
   }
@@ -160,10 +283,69 @@ class _OcrResultsViewState extends State<OcrResultsView> {
   }
 }
 
-// ─── Individual field card ─────────────────────────────────────────────────────
+// ─── Catalog picker card ───────────────────────────────────────────────────────
 
-class _FieldCard extends StatelessWidget {
-  const _FieldCard({
+class _CatalogPickerCard extends StatelessWidget {
+  const _CatalogPickerCard({
+    required this.repository,
+    required this.initialMakeText,
+    required this.initialModelText,
+    required this.initialModificationText,
+    required this.onChanged,
+  });
+
+  final VehicleCatalogRepository repository;
+  final String? initialMakeText;
+  final String? initialModelText;
+  final String? initialModificationText;
+  final void Function(VehicleCatalogSelection?) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      decoration: BoxDecoration(
+        color: kOcrSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kOcrIndigo.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.directions_car_rounded,
+                  color: kOcrIndigo, size: 14),
+              const SizedBox(width: 6),
+              const Text(
+                'МАРКА / МОДЕЛ — от каталога',
+                style: TextStyle(
+                  color: kOcrIndigo,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          VehicleCatalogPicker(
+            repository: repository,
+            initialMakeText: initialMakeText,
+            initialModelText: initialModelText,
+            initialModificationText: initialModificationText,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Section field row (used inside grouped sections) ─────────────────────────
+
+class _SectionFieldRow extends StatelessWidget {
+  const _SectionFieldRow({
     required this.label,
     required this.fieldKey,
     required this.field,
@@ -184,26 +366,26 @@ class _FieldCard extends StatelessWidget {
     final Color iconColor;
     final IconData iconData;
     if (isMissing) {
-      borderColor = Colors.red.withAlpha(120);
+      borderColor = Colors.red.withAlpha(80);
       iconColor = Colors.red.shade300;
       iconData = Icons.edit_outlined;
     } else if (isLow) {
-      borderColor = Colors.amber.withAlpha(100);
+      borderColor = Colors.amber.withAlpha(60);
       iconColor = Colors.amber;
       iconData = Icons.warning_amber_rounded;
     } else {
-      borderColor = kOcrGreen.withAlpha(80);
+      borderColor = Colors.transparent;
       iconColor = kOcrGreen;
       iconData = Icons.check_circle_rounded;
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+      margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
       decoration: BoxDecoration(
         color: kOcrSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(8),
+        border: borderColor == Colors.transparent ? null : Border.all(color: borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,12 +396,12 @@ class _FieldCard extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   color: kOcrMuted,
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
-              Icon(iconData, color: iconColor, size: 16),
+              Icon(iconData, color: iconColor, size: 14),
             ],
           ),
           TextField(
@@ -228,14 +410,17 @@ class _FieldCard extends StatelessWidget {
             textCapitalization: _capitalization(fieldKey),
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
               border: InputBorder.none,
+              filled: true,
+              fillColor: Colors.transparent,
               contentPadding: EdgeInsets.zero,
               hintText: _placeholder(fieldKey),
-              hintStyle: const TextStyle(color: Color(0xFF4B5563), fontSize: 14),
+              hintStyle: const TextStyle(color: Color(0xFF374151), fontSize: 13),
+              isDense: true,
             ),
           ),
         ],
@@ -267,7 +452,7 @@ class _FieldCard extends StatelessWidget {
         'engine_volume' => 'напр. 1995',
         'power_kw' => 'напр. 140',
         'fuel_type' => 'напр. дизел',
-        'seats' => 'напр. 5 или 4+1',
+        'seats' => 'напр. 5',
         'vehicle_category' => 'напр. M1',
         'euro_standard' => 'напр. EURO 6',
         'first_registration_date' => 'напр. 15.03.2019',
@@ -403,13 +588,7 @@ class _DebugSection extends StatelessWidget {
   Future<void> _copy(BuildContext context, String text, String label) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$label копиран'),
-          duration: const Duration(seconds: 2),
-          backgroundColor: kOcrSurface,
-        ),
-      );
+      AppToast.success(context, '$label копиран');
     }
   }
 

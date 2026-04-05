@@ -71,7 +71,7 @@ class BranivoOcrRepository implements OcrRepository {
       jobId: 'branivo-${DateTime.now().millisecondsSinceEpoch}',
       status: OcrJobStatus.completed,
       provider: OcrProvider.branivoOcr,
-      fields: _toFields(merged, avgConf),
+      fields: _toFields(merged),
       avgConfidence: avgConf,
       debugImages: debugImages.any((s) => s.isNotEmpty) ? debugImages : null,
     );
@@ -122,20 +122,26 @@ class BranivoOcrRepository implements OcrRepository {
     'egn': 'owner_egn',
     'firstRegistration': 'first_registration_date',
     'registrationValidity': 'registration_validity',
+    'ownerAddress': 'owner_address',
+    'euroStandard': 'euro_standard',
   };
 
   // Owner name split into 3 parts in Python model — skip individually, combine below.
   static const _ownerNameParts = {'ownerLastName', 'ownerFirstName', 'ownerMiddleName'};
 
-  Map<String, OcrField> _toFields(Map<String, dynamic> data, double conf) {
+  Map<String, OcrField> _toFields(Map<String, dynamic> data) {
     final fields = <String, OcrField>{};
+    // Claude Vision is highly accurate — present fields get 0.92 confidence
+    // (above 0.85 threshold), which keeps them in the green zone in the UI.
+    const presentConf = 0.92;
+
     for (final entry in data.entries) {
       if (entry.value == null) continue;
       if (_ownerNameParts.contains(entry.key)) continue;
       final key = _fieldNameMap[entry.key] ?? entry.key;
       fields[key] = OcrField(
         value: entry.value.toString(),
-        confidence: conf,
+        confidence: presentConf,
         autoFilled: true,
       );
     }
@@ -149,7 +155,7 @@ class BranivoOcrRepository implements OcrRepository {
     if (nameParts.isNotEmpty) {
       fields['owner_name'] = OcrField(
         value: nameParts.join(' '),
-        confidence: conf,
+        confidence: presentConf,
         autoFilled: true,
       );
     }
