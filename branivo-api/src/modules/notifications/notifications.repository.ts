@@ -88,6 +88,16 @@ export class NotificationsRepository {
     return rows[0]?.email ?? null;
   }
 
+  async findTenantLogoUrl(tenantId: string): Promise<string | null> {
+    const rows = await this.dataSource.query<
+      Array<{ logo_url: string | null }>
+    >(
+      `SELECT logo_url FROM tenants WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [tenantId],
+    );
+    return rows[0]?.logo_url ?? null;
+  }
+
   async findTenantRenewalConfig(
     tenantId: string,
   ): Promise<StageConfig[] | null> {

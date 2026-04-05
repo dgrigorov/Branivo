@@ -68,6 +68,10 @@ services:
       - '1025:1025'   # SMTP
       - '8025:8025'   # Web UI
 
+  # VAPID keys for web push (branivo-api) are loaded from .env file.
+  # Generate once with: cd branivo-api && npx web-push generate-vapid-keys
+  # Add to your local .env: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
+
   branivo-ocr:
     build:
       context: ./branivo-ocr

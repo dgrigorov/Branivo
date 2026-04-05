@@ -6,7 +6,12 @@ import {
 } from 'typeorm';
 import type { RenewalStage } from '../../renewal/renewal.repository';
 
-export type NotificationChannel = 'push' | 'sms' | 'email' | 'dashboard';
+export type NotificationChannel =
+  | 'push'
+  | 'sms'
+  | 'email'
+  | 'dashboard'
+  | 'web_push';
 export type NotificationStatus =
   | 'sent'
   | 'push_skipped'
