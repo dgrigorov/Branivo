@@ -17,45 +17,46 @@ function ModelCard({
 }) {
   const [imgErr, setImgErr] = useState(false);
   const years = [model.yearFrom, model.yearTo].filter(Boolean).join(' – ');
+  const imageSrc = imgErr ? null : model.imageUrl;
 
   return (
     <button
       onClick={onClick}
       className={`flex-shrink-0 w-56 rounded-2xl overflow-hidden border transition-all duration-300 ${
         isSelected
-          ? 'border-amber-500 ring-2 ring-amber-500/30 shadow-xl shadow-amber-500/10 scale-[1.02]'
-          : 'border-white/8 hover:border-white/25 hover:scale-[1.01]'
+          ? 'border-amber-400 ring-2 ring-amber-400/30 shadow-xl shadow-amber-100 scale-[1.02]'
+          : 'border-gray-200 hover:border-gray-300 hover:scale-[1.01] shadow-sm hover:shadow-md'
       }`}
     >
       {/* Image area */}
-      <div className="relative h-36 bg-zinc-900 overflow-hidden">
-        {model.imageUrl && !imgErr ? (
+      <div className="relative h-36 bg-gray-100 overflow-hidden flex items-center justify-center">
+        {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={model.imageUrl}
+            src={imageSrc}
             alt={`${makeName} ${model.name}`}
             className="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
             onError={() => setImgErr(true)}
           />
         ) : (
-          <div className="h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-zinc-800 to-zinc-900">
-            <Car className="h-10 w-10 text-white/15" />
-            <span className="text-xs text-white/25 font-medium">{model.name}</span>
+          <div className="h-full w-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-gray-100 to-gray-200">
+            <Car className="h-10 w-10 text-gray-300" />
+            <span className="text-xs text-gray-400 font-medium">{model.name}</span>
           </div>
         )}
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
 
         {/* Body type badge */}
         {model.bodyType && (
-          <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-black/50 text-white/70 backdrop-blur">
+          <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/90 text-gray-600 border border-gray-200 shadow-sm">
             {BODY_TYPE_LABELS[model.bodyType] ?? model.bodyType}
           </span>
         )}
 
         {isSelected && (
-          <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center">
-            <svg className="h-3 w-3 text-black" fill="currentColor" viewBox="0 0 12 12">
+          <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-amber-400 flex items-center justify-center shadow">
+            <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 12 12">
               <path d="M10 3L5 8.5 2 5.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
@@ -63,12 +64,12 @@ function ModelCard({
       </div>
 
       {/* Info */}
-      <div className={`px-3 py-2.5 text-left ${isSelected ? 'bg-amber-500/8' : 'bg-white/3'}`}>
-        <p className={`text-sm font-semibold leading-tight ${isSelected ? 'text-amber-400' : 'text-white'}`}>
+      <div className={`px-3 py-2.5 text-left ${isSelected ? 'bg-amber-50' : 'bg-white'}`}>
+        <p className={`text-sm font-semibold leading-tight ${isSelected ? 'text-amber-600' : 'text-gray-900'}`}>
           {model.name}
         </p>
-        {years && <p className="text-[11px] text-white/40 mt-0.5">{years}</p>}
-        <p className="text-[10px] text-white/25 mt-1">
+        {years && <p className="text-[11px] text-gray-400 mt-0.5">{years}</p>}
+        <p className="text-[10px] text-gray-400 mt-1">
           {model.modificationsCount} {model.modificationsCount === 1 ? 'версия' : 'версии'}
         </p>
       </div>
@@ -96,28 +97,28 @@ export function ModelsCarousel({ models, selectedId, makeName, isLoading, onSele
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white/60 uppercase tracking-widest">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-widest">
           Модели · {makeName}
         </h3>
-        <p className="text-xs text-white/30">{models.length} модела</p>
+        <p className="text-xs text-gray-400">{models.length} модела</p>
       </div>
 
       <div className="relative group">
         <button
           onClick={() => scroll('left')}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 h-8 w-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/20"
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 h-8 w-8 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-50"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
 
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto scroll-smooth pb-2"
+          className="flex gap-4 overflow-x-auto scroll-smooth py-2"
           style={{ scrollbarWidth: 'none' }}
         >
           {isLoading
             ? Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex-shrink-0 w-56 h-48 rounded-2xl bg-white/5 animate-pulse" />
+                <div key={i} className="flex-shrink-0 w-56 h-48 rounded-2xl bg-gray-100 animate-pulse" />
               ))
             : models.filter((m) => m.isActive).map((model) => (
                 <ModelCard
@@ -132,7 +133,7 @@ export function ModelsCarousel({ models, selectedId, makeName, isLoading, onSele
 
         <button
           onClick={() => scroll('right')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 h-8 w-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/20"
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 h-8 w-8 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-50"
         >
           <ChevronRight className="h-4 w-4" />
         </button>

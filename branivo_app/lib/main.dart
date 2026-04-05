@@ -15,6 +15,7 @@ import 'features/payments/data/payment_api_repository.dart';
 import 'features/policies/data/repositories/policy_repository.dart';
 import 'features/registration/data/repositories/client_auth_repository.dart';
 import 'features/quotes/data/quote_api_repository.dart';
+import 'features/vehicle_catalog/data/repositories/vehicle_catalog_repository.dart';
 import 'features/vehicles/data/repositories/vehicle_api_repository.dart';
 import 'features/vehicles/data/repositories/vehicles_repository.dart';
 
@@ -42,6 +43,7 @@ Future<void> main() async {
 
   final vehiclesRepository = VehiclesRepository(dio: dio);
   final vehicleApiRepository = VehicleApiRepository(dio: dio, storage: storage);
+  final vehicleCatalogRepository = VehicleCatalogRepository(dio: dio);
   final OcrRepository ocrApiRepository = BranivoOcrRepository();
   final paymentApiRepository = PaymentApiRepository(dio: dio);
   final anonSessionRepository = AnonymousSessionRepository(dio: dio);
@@ -56,6 +58,8 @@ Future<void> main() async {
         RepositoryProvider<VehiclesRepository>.value(value: vehiclesRepository),
         RepositoryProvider<VehicleApiRepository>.value(
             value: vehicleApiRepository),
+        RepositoryProvider<VehicleCatalogRepository>.value(
+            value: vehicleCatalogRepository),
         RepositoryProvider<OcrRepository>.value(value: ocrApiRepository),
         RepositoryProvider<PaymentApiRepository>.value(
             value: paymentApiRepository),

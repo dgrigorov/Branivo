@@ -170,7 +170,10 @@ export class VehicleCatalogImportService {
         VALUES ${values}
         ON CONFLICT (make_id, normalized_name) WHERE deleted_at IS NULL DO UPDATE
           SET autodata24_slug = COALESCE(vehicle_models.autodata24_slug, EXCLUDED.autodata24_slug),
-              image_url       = COALESCE(vehicle_models.image_url, EXCLUDED.image_url),
+              image_url       = CASE
+                WHEN EXCLUDED.image_url LIKE '%/large/%' THEN EXCLUDED.image_url
+                ELSE COALESCE(vehicle_models.image_url, EXCLUDED.image_url)
+              END,
               source          = 'autodata24',
               updated_at      = now()
         RETURNING id, make_id, normalized_name

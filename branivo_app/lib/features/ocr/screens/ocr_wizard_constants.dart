@@ -67,6 +67,7 @@ const Map<String, String> kFieldLabels = {
   'cert_number': 'Номер на талона',
   'make': 'Марка',
   'model': 'Модел',
+  'modification': 'Модификация',
   'year': 'Година',
   'color': 'Цвят',
   'engine_volume': 'Обем (cc)',

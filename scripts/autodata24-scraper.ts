@@ -290,11 +290,30 @@ function parseCharacteristicsTable(html: string): Record<string, string> {
   return specs;
 }
 
-function parseModificationImageUrl(html: string): string | null {
+function parseGalleryImages(html: string): string[] {
   const $ = cheerio.load(html);
-  // Main car photo: cdn3.focus.bg/autodata/i/{brand}/{model}/{gen}/large/*.jpg
-  const src = $('img[src*="cdn3.focus.bg/autodata/i/"][src*="/large/"]').first().attr('src');
-  return src ?? null;
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  // Non-cloned owl carousel items inside .auto-gallery contain the actual large images
+  $('.auto-gallery #owlcarousel .owl-item:not(.cloned) img').each((_, el) => {
+    const src = $(el).attr('src') ?? $(el).attr('data-src') ?? '';
+    if (src && src.includes('cdn3.focus.bg') && !seen.has(src)) {
+      seen.add(src);
+      urls.push(src);
+    }
+  });
+  // Fallback: any large cdn3.focus.bg image on the page (deduped)
+  if (urls.length === 0) {
+    $('img[src*="cdn3.focus.bg"][src*="/large/"]').each((_, el) => {
+      const src = $(el).attr('src') ?? '';
+      if (src && !seen.has(src)) { seen.add(src); urls.push(src); }
+    });
+  }
+  return urls;
+}
+
+function parseModificationImageUrl(html: string): string | null {
+  return parseGalleryImages(html)[0] ?? null;
 }
 
 function mapRawToStructured(
@@ -391,14 +410,17 @@ async function getGenerationTiles(modelListUrl: string, brandSlug: string): Prom
   return tiles;
 }
 
-async function getModificationLinks(genDetailsUrl: string, brandSlug: string): Promise<string[]> {
+async function getModificationLinks(
+  genDetailsUrl: string,
+  brandSlug: string,
+): Promise<{ links: string[]; galleryImages: string[] }> {
   let html: string;
   try {
     html = await fetchHtml(genDetailsUrl);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`    [warn] Could not fetch gen page ${genDetailsUrl}: ${msg}`);
-    return [];
+    return { links: [], galleryImages: [] };
   }
   const $ = cheerio.load(html);
   const links = new Set<string>();
@@ -410,7 +432,8 @@ async function getModificationLinks(genDetailsUrl: string, brandSlug: string): P
       links.add(full);
     }
   });
-  return Array.from(links);
+  const galleryImages = parseGalleryImages(html);
+  return { links: Array.from(links), galleryImages };
 }
 
 async function scrapeModificationPage(
@@ -485,12 +508,17 @@ async function processBrand(
     }
 
     const genTasks = generationTiles.map((gen) => async () => {
-      const modLinks = await getModificationLinks(gen.href, brand.slug);
+      const { links: modLinks, galleryImages } = await getModificationLinks(gen.href, brand.slug);
       if (!modLinks.length) {
         console.warn(`    [warn] No individual modification links found at ${gen.href}`);
         return;
       }
-      console.log(`    [gen] ${gen.name} → ${modLinks.length} modification(s)`);
+      // Prefer first gallery image (already /large/) over the blurry tile thumbnail
+      const bestModelImage = galleryImages[0] ?? model.imageUrl;
+      console.log(
+        `    [gen] ${gen.name} → ${modLinks.length} modification(s)` +
+        (galleryImages.length ? ` | ${galleryImages.length} gallery images` : ''),
+      );
 
       const modTasks = modLinks.map((modUrl) => async () => {
         const rec = await scrapeModificationPage(
@@ -498,7 +526,7 @@ async function processBrand(
           brand,
           model.name,
           model.slug,
-          model.imageUrl,
+          bestModelImage,
           gen.name,
           gen.slug,
         );

@@ -4,12 +4,12 @@ class ApiEndpoints {
 
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.100.185:3000',
+    defaultValue: 'http://192.168.1.31:3000',
   );
 
   static const String _ocrServiceUrl = String.fromEnvironment(
     'OCR_SERVICE_URL',
-    defaultValue: 'http://192.168.100.185:8888',
+    defaultValue: 'http://192.168.1.31:8888',
   );
 
   static String get baseUrl => _baseUrl;
@@ -46,6 +46,14 @@ class ApiEndpoints {
 
   // Vehicle enrichment
   static String get vehicleEnrich => '$_baseUrl/api/v1/vehicles/enrich';
+
+  // Vehicle catalog (public — no auth required)
+  static String get vehicleCatalogMakes =>
+      '$_baseUrl/api/v1/vehicle-catalog/makes';
+  static String get vehicleCatalogModels =>
+      '$_baseUrl/api/v1/vehicle-catalog/models';
+  static String get vehicleCatalogModifications =>
+      '$_baseUrl/api/v1/vehicle-catalog/modifications';
 
   // branivo-ocr Python microservice
   static String ocrTalon(int step) => '$_ocrServiceUrl/ocr/talon?step=$step';

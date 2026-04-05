@@ -19,23 +19,23 @@ function logColor(line: string): string {
   if (line.startsWith('▶')) return 'text-amber-400';
   if (line.includes('[brand]') || line.includes('[model]')) return 'text-blue-400';
   if (line.includes('[stderr]')) return 'text-red-400/70';
-  return 'text-white/60';
+  return 'text-gray-400';
 }
 
 function StatusBadge({ status }: { status: SyncRun['status'] | undefined }) {
   const styleMap: Record<string, string> = {
-    done: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-    failed: 'bg-red-500/15 text-red-400 border-red-500/30',
-    scraping: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    importing: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    pending: 'bg-white/8 text-white/50 border-white/15',
+    done:      'bg-emerald-50 text-emerald-700 border-emerald-200',
+    failed:    'bg-red-50 text-red-700 border-red-200',
+    scraping:  'bg-amber-50 text-amber-700 border-amber-200',
+    importing: 'bg-blue-50 text-blue-700 border-blue-200',
+    pending:   'bg-gray-100 text-gray-500 border-gray-200',
   };
   const labels: Record<string, string> = {
     done: 'Готово', failed: 'Грешка', scraping: 'Скрейпване…', importing: 'Импорт…', pending: 'Чака',
   };
   if (!status) return null;
   return (
-    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${styleMap[status] ?? 'bg-white/8 text-white/40 border-white/10'}`}>
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${styleMap[status] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
       {labels[status] ?? status}
     </span>
   );
@@ -78,34 +78,34 @@ export function SyncPanel({
   const visibleLogs = logs.length > 0 ? logs : (syncStatus?.logLines ?? []);
 
   return (
-    <div className="border border-white/8 rounded-2xl overflow-hidden bg-white/2">
+    <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-sm">
       {/* Toggle header */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/3 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
       >
         <div className="flex items-center gap-3 flex-wrap">
-          <Terminal className="h-4 w-4 text-white/40 flex-shrink-0" />
-          <span className="text-sm font-medium text-white/70">Синхронизация — autodata24</span>
+          <Terminal className="h-4 w-4 text-gray-400 flex-shrink-0" />
+          <span className="text-sm font-medium text-gray-700">Синхронизация — autodata24</span>
           {syncStatus && <StatusBadge status={syncStatus.status} />}
           {syncStatus?.totalImported != null && (
-            <span className="text-xs text-white/30">
+            <span className="text-xs text-gray-400">
               {syncStatus.totalImported.toLocaleString()} импортирани
             </span>
           )}
-          {lastSync && <span className="text-xs text-white/25">{lastSync}</span>}
+          {lastSync && <span className="text-xs text-gray-300">{lastSync}</span>}
         </div>
-        <ChevronDown className={`h-4 w-4 text-white/30 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="border-t border-white/8">
+        <div className="border-t border-gray-100">
           {/* Action buttons */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
             <button
               onClick={handleStartSync}
               disabled={syncPending || isRunning}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-semibold hover:bg-amber-400 disabled:opacity-40 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-400 text-white text-xs font-semibold hover:bg-amber-500 disabled:opacity-40 transition-colors"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${syncPending ? 'animate-spin' : ''}`} />
               Пълна синхронизация
@@ -113,21 +113,21 @@ export function SyncPanel({
             <button
               onClick={handleImport}
               disabled={importPending || isRunning}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/8 border border-white/15 text-white/70 text-xs font-medium hover:bg-white/12 disabled:opacity-40 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 transition-colors shadow-sm"
             >
               <Download className="h-3.5 w-3.5" />
               Само импорт (JSON → DB)
             </button>
             {visibleLogs.length > 0 && (
-              <button onClick={() => setLogs([])} className="ml-auto text-white/25 hover:text-white/50 transition-colors">
+              <button onClick={() => setLogs([])} className="ml-auto text-gray-300 hover:text-gray-500 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
 
-          {/* Terminal log */}
+          {/* Terminal log (intentionally dark for readability) */}
           {visibleLogs.length > 0 && (
-            <div className="h-56 overflow-y-auto bg-black/50 p-4 font-mono text-[11px] space-y-0.5">
+            <div className="h-56 overflow-y-auto bg-gray-900 p-4 font-mono text-[11px] space-y-0.5 rounded-b-2xl">
               {visibleLogs.map((line, i) => (
                 <div key={i} className={logColor(line)}>{line}</div>
               ))}

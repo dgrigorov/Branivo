@@ -4,6 +4,8 @@ import {
   VehicleMakeQueryDto,
   VehicleModelDto,
   VehicleModelQueryDto,
+  VehicleModificationDto,
+  VehicleModificationQueryDto,
 } from './dto/vehicle-catalog.dto';
 import { VehicleCatalogService } from './vehicle-catalog.service';
 
@@ -23,5 +25,12 @@ export class VehicleCatalogController {
     @Query() query: VehicleModelQueryDto,
   ): Promise<VehicleModelDto[]> {
     return this.vehicleCatalogService.listModels(query);
+  }
+
+  @Get('modifications')
+  async listModifications(
+    @Query() query: VehicleModificationQueryDto,
+  ): Promise<VehicleModificationDto[]> {
+    return this.vehicleCatalogService.listModifications(query);
   }
 }

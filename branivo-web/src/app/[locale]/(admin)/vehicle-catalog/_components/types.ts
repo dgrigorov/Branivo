@@ -90,6 +90,18 @@ export const BODY_TYPE_LABELS: Record<string, string> = {
   other: 'Друг',
 };
 
+/** Upgrade cdn3.focus.bg thumbnail URLs to their large equivalent. */
+export function hdUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.includes('cdn3.focus.bg')) {
+    return url
+      .replace('/thumb/', '/large/')
+      .replace('/small/', '/large/')
+      .replace('/medium/', '/large/');
+  }
+  return url;
+}
+
 export const ENGINE_TYPE_LABELS: Record<string, string> = {
   petrol: 'Бензин',
   diesel: 'Дизел',

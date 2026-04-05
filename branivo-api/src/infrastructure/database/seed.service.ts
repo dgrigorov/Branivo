@@ -137,12 +137,7 @@ export class SeedService implements OnApplicationBootstrap {
   }
 
   private async seedTenantDomains(): Promise<void> {
-    const devDomains = [
-      'localhost',
-      '127.0.0.1',
-      '192.168.100.185',
-      '10.0.0.1',
-    ];
+    const devDomains = ['localhost', '127.0.0.1', '192.168.1.31', '10.0.0.1'];
     for (const domain of devDomains) {
       await this.dataSource.query(
         `INSERT INTO tenant_domains (id, tenant_id, domain, is_primary, status)

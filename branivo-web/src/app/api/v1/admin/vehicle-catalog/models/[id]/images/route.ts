@@ -8,30 +8,57 @@ function toSlug(name: string): string {
     .replace(/[ìíîï]/g, 'i')
     .replace(/[òóôõö]/g, 'o')
     .replace(/[ùúûü]/g, 'u')
+    .replace(/[()]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 }
 
+/**
+ * Extract gallery images from autodata24 HTML.
+ * Strategy 1: target `carouselimg` class images — these are the gallery images
+ *   already in /large/ format. The carousel has cloned items (duplicates) so
+ *   we deduplicate by URL.
+ * Strategy 2: fallback — any cdn3.focus.bg /large/ image on the page.
+ */
 function extractImages(html: string): string[] {
+  const seen = new Set<string>();
   const urls: string[] = [];
 
-  // Find the pictures_moving_details_small section
-  const sectionMatch = html.match(/id="pictures_moving_details_small"[\s\S]*?<\/[^>]+>/);
-  const searchArea = sectionMatch ? sectionMatch[0] : html;
-
-  // Extract src attributes from img tags in that area
-  const imgRegex = /<img[^>]+src="([^"]+\.(jpg|jpeg|png|webp)[^"]*)"/gi;
-  let match: RegExpExecArray | null;
-  while ((match = imgRegex.exec(searchArea)) !== null) {
-    const src = match[1];
-    if (src && !src.includes('logo') && !src.includes('flag') && !src.includes('icon')) {
-      const absolute = src.startsWith('http') ? src : `https://www.autodata24.com${src}`;
-      if (!urls.includes(absolute)) urls.push(absolute);
-    }
+  // Strategy 1: gallery carousel images (class="carouselimg ...")
+  // These are already /large/ — no URL rewriting needed.
+  const carouselRegex = /<img\b[^>]*\bclass="[^"]*carouselimg[^"]*"[^>]*\bsrc="(https:\/\/cdn3\.focus\.bg[^"]+)"/gi;
+  let m: RegExpExecArray | null;
+  while ((m = carouselRegex.exec(html)) !== null) {
+    const src = m[1];
+    if (src && !seen.has(src)) { seen.add(src); urls.push(src); }
   }
+  if (urls.length > 0) return urls.slice(0, 20);
 
-  return urls.slice(0, 6);
+  // Strategy 2: any cdn3.focus.bg /large/ image
+  const largeRegex = /src="(https:\/\/cdn3\.focus\.bg\/autodata\/i\/[^"]+\/large\/[^"]+)"/gi;
+  while ((m = largeRegex.exec(html)) !== null) {
+    const src = m[1];
+    if (src && !seen.has(src)) { seen.add(src); urls.push(src); }
+  }
+  return urls.slice(0, 20);
+}
+
+async function tryFetch(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        Accept: 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    return res.text();
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(
@@ -53,26 +80,28 @@ export async function GET(
 
   const mSlug = toSlug(makeSlug);
   const modSlug = toSlug(modelSlug);
-  const detailsUrl = `https://www.autodata24.com/${mSlug}/${modSlug}/${modSlug}/details`;
 
-  try {
-    const res = await fetch(detailsUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        Accept: 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      signal: AbortSignal.timeout(8000),
-    });
+  // The model-level details page (4 segments) holds the gallery for the whole model/generation.
+  // e.g. https://www.autodata24.com/bmw/2er-active-tourer/2er-active-tourer/details
+  const candidateUrls = [
+    `https://www.autodata24.com/${mSlug}/${modSlug}/${modSlug}/details`,
+    `https://www.autodata24.com/${mSlug}/${modSlug}/`,
+  ];
 
-    if (!res.ok) {
-      return NextResponse.json({ images: [], detailsUrl }, { status: 200 });
-    }
-
-    const html = await res.text();
+  for (const url of candidateUrls) {
+    const html = await tryFetch(url);
+    if (!html) continue;
     const images = extractImages(html);
-    return NextResponse.json({ images, detailsUrl, modelId: id });
-  } catch {
-    return NextResponse.json({ images: [], detailsUrl, modelId: id }, { status: 200 });
+    if (images.length > 0) {
+      return NextResponse.json(
+        { images, sourceUrl: url, modelId: id },
+        { headers: { 'Cache-Control': 'public, max-age=86400, stale-while-revalidate=3600' } },
+      );
+    }
   }
+
+  return NextResponse.json(
+    { images: [], sourceUrl: candidateUrls[0] ?? '', modelId: id },
+    { headers: { 'Cache-Control': 'public, max-age=86400, stale-while-revalidate=3600' } },
+  );
 }
