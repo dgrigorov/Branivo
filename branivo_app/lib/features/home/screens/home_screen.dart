@@ -8,6 +8,8 @@ import '../../../core/routing/app_router.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../anonymous_session/data/repositories/anonymous_session_repository.dart';
+import '../../auth/services/biometric_auth_service.dart';
+import '../../auth/widgets/biometric_setup_sheet.dart';
 import '../../policies/bloc/policy_wallet_bloc.dart';
 import '../../policies/bloc/policy_wallet_event.dart';
 import '../../policies/bloc/policy_wallet_state.dart';
@@ -27,6 +29,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     context.read<PolicyWalletBloc>().add(const PolicyWalletLoadRequested());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowBiometricPrompt());
+  }
+
+  Future<void> _maybeShowBiometricPrompt() async {
+    final service = context.read<BiometricAuthService>();
+    try {
+      final available = await service.isAvailable();
+      final enabled = await service.isEnabled();
+      final promptShown = await service.wasPromptShown();
+      if (!available || enabled || promptShown || !mounted) return;
+      await showBiometricSetupSheet(context, service);
+    } catch (_) {
+      // Non-critical — silently skip the prompt on any error
+    }
   }
 
   Future<void> _startOcrFlow() async {
@@ -130,13 +146,16 @@ class _HomeTopBar extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: primary.withValues(alpha: 0.12),
-            child: Icon(
-              Icons.person_outline,
-              size: 18,
-              color: primary,
+          GestureDetector(
+            onTap: () => context.push('/settings'),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: primary.withValues(alpha: 0.12),
+              child: Icon(
+                Icons.person_outline,
+                size: 18,
+                color: primary,
+              ),
             ),
           ),
         ],
