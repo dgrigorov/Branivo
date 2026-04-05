@@ -1,5 +1,5 @@
 # generated: 2026-03-18
-# updated: 2026-03-23 — Phase 1 reprioritization (sprint-change-proposal-2026-03-23.md)
+# updated: 2026-04-05 — добавен epic-25 (ретроспективно); всички stories done
 # project: Branivo
 # project_key: NOKEY
 # tracking_system: file-system
@@ -170,6 +170,17 @@ development_status:
   epic-24-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────
+  # Epic 25: Platform Infrastructure & Mobile App Improvements
+  # Добавен: 2026-04-05 (ретроспективно — всички stories са done)
+  # OCR microservice, vehicle catalog, Flutter/Web cross-cutting fixes
+  # ─────────────────────────────────────────────────────────────
+  epic-25: done
+  25-1-branivo-ocr-microservice: done          # Python/PaddleOCR microservice + NestJS proxy (PR #64)
+  25-2-vehicle-catalog: done                   # Admin UI, Flutter picker, autodata24 scraper (PR #65)
+  25-3-web-infra-flutter-fixes: done           # Auth refresh, web-fetch, biometric prompt, onboarding redesign (PR #66)
+  epic-25-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────────
   # Epic 11: Compliance, GDPR & Legal Pages
   # Разширен от 3 на 17 stories след party-mode дискусия (2026-03-22)
   # Оригиналните 3 stories са преструктурирани и разширени.
@@ -276,9 +287,9 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   # Epic 15: Биометричен и социален вход (Phase 2)
   # ─────────────────────────────────────────────────────────────
-  epic-15: backlog
-  15-1-biometric-login-face-id-fingerprint: backlog
-  15-2-sign-in-with-google: backlog
+  epic-15: in-progress
+  15-1-biometric-login-face-id-fingerprint: done         # Face ID / fingerprint + onboarding prompt (PR #66)
+  15-2-sign-in-with-google: ready-for-dev
   15-3-sign-in-with-apple: backlog
   epic-15-retrospective: optional
 
