@@ -1,6 +1,6 @@
 # Story 22.4: PWA Browser Push Notifications
 
-Status: review
+Status: done
 
 ## Story
 
@@ -45,7 +45,7 @@ So that I get renewal reminders even without the mobile app.
 ### Backend Tasks (branivo-api)
 
 - [x] **Task 1: DB Migration — `push_subscriptions` таблица** (AC: #2, #4)
-  - [x] Създай migration файл с timestamp (напр. `1710000040000-CreatePushSubscriptions.ts`)
+  - [x] Създай migration файл с timestamp (напр. `1710000060000-CreatePushSubscriptions.ts`)
   - [x] Таблица: `id` UUID PK, `customer_id` UUID FK→end_clients, `tenant_id` UUID NOT NULL, `endpoint` TEXT NOT NULL, `p256dh` TEXT NOT NULL, `auth` TEXT NOT NULL, `type` VARCHAR(10) DEFAULT 'web' CHECK (type IN ('web', 'fcm')), `created_at` TIMESTAMPTZ DEFAULT NOW()
   - [x] UNIQUE constraint на `(customer_id, endpoint)` — предотвратява дублиране
   - [x] INDEX на `(customer_id, tenant_id)`

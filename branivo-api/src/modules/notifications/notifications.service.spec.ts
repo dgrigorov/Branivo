@@ -383,7 +383,6 @@ describe('NotificationsService', () => {
 
       expect(mockPushSubRepo.deleteByEndpoint).toHaveBeenCalledWith(
         'https://push.example.com/sub/expired',
-        'tenant-1',
       );
       expect(mockRepo.logNotification).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -402,6 +401,31 @@ describe('NotificationsService', () => {
       });
 
       expect(mockWebPush.send).not.toHaveBeenCalled();
+    });
+
+    it('web push network error → не хвърля, FCM логването продължава (H3)', async () => {
+      mockPushSubRepo.findByCustomerId.mockResolvedValue([
+        {
+          endpoint: 'https://push.example.com/sub/abc',
+          p256dh: 'key',
+          auth: 'auth',
+          type: 'web',
+          tenantId: 'tenant-1',
+        },
+      ]);
+      mockWebPush.send.mockRejectedValue(new Error('Network timeout'));
+      mockPush.send.mockResolvedValue({ status: 'sent' });
+
+      await expect(
+        service.deliverRenewalNotification({
+          ...BASE_DATA,
+          stage: 'd_minus_30',
+        }),
+      ).resolves.not.toThrow();
+
+      expect(mockRepo.logNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'push', status: 'sent' }),
+      );
     });
 
     it('web push icon = tenant logo_url от TenantContext (AC3)', async () => {

@@ -51,16 +51,19 @@ export class PushSubscriptionRepository {
     );
   }
 
-  async findByCustomerId(customerId: string): Promise<PushSubscription[]> {
+  async findByCustomerId(
+    customerId: string,
+    type?: 'web' | 'fcm',
+  ): Promise<PushSubscription[]> {
     await this.setTenantSession();
-    return this.repo.find({ where: { customerId } });
+    return this.repo.find({
+      where: type ? { customerId, type } : { customerId },
+    });
   }
 
-  async deleteByEndpoint(endpoint: string, tenantId: string): Promise<void> {
-    await this.repo.query(
-      `SELECT set_config('app.current_tenant_id', $1, true)`,
-      [tenantId],
-    );
+  async deleteByEndpoint(endpoint: string): Promise<void> {
+    await this.setTenantSession();
+    const tenantId = this.tenantContext.getTenantId();
     await this.repo.delete({ endpoint, tenantId });
   }
 }

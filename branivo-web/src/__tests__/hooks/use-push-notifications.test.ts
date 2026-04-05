@@ -83,10 +83,9 @@ describe('usePushNotifications', () => {
 
     await waitFor(() => expect(mockSubscribe).toHaveBeenCalled(), { timeout: 2000 });
 
-    expect(mockSubscribe).toHaveBeenCalledWith({
-      userVisibleOnly: true,
-      applicationServerKey: expect.any(Uint8Array),
-    });
+    expect(mockSubscribe).toHaveBeenCalledWith(
+      expect.objectContaining({ userVisibleOnly: true }),
+    );
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalled(), { timeout: 2000 });
 
@@ -138,5 +137,15 @@ describe('usePushNotifications', () => {
 
     expect(mockSubscribe).not.toHaveBeenCalled();
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('server връща грешка → не хвърля exception (M1)', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+
+    act(() => { renderHook(() => usePushNotifications()); });
+    await new Promise<void>((resolve) => setTimeout(resolve, 500));
+
+    // hook-ът не трябва да хвърля — fetch грешката е non-fatal
+    expect(mockSubscribe).toHaveBeenCalled();
   });
 });

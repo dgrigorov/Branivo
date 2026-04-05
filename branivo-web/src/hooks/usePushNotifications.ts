@@ -17,7 +17,7 @@ async function sendSubscriptionToServer(subscription: PushSubscription): Promise
   const json = subscription.toJSON();
   const keys = json.keys as { p256dh?: string; auth?: string } | undefined;
 
-  await fetch('/api/v1/clients/me/push-subscription', {
+  const response = await fetch('/api/v1/clients/me/push-subscription', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -28,6 +28,10 @@ async function sendSubscriptionToServer(subscription: PushSubscription): Promise
       type: 'web',
     }),
   });
+
+  if (!response.ok) {
+    throw new Error(`Push subscription registration failed: ${response.status}`);
+  }
 }
 
 export function usePushNotifications(): void {

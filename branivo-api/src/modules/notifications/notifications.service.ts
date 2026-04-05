@@ -309,14 +309,21 @@ export class NotificationsService {
     });
 
     if (endClient) {
-      await this.sendWebPush(
-        endClient.id,
-        tenantId,
-        policyId,
-        stage,
-        expiryDate,
-        renewalLink,
-      );
+      try {
+        await this.sendWebPush(
+          endClient.id,
+          tenantId,
+          policyId,
+          stage,
+          expiryDate,
+          renewalLink,
+        );
+      } catch (err) {
+        this.logger.error(
+          `Web push dispatch failed for customer ${endClient.id} — non-fatal`,
+          err,
+        );
+      }
     }
 
     return fcmResult.status;
@@ -330,9 +337,10 @@ export class NotificationsService {
     expiryDate: string,
     renewalLink: string,
   ): Promise<void> {
-    const subscriptions =
-      await this.pushSubscriptionRepository.findByCustomerId(customerId);
-    const webSubs = subscriptions.filter((s) => s.type === 'web');
+    const webSubs = await this.pushSubscriptionRepository.findByCustomerId(
+      customerId,
+      'web',
+    );
     if (webSubs.length === 0) return;
 
     const logoUrl =
@@ -351,15 +359,12 @@ export class NotificationsService {
       );
 
       if (result.status === 'expired') {
-        await this.pushSubscriptionRepository.deleteByEndpoint(
-          sub.endpoint,
-          tenantId,
-        );
+        await this.pushSubscriptionRepository.deleteByEndpoint(sub.endpoint);
         await this.notificationsRepository.logNotification({
           tenantId,
           policyId,
           stage,
-          channel: 'web_push' as NotificationChannel,
+          channel: 'web_push',
           status: 'push_skipped',
           deliveredAt: null,
         });
@@ -368,7 +373,7 @@ export class NotificationsService {
           tenantId,
           policyId,
           stage,
-          channel: 'web_push' as NotificationChannel,
+          channel: 'web_push',
           status: 'sent',
           deliveredAt: new Date(),
         });
