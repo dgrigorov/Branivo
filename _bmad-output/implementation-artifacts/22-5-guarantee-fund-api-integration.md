@@ -1,6 +1,6 @@
 # Story 22.5: Guarantee Fund API Integration
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -253,3 +253,4 @@ claude-sonnet-4-6
 ## Change Log
 
 - 2026-04-05: feat(story-22.5) — circuit breaker, broker notification, adapter unit tests, Flutter warning, ENV config
+- 2026-04-05: fix(story-22.5 review) — GF unavailable VehicleValidationGfUnavailable state (AC4); fix exception message (AC2); remove double timeout; improve CB test; add Flutter GF unavailable tests

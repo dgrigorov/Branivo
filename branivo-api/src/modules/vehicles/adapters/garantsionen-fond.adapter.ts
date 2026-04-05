@@ -43,7 +43,6 @@ export class GarantsionenFondAdapter {
     this.breaker = new CircuitBreaker(
       async (fn: () => Promise<GfCheckResult>) => fn(),
       {
-        timeout: 3000,
         volumeThreshold: 5,
         resetTimeout: 30000,
         errorThresholdPercentage: 50,

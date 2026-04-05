@@ -178,7 +178,7 @@ describe('GarantsionenFondAdapter', () => {
   });
 
   describe('Test 6: circuit breaker open → GfApiUnavailableError', () => {
-    it('circuit breaker open (repeated failures) → throws GfApiUnavailableError', async () => {
+    it('circuit breaker open (repeated failures) → throws GfApiUnavailableError WITHOUT HTTP call', async () => {
       redis.get.mockResolvedValue(null);
       // Simulate repeated failures to open the circuit
       httpService.post.mockReturnValue(
@@ -191,10 +191,17 @@ describe('GarantsionenFondAdapter', () => {
       );
       await Promise.all(attempts);
 
-      // After breaker opens, further calls should also throw GfApiUnavailableError
+      // Reset call count to isolate the open-circuit call
+      jest.clearAllMocks();
+      redis.get.mockResolvedValue(null);
+
+      // After breaker opens, further call throws GfApiUnavailableError
       await expect(
         adapter.checkVehicle(VALID_VIN, LICENSE_PLATE),
       ).rejects.toBeInstanceOf(GfApiUnavailableError);
+
+      // Key assertion: open circuit skips the HTTP call entirely
+      expect(httpService.post).not.toHaveBeenCalled();
     });
   });
 });
