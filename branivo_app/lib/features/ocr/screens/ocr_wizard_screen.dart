@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../vehicle_catalog/data/repositories/vehicle_catalog_repository.dart';
 import '../bloc/ocr_wizard_bloc.dart';
 import '../data/repositories/ocr_models.dart';
 import '../services/camera_quality_analyzer.dart';
@@ -338,6 +339,8 @@ class _OcrWizardScreenState extends State<OcrWizardScreen>
         debugImages: state.debugImages,
         onProceed: widget.onComplete,
         onManualEntry: widget.onManualEntry,
+        catalogRepository:
+            context.read<VehicleCatalogRepository?>(),
       );
     }
     if (state is OcrProcessingState || state is OcrInitialState) {

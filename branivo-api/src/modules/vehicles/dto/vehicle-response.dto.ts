@@ -11,6 +11,11 @@ export class VehicleResponseDto {
   engineVolume!: string | null;
   fuelType!: string | null;
   firstRegistrationDate!: string | null;
+  certNumber!: string | null;
+  powerKw!: string | null;
+  seats!: number | null;
+  vehicleCategory!: string | null;
+  registrationValidity!: string | null;
   createdAt!: Date;
   updatedAt!: Date;
   lastPolicyStatus?: string | null;

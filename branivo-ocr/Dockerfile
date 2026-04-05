@@ -2,13 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Tesseract + OpenCV system dependencies (ARM64 compatible, no AVX issues)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    tesseract-ocr-bul \
-    libgl1 \
-    libglib2.0-0 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

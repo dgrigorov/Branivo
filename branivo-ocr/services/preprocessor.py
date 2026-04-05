@@ -1,22 +1,38 @@
-"""Image preprocessing pipeline for Bulgarian vehicle registration certificates.
+"""Minimal image preprocessing for branivo-ocr.
 
-Two pipelines are provided:
-  - light_preprocess: bilateral → CLAHE → glare mask → deskew (color output)
-    Designed for EasyOCR, which has its own internal binarization and works
-    best on color or lightly processed images.
-  - preprocess: full pipeline ending with adaptive threshold + closing (grayscale)
-    Kept for reference; binarization hurts EasyOCR accuracy significantly.
+Claude Vision works best with the original, unprocessed photo — no blurring,
+no CLAHE, no glare inpainting.
 
-All operations are in-memory — no disk writes.
+Only one public function is exposed:
+  perspective_crop  — 4-point perspective correction when the Flutter crop
+                      editor provides corner points.  The image is returned
+                      as a JPEG.  If no points are provided the original
+                      image bytes are passed to Claude as-is.
+
+EXIF orientation is corrected on decode so portrait/landscape photos from
+phones appear upright regardless of how the camera stored the metadata.
+The longest side is capped at 2048 px to prevent container OOM on
+high-res phone photos.
 """
 
 from __future__ import annotations
 
+import io
+
 import cv2
 import numpy as np
+from PIL import Image, ExifTags
 
 
 MAX_DIM = 2048  # cap longest side to avoid OOM on high-res photos
+
+
+def decode_and_resize(image_bytes: bytes) -> bytes:
+    """Decode image bytes, apply EXIF orientation, cap at MAX_DIM, return JPEG bytes."""
+    img = _decode(image_bytes)
+    img = _resize(img)
+    _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    return buf.tobytes()
 
 
 def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
@@ -24,8 +40,6 @@ def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
 
     points: [[x0,y0],[x1,y1],[x2,y2],[x3,y3]] — normalized 0..1 in image space.
     Order: top-left, top-right, bottom-right, bottom-left.
-    Scales to pixel coords, computes homography, warps to axis-aligned output.
-    Returns the corrected image as JPEG bytes (max MAX_DIM on longest side).
     """
     img = _decode(image_bytes)
     img = _resize(img)
@@ -37,7 +51,6 @@ def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
     out_w = int(max(np.linalg.norm(tr - tl), np.linalg.norm(br - bl)))
     out_h = int(max(np.linalg.norm(bl - tl), np.linalg.norm(br - tr)))
     if out_w < 4 or out_h < 4:
-        # Degenerate quad — return original resized image
         _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])
         return buf.tobytes()
 
@@ -48,117 +61,41 @@ def perspective_crop(image_bytes: bytes, points: list[list[float]]) -> bytes:
     return buf.tobytes()
 
 
-def light_preprocess(image_bytes: bytes) -> np.ndarray:
-    """Light pipeline for EasyOCR — returns BGR color image.
-
-    resize → auto-orient → bilateral → CLAHE → glare inpaint → deskew.
-    """
-    img = _decode(image_bytes)
-    img = _resize(img)
-    img = _auto_orient(img)
-    img = _bilateral(img)
-    img = _clahe(img)
-    img = _mask_glare(img)
-    return _deskew_color(img)
-
-
-def crop_mrz_zone(image_bytes: bytes) -> np.ndarray:
-    """Crop + light-preprocess the MRZ zone of the image.
-
-    Handles open-booklet shots where the owner/MRZ page is in the top half
-    (rotated 90° or 180°): auto-orient is applied before cropping so the MRZ
-    ends up at the bottom 30 % as expected.
-    """
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    img = _resize(img)
-    img = _auto_orient(img)
-    h = img.shape[0]
-    mrz = img[int(h * 0.70):, :]
-    mrz = _bilateral(mrz)
-    mrz = _clahe(mrz)
-    mrz = _mask_glare(mrz)
-    return _deskew_color(mrz)
-
-
 # ── private helpers ────────────────────────────────────────────────────────────
 
+def _decode(image_bytes: bytes) -> np.ndarray:
+    """Decode image bytes to BGR, applying EXIF orientation if present."""
+    pil_img = Image.open(io.BytesIO(image_bytes))
+    pil_img = _apply_exif_orientation(pil_img)
+    rgb = np.array(pil_img.convert("RGB"))
+    return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+
+def _apply_exif_orientation(img: Image.Image) -> Image.Image:
+    """Rotate/flip a PIL image according to its EXIF Orientation tag."""
+    try:
+        exif = img._getexif()  # type: ignore[attr-defined]
+    except Exception:
+        exif = None
+    if not exif:
+        return img
+    orient_tag = next(
+        (tag for tag, name in ExifTags.TAGS.items() if name == "Orientation"), None
+    )
+    if orient_tag is None:
+        return img
+    orientation = exif.get(orient_tag)
+    rotations = {3: 180, 6: 270, 8: 90}
+    degrees = rotations.get(orientation)
+    if degrees:
+        img = img.rotate(degrees, expand=True)
+    return img
+
+
 def _resize(img: np.ndarray) -> np.ndarray:
-    """Resize so the longest side does not exceed MAX_DIM (prevents OOM on high-res photos)."""
     h, w = img.shape[:2]
     longest = max(h, w)
     if longest <= MAX_DIM:
         return img
     scale = MAX_DIM / longest
     return cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-
-
-def _decode(image_bytes: bytes) -> np.ndarray:
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-
-def _bilateral(img: np.ndarray) -> np.ndarray:
-    return cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
-
-
-def _clahe(img: np.ndarray) -> np.ndarray:
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    l = clahe.apply(l)
-    merged = cv2.merge((l, a, b))
-    return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
-
-
-def _mask_glare(img: np.ndarray) -> np.ndarray:
-    """Remove laminate glare via inpainting (reconstructs texture under highlights).
-
-    Replaces overexposed pixels using Navier-Stokes inpainting rather than
-    flat grey fill — preserves text that partially overlaps with the glare.
-    """
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, np.array([0, 0, 220]), np.array([180, 30, 255]))
-    if not mask.any():
-        return img
-    kernel = np.ones((3, 3), np.uint8)
-    mask_dilated = cv2.dilate(mask, kernel, iterations=1)
-    return cv2.inpaint(img, mask_dilated, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
-
-
-def _auto_orient(img: np.ndarray) -> np.ndarray:
-    """Rotate portrait images 90° CCW so text runs horizontally.
-
-    Open-booklet photos are often taken with the document oriented sideways
-    (pages run top-to-bottom in the photo). Detecting this: if the image is
-    significantly taller than wide AND gradient energy is higher on the
-    vertical axis (text columns), rotate 90° CCW.
-    """
-    h, w = img.shape[:2]
-    if h <= w * 1.3:          # already roughly landscape or square — skip
-        return img
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0)
-    gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1)
-    ex = float(np.sum(np.abs(gx)))
-    ey = float(np.sum(np.abs(gy)))
-    # If vertical gradients dominate, text is running top-to-bottom → rotate CCW
-    if ey > ex * 1.2:
-        return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    return img
-
-
-def _deskew_color(img: np.ndarray) -> np.ndarray:
-    """Correct skew on a BGR color image."""
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    coords = np.column_stack(np.where(gray < 128))
-    if len(coords) < 10:
-        return img
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = 90.0 + angle
-    if abs(angle) < 0.5:
-        return img
-    h, w = img.shape[:2]
-    M = cv2.getRotationMatrix2D((w // 2, h // 2), angle, 1.0)
-    return cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)

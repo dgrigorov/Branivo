@@ -55,6 +55,11 @@ export class VehiclesService {
       engineVolume: dto.engineVolume ?? null,
       fuelType: dto.fuelType ?? null,
       firstRegistrationDate: dto.firstRegistrationDate ?? null,
+      certNumber: dto.certNumber ?? null,
+      powerKw: dto.powerKw ?? null,
+      seats: dto.seats ?? null,
+      vehicleCategory: dto.vehicleCategory ?? null,
+      registrationValidity: dto.registrationValidity ?? null,
       ownerId,
       tenantId,
     });
@@ -133,6 +138,11 @@ export class VehiclesService {
     dto.engineVolume = vehicle.engineVolume;
     dto.fuelType = vehicle.fuelType;
     dto.firstRegistrationDate = vehicle.firstRegistrationDate;
+    dto.certNumber = vehicle.certNumber;
+    dto.powerKw = vehicle.powerKw;
+    dto.seats = vehicle.seats;
+    dto.vehicleCategory = vehicle.vehicleCategory;
+    dto.registrationValidity = vehicle.registrationValidity;
     dto.createdAt = vehicle.createdAt;
     dto.updatedAt = vehicle.updatedAt;
     dto.lastPolicyStatus = null;

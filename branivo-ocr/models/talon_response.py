@@ -8,14 +8,22 @@ from pydantic import BaseModel
 class TalonData(BaseModel):
     vin: Optional[str] = None
     registrationNumber: Optional[str] = None
+    certNumber: Optional[str] = None
+    color: Optional[str] = None
     make: Optional[str] = None
     model: Optional[str] = None
     year: Optional[int] = None
     fuel: Optional[str] = None
     engine: Optional[str] = None
+    powerKw: Optional[str] = None
     seats: Optional[int] = None
+    vehicleCategory: Optional[str] = None
     firstRegistration: Optional[str] = None
-    ownerName: Optional[str] = None
+    registrationValidity: Optional[str] = None
+    ownerLastName: Optional[str] = None
+    ownerFirstName: Optional[str] = None
+    ownerMiddleName: Optional[str] = None
+    ownerAddress: Optional[str] = None
     egn: Optional[str] = None
 
 

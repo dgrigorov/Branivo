@@ -66,11 +66,13 @@ class VehicleValidateRouteArgs {
     required this.vin,
     required this.licensePlate,
     this.sessionToken,
+    this.ocrFields,
   });
 
   final String vin;
   final String licensePlate;
   final String? sessionToken;
+  final Map<String, OcrField>? ocrFields;
 }
 
 /// Navigation extras for /auth-gate route
@@ -118,6 +120,7 @@ Future<void> _startAnonScan(
             vin: vin,
             licensePlate: plate,
             sessionToken: sessionId,
+            ocrFields: fields,
           ),
         );
       },
@@ -231,6 +234,7 @@ class AppRouter {
               vin: args.vin,
               licensePlate: args.licensePlate,
               sessionToken: args.sessionToken,
+              ocrFields: args.ocrFields,
             ),
           );
         },
