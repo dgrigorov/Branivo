@@ -40,6 +40,8 @@ import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/anonymous_session/data/repositories/anonymous_session_repository.dart';
 import '../../features/auth/services/biometric_auth_service.dart';
 import '../../features/settings/screens/settings_screen.dart';
+import '../../features/compliance/data/privacy_policy_service.dart';
+import '../../features/compliance/presentation/screens/privacy_policy_screen.dart';
 
 /// Navigation extras for /fleet route
 class FleetRouteArgs {
@@ -102,6 +104,7 @@ const _publicRoutes = {
   '/quotes/installment-selection',
   '/onboarding',
   '/reset-password',
+  '/privacy-policy',
 };
 
 Future<void> _startAnonScan(
@@ -206,7 +209,11 @@ class AppRouter {
           final repo = context.read<ClientAuthRepository>();
           return BlocProvider(
             create: (_) => RegistrationBloc(repository: repo),
-            child: RegistrationScreen(authRedirect: redirect),
+            child: RegistrationScreen(
+              authRedirect: redirect,
+              privacyPolicyService:
+                  PrivacyPolicyService(dio: DioClient.instance),
+            ),
           );
         },
       ),
@@ -364,6 +371,15 @@ class AppRouter {
         builder: (context, state) => SettingsScreen(
           biometricService: _biometricService,
         ),
+      ),
+      GoRoute(
+        path: '/privacy-policy',
+        builder: (context, state) {
+          final service = state.extra is PrivacyPolicyService
+              ? state.extra as PrivacyPolicyService
+              : PrivacyPolicyService(dio: DioClient.instance);
+          return PrivacyPolicyScreen(privacyPolicyService: service);
+        },
       ),
     ],
   );

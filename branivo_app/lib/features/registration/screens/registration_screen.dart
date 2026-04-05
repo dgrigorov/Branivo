@@ -5,15 +5,23 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/registration_bloc.dart';
 import '../../../core/routing/auth_redirect.dart';
+import '../../compliance/data/privacy_policy_service.dart';
 
 class RegistrationScreen extends StatelessWidget {
-  const RegistrationScreen({super.key, this.sessionId, this.authRedirect});
+  const RegistrationScreen({
+    super.key,
+    this.sessionId,
+    this.authRedirect,
+    this.privacyPolicyService,
+  });
 
   final String? sessionId;
 
   /// If set, navigates to [authRedirect.path] after successful registration
   /// instead of the default '/'.
   final AuthRedirect? authRedirect;
+
+  final PrivacyPolicyService? privacyPolicyService;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +42,10 @@ class RegistrationScreen extends StatelessWidget {
           if (state is RegistrationInitialState || state is RegistrationErrorState) {
             final errorMsg =
                 state is RegistrationErrorState ? state.message : null;
-            return _PhoneEntryForm(errorMsg: errorMsg);
+            return _PhoneEntryForm(
+              errorMsg: errorMsg,
+              privacyPolicyService: privacyPolicyService,
+            );
           }
 
           if (state is OtpSentState) {
@@ -52,6 +63,7 @@ class RegistrationScreen extends StatelessWidget {
           if (state is OtpExpiredState) {
             return _PhoneEntryForm(
               errorMsg: 'Кодът изтече. Поискайте нов код.',
+              privacyPolicyService: privacyPolicyService,
             );
           }
 
@@ -59,6 +71,7 @@ class RegistrationScreen extends StatelessWidget {
             final minutes = (state.retryAfterSeconds / 60).ceil();
             return _PhoneEntryForm(
               errorMsg: 'Твърде много опити. Опитайте след $minutes минути.',
+              privacyPolicyService: privacyPolicyService,
             );
           }
 
@@ -70,8 +83,9 @@ class RegistrationScreen extends StatelessWidget {
 }
 
 class _PhoneEntryForm extends StatefulWidget {
-  const _PhoneEntryForm({this.errorMsg});
+  const _PhoneEntryForm({this.errorMsg, this.privacyPolicyService});
   final String? errorMsg;
+  final PrivacyPolicyService? privacyPolicyService;
 
   @override
   State<_PhoneEntryForm> createState() => _PhoneEntryFormState();
@@ -128,8 +142,49 @@ class _PhoneEntryFormState extends State<_PhoneEntryForm> {
             onPressed: () => _submit(context),
             child: const Text('Изпрати код'),
           ),
+          const SizedBox(height: 12),
+          _PrivacyPolicyNotice(
+            privacyPolicyService: widget.privacyPolicyService,
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _PrivacyPolicyNotice extends StatelessWidget {
+  const _PrivacyPolicyNotice({this.privacyPolicyService});
+  final PrivacyPolicyService? privacyPolicyService;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.grey.shade600,
+            ),
+        children: [
+          const TextSpan(text: 'Като продължавате, приемате нашата '),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: () => context.push(
+                '/privacy-policy',
+                extra: privacyPolicyService,
+              ),
+              child: Text(
+                'Политика за поверителност',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                    ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }

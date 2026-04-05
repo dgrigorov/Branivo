@@ -58,6 +58,10 @@ class ApiEndpoints {
   // branivo-ocr Python microservice
   static String ocrTalon(int step) => '$_ocrServiceUrl/ocr/talon?step=$step';
 
+  // Compliance (public — no auth required)
+  static String privacyPolicy({String lang = 'bg'}) =>
+      '$_baseUrl/api/v1/public/privacy-policy?lang=$lang';
+
   // Health
   static String get health => '$_baseUrl/health';
 }

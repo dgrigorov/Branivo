@@ -1,5 +1,5 @@
 # generated: 2026-03-18
-# updated: 2026-04-05 — добавен epic-25 (ретроспективно); всички stories done
+# updated: 2026-04-05 — добавен epic-25 (ретроспективно); 11-11 done
 # project: Branivo
 # project_key: NOKEY
 # tracking_system: file-system
@@ -199,9 +199,9 @@ development_status:
 
   # — Wave 1: Foundation & Legal Blockers —
   11-1-data-classification-pii-taxonomy: done              # Foundation за всичко; PII_BASIC / PII_SENSITIVE / PII_SPECIAL_CATEGORY таксономия
-  11-11-privacy-policy-white-label: backlog                # White-label Privacy Policy per tenant; GDPR чл. 13; версионирана
-  11-12-terms-of-service-version-tracking: backlog         # ToS с version accept tracking; force re-accept при нова версия
-  11-13-cookie-policy-banner: backlog                      # Cookie banner + granular consent (IAB TCF 2.2); GDPR чл. 7
+  11-11-privacy-policy-white-label: done                    # White-label Privacy Policy per tenant; GDPR чл. 13; версионирана
+  11-12-terms-of-service-version-tracking: ready-for-dev   # ToS с version accept tracking; force re-accept при нова версия
+  11-13-cookie-policy-banner: ready-for-dev                      # Cookie banner + granular consent (IAB TCF 2.2); GDPR чл. 7
   11-4-tamper-evident-audit-log: backlog                   # Hash-chain audit log (SHA-256 prev_hash); КФН одит изисква tamper-evidence
   11-16-data-breach-response-workflow: backlog             # 72ч. КЗЛД нотификация; breach register; detection mechanism
 
