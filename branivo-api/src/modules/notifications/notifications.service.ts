@@ -8,6 +8,7 @@ import {
 import { PushChannel } from './channels/push.channel';
 import { SmsChannel } from './channels/sms.channel';
 import { EmailChannel } from './channels/email.channel';
+import { WebPushChannel } from './channels/web-push.channel';
 import {
   NotificationChannel,
   NotificationStatus,
@@ -17,6 +18,7 @@ import { RenewalStage } from '../renewal/renewal.repository';
 import { EmailService } from '../../infrastructure/email/email.service';
 import { RenewalConfigResponseDto } from './dto/renewal-config-response.dto';
 import { UpsertRenewalConfigDto } from './dto/upsert-renewal-config.dto';
+import { PushSubscriptionRepository } from './repositories/push-subscription.repository';
 
 export type { RenewalStage };
 
@@ -43,6 +45,8 @@ export class NotificationsService {
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
     private readonly pushChannel: PushChannel,
+    private readonly webPushChannel: WebPushChannel,
+    private readonly pushSubscriptionRepository: PushSubscriptionRepository,
     private readonly smsChannel: SmsChannel,
     private readonly emailChannel: EmailChannel,
     private readonly config: ConfigService,
@@ -218,6 +222,7 @@ export class NotificationsService {
       coverageEndDate,
       expiryDate,
       renewalLink,
+      stage,
     );
     await this.notificationsRepository.logNotification({
       tenantId,
@@ -273,9 +278,17 @@ export class NotificationsService {
     coverageEndDate: string,
     expiryDate: string,
     renewalLink: string,
+    stage: RenewalStage,
   ): Promise<NotificationStatus> {
     if (channel === 'push')
-      return this.sendPush(endClient, expiryDate, renewalLink);
+      return this.sendPush(
+        endClient,
+        expiryDate,
+        renewalLink,
+        tenantId,
+        policyId,
+        stage,
+      );
     if (channel === 'email')
       return this.sendEmail(endClient, expiryDate, renewalLink);
     return this.sendDashboard(tenantId, policyId, coverageEndDate);
@@ -285,13 +298,82 @@ export class NotificationsService {
     endClient: EndClientRow | null,
     expiryDate: string,
     renewalLink: string,
+    tenantId: string,
+    policyId: string,
+    stage: RenewalStage,
   ): Promise<NotificationStatus> {
-    const result = await this.pushChannel.send({
+    const fcmResult = await this.pushChannel.send({
       pushToken: endClient?.push_token ?? null,
       title: 'Подновяване на полица',
       body: `Вашата ГО полица изтича на ${expiryDate}. Поднови сега → ${renewalLink}`,
     });
-    return result.status;
+
+    if (endClient) {
+      await this.sendWebPush(
+        endClient.id,
+        tenantId,
+        policyId,
+        stage,
+        expiryDate,
+        renewalLink,
+      );
+    }
+
+    return fcmResult.status;
+  }
+
+  private async sendWebPush(
+    customerId: string,
+    tenantId: string,
+    policyId: string,
+    stage: RenewalStage,
+    expiryDate: string,
+    renewalLink: string,
+  ): Promise<void> {
+    const subscriptions =
+      await this.pushSubscriptionRepository.findByCustomerId(customerId);
+    const webSubs = subscriptions.filter((s) => s.type === 'web');
+    if (webSubs.length === 0) return;
+
+    const logoUrl =
+      await this.notificationsRepository.findTenantLogoUrl(tenantId);
+    const payload = {
+      title: 'Подновяване на полица',
+      body: `Вашата ГО полица изтича на ${expiryDate}. Поднови сега`,
+      icon: logoUrl ?? undefined,
+      url: renewalLink,
+    };
+
+    for (const sub of webSubs) {
+      const result = await this.webPushChannel.send(
+        { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+        payload,
+      );
+
+      if (result.status === 'expired') {
+        await this.pushSubscriptionRepository.deleteByEndpoint(
+          sub.endpoint,
+          tenantId,
+        );
+        await this.notificationsRepository.logNotification({
+          tenantId,
+          policyId,
+          stage,
+          channel: 'web_push' as NotificationChannel,
+          status: 'push_skipped',
+          deliveredAt: null,
+        });
+      } else {
+        await this.notificationsRepository.logNotification({
+          tenantId,
+          policyId,
+          stage,
+          channel: 'web_push' as NotificationChannel,
+          status: 'sent',
+          deliveredAt: new Date(),
+        });
+      }
+    }
   }
 
   private async sendEmail(

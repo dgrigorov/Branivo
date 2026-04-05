@@ -4,10 +4,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantContextModule } from '../../common/tenant-context/tenant-context.module';
 import { SessionsModule } from '../sessions/sessions.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { EndClient } from './entities/end-client.entity';
 import { EndClientRepository } from './repositories/end-client.repository';
 import { ClientAuthService } from './client-auth.service';
 import { ClientAuthController } from './client-auth.controller';
+import { ClientsController } from './clients.controller';
+import { ClientsService } from './clients.service';
 import { SmsService } from './sms.service';
 
 @Module({
@@ -23,9 +26,15 @@ import { SmsService } from './sms.service';
     }),
     TenantContextModule,
     SessionsModule,
+    NotificationsModule,
   ],
-  controllers: [ClientAuthController],
-  providers: [ClientAuthService, EndClientRepository, SmsService],
+  controllers: [ClientAuthController, ClientsController],
+  providers: [
+    ClientAuthService,
+    ClientsService,
+    EndClientRepository,
+    SmsService,
+  ],
   exports: [ClientAuthService, EndClientRepository],
 })
 export class ClientsModule {}

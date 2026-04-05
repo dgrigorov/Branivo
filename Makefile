@@ -15,7 +15,8 @@
         flutter-run flutter-install flutter-run-clean flutter-clean \
         scrape-vehicles import-vehicles \
         ocr ocr-rebuild ocr-logs ocr-shell \
-        ocr-test ocr-test-ci
+        ocr-test ocr-test-ci \
+        gen-vapid-keys
 
 # ── Default ──────────────────────────────────────────────────────────────────
 
@@ -225,6 +226,11 @@ ocr-test: ## Run OCR end-to-end accuracy tests (requires branivo-ocr running)
 
 ocr-test-ci: ## Run OCR tests without installing deps (for CI)
 	pytest branivo-ocr/tests/ -v --api-url http://localhost:8888
+
+# ── Web Push / VAPID ─────────────────────────────────────────────────────────
+
+gen-vapid-keys: ## Генерира VAPID keys за web push (еднократно, per environment)
+	cd branivo-api && npx web-push generate-vapid-keys
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 

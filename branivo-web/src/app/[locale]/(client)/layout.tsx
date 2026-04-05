@@ -1,6 +1,7 @@
 import React from 'react';
 import { headers } from 'next/headers';
 import { RegulatoryFooter } from './components/regulatory-footer';
+import { PushNotificationInitializer } from './components/push-notification-initializer';
 
 interface TenantConfig {
   branding?: {
@@ -48,6 +49,7 @@ export default async function ClientLayout({
 
   return (
     <div style={cssVars as React.CSSProperties} className="flex min-h-screen flex-col">
+      <PushNotificationInitializer />
       {children}
       <RegulatoryFooter
         kfnLicense={config.regulatory?.kfn_license ?? null}

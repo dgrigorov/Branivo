@@ -9,6 +9,8 @@ import { NotificationsRepository } from './notifications.repository';
 import { PushChannel } from './channels/push.channel';
 import { SmsChannel } from './channels/sms.channel';
 import { EmailChannel } from './channels/email.channel';
+import { WebPushChannel } from './channels/web-push.channel';
+import { PushSubscriptionRepository } from './repositories/push-subscription.repository';
 import { EmailService } from '../../infrastructure/email/email.service';
 import { StageConfig } from './entities/tenant-renewal-config.entity';
 
@@ -28,6 +30,19 @@ const mockRepo = {
   findBrokerAdminEmail: jest.fn().mockResolvedValue('broker@example.com'),
   findTenantRenewalConfig: jest.fn().mockResolvedValue(null),
   upsertTenantRenewalConfig: jest.fn().mockResolvedValue(null),
+  findTenantLogoUrl: jest.fn().mockResolvedValue(null),
+};
+
+const mockWebPush = {
+  send: jest.fn().mockResolvedValue({
+    status: 'sent',
+    endpoint: 'https://push.example.com/sub/abc',
+  }),
+};
+
+const mockPushSubRepo = {
+  findByCustomerId: jest.fn().mockResolvedValue([]),
+  deleteByEndpoint: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockPush = {
@@ -89,12 +104,21 @@ describe('NotificationsService', () => {
     mockPush.send.mockResolvedValue({ status: 'sent' });
     mockSms.send.mockResolvedValue({ status: 'sent', fallbackUsed: false });
     mockEmail.send.mockResolvedValue(undefined);
+    mockWebPush.send.mockResolvedValue({
+      status: 'sent',
+      endpoint: 'https://push.example.com/sub/abc',
+    });
+    mockPushSubRepo.findByCustomerId.mockResolvedValue([]);
+    mockPushSubRepo.deleteByEndpoint.mockResolvedValue(undefined);
+    mockRepo.findTenantLogoUrl.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationsService,
         { provide: NotificationsRepository, useValue: mockRepo },
         { provide: PushChannel, useValue: mockPush },
+        { provide: WebPushChannel, useValue: mockWebPush },
+        { provide: PushSubscriptionRepository, useValue: mockPushSubRepo },
         { provide: SmsChannel, useValue: mockSms },
         { provide: EmailChannel, useValue: mockEmail },
         {
@@ -303,6 +327,106 @@ describe('NotificationsService', () => {
 
       expect(mockSms.send).not.toHaveBeenCalled();
       expect(mockRepo.logNotification).not.toHaveBeenCalled();
+    });
+
+    // Story 22.4 — Web Push dispatch tests (AC3, AC4, AC5)
+    it('web push sent за активен subscription → логва channel web_push, status sent (AC3)', async () => {
+      mockPushSubRepo.findByCustomerId.mockResolvedValue([
+        {
+          endpoint: 'https://push.example.com/sub/abc',
+          p256dh: 'key123',
+          auth: 'auth123',
+          type: 'web',
+          tenantId: 'tenant-1',
+        },
+      ]);
+      mockWebPush.send.mockResolvedValue({
+        status: 'sent',
+        endpoint: 'https://push.example.com/sub/abc',
+      });
+
+      await service.deliverRenewalNotification({
+        ...BASE_DATA,
+        stage: 'd_minus_30',
+      });
+
+      expect(mockWebPush.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          endpoint: 'https://push.example.com/sub/abc',
+        }),
+        expect.objectContaining({ title: 'Подновяване на полица' }),
+      );
+      expect(mockRepo.logNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'web_push', status: 'sent' }),
+      );
+    });
+
+    it('web push 410 expired → deleteByEndpoint + логва push_skipped (AC4)', async () => {
+      mockPushSubRepo.findByCustomerId.mockResolvedValue([
+        {
+          endpoint: 'https://push.example.com/sub/expired',
+          p256dh: 'key123',
+          auth: 'auth123',
+          type: 'web',
+          tenantId: 'tenant-1',
+        },
+      ]);
+      mockWebPush.send.mockResolvedValue({
+        status: 'expired',
+        endpoint: 'https://push.example.com/sub/expired',
+      });
+
+      await service.deliverRenewalNotification({
+        ...BASE_DATA,
+        stage: 'd_minus_30',
+      });
+
+      expect(mockPushSubRepo.deleteByEndpoint).toHaveBeenCalledWith(
+        'https://push.example.com/sub/expired',
+        'tenant-1',
+      );
+      expect(mockRepo.logNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'web_push',
+          status: 'push_skipped',
+        }),
+      );
+    });
+
+    it('no web push subscriptions → webPushChannel.send не се извиква (AC3)', async () => {
+      mockPushSubRepo.findByCustomerId.mockResolvedValue([]);
+
+      await service.deliverRenewalNotification({
+        ...BASE_DATA,
+        stage: 'd_minus_30',
+      });
+
+      expect(mockWebPush.send).not.toHaveBeenCalled();
+    });
+
+    it('web push icon = tenant logo_url от TenantContext (AC3)', async () => {
+      mockRepo.findTenantLogoUrl.mockResolvedValue(
+        'https://cdn.branivo.bg/logo.png',
+      );
+      mockPushSubRepo.findByCustomerId.mockResolvedValue([
+        {
+          endpoint: 'https://push.example.com/sub/abc',
+          p256dh: 'key',
+          auth: 'auth',
+          type: 'web',
+          tenantId: 'tenant-1',
+        },
+      ]);
+
+      await service.deliverRenewalNotification({
+        ...BASE_DATA,
+        stage: 'd_minus_30',
+      });
+
+      expect(mockWebPush.send).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ icon: 'https://cdn.branivo.bg/logo.png' }),
+      );
     });
   });
 
