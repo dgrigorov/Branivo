@@ -1,6 +1,6 @@
 # Story 22.5: Guarantee Fund API Integration
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -83,19 +83,19 @@ so that policies are not issued for unregistered or fraudulent vehicles (FR20).
 Текущо: адаптерът използва само `timeout(5000ms)` — **без circuit breaker**.
 PRD изисква NFR34 параметри: 5 грешки за 60 сек → отваря; 30 сек half-open.
 
-- [ ] Провери дали `CircuitBreakerService` от `branivo-api/src/modules/quotes/circuit-breaker.service.ts` може да се ползва директно или да се направи отделен opossum breaker за GF
+- [x] Провери дали `CircuitBreakerService` от `branivo-api/src/modules/quotes/circuit-breaker.service.ts` може да се ползва директно или да се направи отделен opossum breaker за GF
   - `CircuitBreakerService` е bound към `TenantContext` (per-tenant key) — за GF е per-global key `'guarantee-fund'`
   - **Препоръка:** добави opossum circuit breaker директно в `GarantsionenFondAdapter` (без `TenantContext`), или инжектирай `CircuitBreakerService` с ключ `'gf'`
-- [ ] Конфигурация на breaker: `volumeThreshold: 5`, `resetTimeout: 30000`, `timeout: 3000` (намали от 5000 на 3000 per story AC)
-- [ ] При circuit open → хвърли `GfApiUnavailableError` (не нова грешка — service вече я обработва)
-- [ ] Запази `manual_fallback` при липсваща `GF_API_BASE_URL` (без breaker там)
+- [x] Конфигурация на breaker: `volumeThreshold: 5`, `resetTimeout: 30000`, `timeout: 3000` (намали от 5000 на 3000 per story AC)
+- [x] При circuit open → хвърли `GfApiUnavailableError` (не нова грешка — service вече я обработва)
+- [x] Запази `manual_fallback` при липсваща `GF_API_BASE_URL` (без breaker там)
 
 ### Task 2: Broker Notification при Flagged МПС (AC: #2)
 
 Текущо: `runGfCheck()` хвърля `VehicleBlockedByGfException` — **без broker notification**.
 
-- [ ] Провери как `NotificationService` изпраща broker email — виж `branivo-api/src/modules/notifications/notifications.service.ts:62`
-- [ ] В `VehiclesService.validateVehicle()`, при catch на `VehicleBlockedByGfException`:
+- [x] Провери как `NotificationService` изпраща broker email — виж `branivo-api/src/modules/notifications/notifications.service.ts:62`
+- [x] В `VehiclesService.validateVehicle()`, при catch на `VehicleBlockedByGfException`:
   - Изпрати broker notification: subject "МПС с нередовен статус", body с VIN + licensePlate
   - **Внимание:** `VehiclesService` не трябва да зависи директно от `NotificationService` ако е в друг модул — провери дали може да се инжектира или трябва BullMQ job
   - Ако `NotificationService` е exportable — добави като dependency в `VehiclesModule`; иначе — emit custom event
@@ -104,25 +104,25 @@ PRD изисква NFR34 параметри: 5 грешки за 60 сек → �
 
 **Липсва** — няма spec файл за адаптера.
 
-- [ ] Файл: `branivo-api/src/modules/vehicles/adapters/garantsionen-fond.adapter.spec.ts`
-- [ ] Mock: `HttpService`, `ConfigService`, `Redis` (REDIS_CLIENT)
-- [ ] Тест 1: `checkVehicle()` — cache hit → Redis.get връща cached result → `source: 'cache'`, HTTP NOT called
-- [ ] Тест 2: `checkVehicle()` — API clean → `flagged: false`, кешира се в Redis, `source: 'api'`
-- [ ] Тест 3: `checkVehicle()` — API flagged → `flagged: true, source: 'api'`, кешира се
-- [ ] Тест 4: `checkVehicle()` — timeout → хвърля `GfApiUnavailableError`
-- [ ] Тест 5: `checkVehicle()` — без `GF_API_BASE_URL` → връща `{ flagged: false, source: 'manual_fallback' }` без HTTP call
-- [ ] При Task 1 (circuit breaker) — добави тест за open circuit
+- [x] Файл: `branivo-api/src/modules/vehicles/adapters/garantsionen-fond.adapter.spec.ts`
+- [x] Mock: `HttpService`, `ConfigService`, `Redis` (REDIS_CLIENT)
+- [x] Тест 1: `checkVehicle()` — cache hit → Redis.get връща cached result → `source: 'cache'`, HTTP NOT called
+- [x] Тест 2: `checkVehicle()` — API clean → `flagged: false`, кешира се в Redis, `source: 'api'`
+- [x] Тест 3: `checkVehicle()` — API flagged → `flagged: true, source: 'api'`, кешира се
+- [x] Тест 4: `checkVehicle()` — timeout → хвърля `GfApiUnavailableError`
+- [x] Тест 5: `checkVehicle()` — без `GF_API_BASE_URL` → връща `{ flagged: false, source: 'manual_fallback' }` без HTTP call
+- [x] При Task 1 (circuit breaker) — добави тест за open circuit
 
 ### Task 4: Верификация на ENV конфигурация
 
-- [ ] `GF_API_BASE_URL` — добавен ли е в `.env.example`? Провери и добави ако липсва
-- [ ] `GF_API_KEY` — същото
-- [ ] `branivo-api/src/infrastructure/database/seed.service.ts` — **не** е нужно seed за тази story (няма DB таблица)
+- [x] `GF_API_BASE_URL` — добавен ли е в `.env.example`? Провери и добави ако липсва
+- [x] `GF_API_KEY` — същото
+- [x] `branivo-api/src/infrastructure/database/seed.service.ts` — **не** е нужно seed за тази story (няма DB таблица)
 
 ### Task 5: Pre-PR Check
 
-- [ ] `cd branivo-api && npm run lint && npm run test:cov && npm run build`
-- [ ] `cd branivo_app && flutter analyze --no-fatal-infos && flutter test`
+- [x] `cd branivo-api && npm run lint && npm run test:cov && npm run build`
+- [x] `cd branivo_app && flutter analyze --no-fatal-infos && flutter test`
 
 ## Dev Notes
 
@@ -223,6 +223,18 @@ claude-sonnet-4-6
 - Основни задачи: circuit breaker (Task 1), broker notification (Task 2), adapter unit тест (Task 3)
 - Не дублирай съществуващ код — аудитирай внимателно преди да пишеш
 
+**Task 1 (Circuit Breaker):** Добавен opossum CircuitBreaker като private field в `GarantsionenFondAdapter`. Конфиг: `volumeThreshold: 5`, `resetTimeout: 30000`, `timeout: 3000`. Брекерът обвива `callGfApi()` — при open хвърля `GfApiUnavailableError`. `manual_fallback` пазен без брекер (проверка преди `.fire()`).
+
+**Task 2 (Broker Notification):** `NotificationsModule` импортиран в `VehiclesModule`. `NotificationsService` инжектиран в `VehiclesService`. При `VehicleBlockedByGfException` се вика `notifyBroker()` fire-and-forget с tenant_id от анонимна сесия. Без circular dependency.
+
+**Task 3 (Adapter тестове):** 6 unit теста покриват всички AC: cache hit (HTTP not called), clean API, flagged API, timeout/error → `GfApiUnavailableError`, no-URL fallback, circuit breaker open.
+
+**Flutter:** Добавен inline warning в `_SuccessView` при `gfStatus == 'unavailable'` — amber banner "Проверката на МПС не е налична — брокерът ще верифицира ръчно." (AC#4).
+
+**OCR fix:** `updateAnonymousSession` в `OcrService` смени от `private` на `async` — pre-existing build error поправен.
+
+**Тестове:** 20/20 branivo-api, 10/10 Flutter vehicles. Lint 0 errors. Build успешен.
+
 ### File List
 
 **Нови файлове:**
@@ -230,7 +242,14 @@ claude-sonnet-4-6
 
 **Модифицирани файлове:**
 - `branivo-api/src/modules/vehicles/adapters/garantsionen-fond.adapter.ts` (Task 1 — circuit breaker)
-- `branivo-api/src/modules/vehicles/vehicles.service.ts` (Task 2 — broker notification)
-- `branivo-api/src/modules/vehicles/vehicles.module.ts` (Task 2 — ако NotificationService се инжектира)
+- `branivo-api/src/modules/vehicles/vehicles.service.ts` (Task 2 — broker notification + NotificationsService injection)
+- `branivo-api/src/modules/vehicles/vehicles.module.ts` (Task 2 — NotificationsModule imported)
+- `branivo-api/src/modules/vehicles/vehicles.service.spec.ts` (Task 2 — mock + broker notification assertions)
 - `branivo-api/.env.example` (Task 4 — GF_API_BASE_URL, GF_API_KEY)
-- `branivo_app/lib/features/vehicles/bloc/vehicle_validation_bloc.dart` (при нужда — GF unavailable warning)
+- `branivo-api/src/modules/ocr/ocr.service.ts` (pre-existing build fix — updateAnonymousSession visibility)
+- `branivo_app/lib/features/vehicles/screens/vehicle_validation_screen.dart` (Flutter GF unavailable warning)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (22-5: review)
+
+## Change Log
+
+- 2026-04-05: feat(story-22.5) — circuit breaker, broker notification, adapter unit tests, Flutter warning, ENV config
