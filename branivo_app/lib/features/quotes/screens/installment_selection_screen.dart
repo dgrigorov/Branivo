@@ -3,7 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import '../data/quote_api_repository.dart';
 import '../../payments/screens/payment_screen.dart';
-import '../../../core/routing/app_router.dart';
+import '../../../core/routing/auth_redirect.dart';
 
 class InstallmentSelectionRouteArgs {
   const InstallmentSelectionRouteArgs({
@@ -18,6 +18,8 @@ class InstallmentSelectionRouteArgs {
 const _storage = FlutterSecureStorage();
 
 final _ordinals = ['1-ва вноска', '2-ра вноска', '3-та вноска', '4-та вноска'];
+
+enum _AuthStatus { loggedIn, hasAccountNotLoggedIn, newUser }
 
 class InstallmentSelectionScreen extends StatefulWidget {
   const InstallmentSelectionScreen({
@@ -37,11 +39,28 @@ class InstallmentSelectionScreen extends StatefulWidget {
 class _InstallmentSelectionScreenState
     extends State<InstallmentSelectionScreen> {
   late int _selectedCount;
+  _AuthStatus _authStatus = _AuthStatus.newUser;
 
   @override
   void initState() {
     super.initState();
     _selectedCount = widget.initialInstallmentCount;
+    _loadAuthStatus();
+  }
+
+  Future<void> _loadAuthStatus() async {
+    final accessToken = await _storage.read(key: 'access_token');
+    final refreshToken = await _storage.read(key: 'refresh_token');
+    if (!mounted) return;
+    setState(() {
+      if (accessToken != null && accessToken.isNotEmpty) {
+        _authStatus = _AuthStatus.loggedIn;
+      } else if (refreshToken != null && refreshToken.isNotEmpty) {
+        _authStatus = _AuthStatus.hasAccountNotLoggedIn;
+      } else {
+        _authStatus = _AuthStatus.newUser;
+      }
+    });
   }
 
   QuotePaymentOption? get _selectedOption =>
@@ -54,10 +73,7 @@ class _InstallmentSelectionScreenState
         widget.offer.price ??
         0.0;
 
-    final token = await _storage.read(key: 'access_token');
-    if (!mounted) return;
-
-    final args = PaymentRouteArgs(
+    final paymentArgs = PaymentRouteArgs(
       quoteId: widget.offer.id,
       insurerName: widget.offer.insurerName,
       amount: firstAmount,
@@ -65,18 +81,31 @@ class _InstallmentSelectionScreenState
       installmentCount: _selectedCount,
     );
 
-    if (token != null && token.isNotEmpty) {
-      context.push('/payment', extra: args);
-    } else {
-      context.push(
-        '/auth-gate',
-        extra: AuthGateRouteArgs(
-          redirectPath: '/payment',
-          redirectExtra: args,
-        ),
-      );
+    if (!mounted) return;
+
+    switch (_authStatus) {
+      case _AuthStatus.loggedIn:
+        context.push('/payment', extra: paymentArgs);
+
+      case _AuthStatus.hasAccountNotLoggedIn:
+        context.push(
+          '/login',
+          extra: AuthRedirect(path: '/payment', extra: paymentArgs),
+        );
+
+      case _AuthStatus.newUser:
+        context.push(
+          '/registration',
+          extra: AuthRedirect(path: '/payment', extra: paymentArgs),
+        );
     }
   }
+
+  String get _buttonLabel => switch (_authStatus) {
+        _AuthStatus.loggedIn => 'ПРОДЪЛЖИ',
+        _AuthStatus.hasAccountNotLoggedIn => 'LOGIN TO BUY',
+        _AuthStatus.newUser => 'СЪЗДАЙ АКАУНТ',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -288,7 +317,7 @@ class _InstallmentSelectionScreenState
               letterSpacing: 0.8,
             ),
           ),
-          child: const Text('ПРОДЪЛЖИ'),
+          child: Text(_buttonLabel),
         ),
       ),
     );

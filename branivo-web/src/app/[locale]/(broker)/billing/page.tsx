@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { SelectField } from '@/components/ui/select-field';
 import { useQuery } from '@tanstack/react-query';
 
 interface CommissionPolicyItem {
@@ -190,10 +191,9 @@ export default function CommissionDashboardPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Застраховател
           </label>
-          <select
+          <SelectField
             value={insurerFilter}
             onChange={(e) => setInsurerFilter(e.target.value)}
-            className="border rounded px-3 py-1.5 text-sm"
             aria-label="Застраховател"
           >
             <option value="">Всички</option>
@@ -202,7 +202,7 @@ export default function CommissionDashboardPage() {
                 {ins.insurerName}
               </option>
             ))}
-          </select>
+          </SelectField>
         </div>
         <button
           onClick={() => {

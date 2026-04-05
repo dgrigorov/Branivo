@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../bloc/fleet_bloc.dart';
 import '../bloc/fleet_event.dart';
 import '../bloc/fleet_state.dart';
@@ -103,9 +104,7 @@ class _FleetDashboardScreenState extends State<FleetDashboardScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Грешка при стартиране на експорта')),
-      );
+      AppToast.error(context, 'Грешка при стартиране на експорта');
     }
   }
 

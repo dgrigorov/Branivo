@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/routing/app_router.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../features/anonymous_session/data/repositories/anonymous_session_repository.dart';
 import '../bloc/auth_bloc.dart';
 import '../../../core/routing/auth_redirect.dart';
@@ -83,11 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Грешка при стартиране. Опитайте пак.'),
-          ),
-        );
+        AppToast.error(context, 'Грешка при стартиране. Опитайте пак.');
       }
     } finally {
       if (mounted) setState(() => _startingAnonymous = false);

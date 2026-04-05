@@ -25,6 +25,7 @@ class TalonData(BaseModel):
     ownerMiddleName: Optional[str] = None
     ownerAddress: Optional[str] = None
     egn: Optional[str] = None
+    euroStandard: Optional[str] = None
 
 
 class TalonResponse(BaseModel):

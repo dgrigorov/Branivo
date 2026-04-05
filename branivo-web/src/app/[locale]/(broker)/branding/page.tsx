@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { SelectField } from '@/components/ui/select-field';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -260,10 +261,9 @@ export default function BrandingPage() {
             <h2 id="font-section" className="mb-3 text-lg font-semibold text-gray-800">
               Шрифт
             </h2>
-            <select
+            <SelectField
               value={brandFont}
               onChange={(e) => setBrandFont(e.target.value as ApprovedFont)}
-              className="rounded border border-gray-300 px-3 py-2 text-sm"
               aria-label="Избери шрифт"
               style={{ fontFamily: brandFont }}
             >
@@ -272,7 +272,7 @@ export default function BrandingPage() {
                   {font}
                 </option>
               ))}
-            </select>
+            </SelectField>
             <p
               className="mt-2 text-base text-gray-600"
               style={{ fontFamily: brandFont }}

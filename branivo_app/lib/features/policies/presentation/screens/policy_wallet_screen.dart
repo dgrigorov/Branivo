@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../bloc/policy_wallet_bloc.dart';
 import '../../bloc/policy_wallet_event.dart';
 import '../../bloc/policy_wallet_state.dart';
@@ -39,9 +40,7 @@ class _PolicyWalletScreenState extends State<PolicyWalletScreen> {
         onTap: (index) {
           if (index == 0) context.go('/');
           if (index == 2) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Профилът ще бъде достъпен скоро')),
-            );
+            AppToast.info(context, 'Профилът ще бъде достъпен скоро');
           }
         },
         items: const [

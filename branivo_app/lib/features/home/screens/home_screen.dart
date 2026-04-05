@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_router.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../anonymous_session/data/repositories/anonymous_session_repository.dart';
 import '../../policies/bloc/policy_wallet_bloc.dart';
 import '../../policies/bloc/policy_wallet_event.dart';
@@ -67,11 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       log('Failed to create session', error: e, name: 'home');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Грешка при стартиране на сканиране. Опитайте пак.'),
-          ),
-        );
+        AppToast.error(context, 'Грешка при стартиране на сканиране. Опитайте пак.');
       }
     } finally {
       if (mounted) setState(() => _creatingSession = false);

@@ -63,10 +63,48 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  // Auth guard — redirect to /login if no access_token on protected routes
+  // Auth guard — silent refresh if access_token missing but refresh_token present
   if (!isPublicPath(pathname)) {
-    const token = request.cookies.get('access_token')?.value;
-    if (!token) {
+    const accessToken = request.cookies.get('access_token')?.value;
+    if (!accessToken) {
+      const refreshToken = request.cookies.get('refresh_token')?.value;
+      if (refreshToken) {
+        // Attempt silent refresh server-side
+        const apiUrl = process.env.API_URL ?? 'http://localhost:3000';
+        try {
+          const refreshRes = await fetch(`${apiUrl}/api/v1/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
+          if (refreshRes.ok) {
+            const tokens = (await refreshRes.json()) as {
+              access_token: string;
+              refresh_token: string;
+            };
+            // Continue to the requested page with refreshed cookies
+            const refreshResponse = NextResponse.next();
+            const secure = process.env.NODE_ENV === 'production';
+            refreshResponse.cookies.set('access_token', tokens.access_token, {
+              httpOnly: true,
+              secure,
+              sameSite: 'strict',
+              maxAge: 900,
+              path: '/',
+            });
+            refreshResponse.cookies.set('refresh_token', tokens.refresh_token, {
+              httpOnly: true,
+              secure,
+              sameSite: 'strict',
+              maxAge: 60 * 60 * 24 * 30,
+              path: '/',
+            });
+            return refreshResponse;
+          }
+        } catch {
+          // Refresh failed — fall through to login redirect
+        }
+      }
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('from', pathname);
       return NextResponse.redirect(loginUrl);

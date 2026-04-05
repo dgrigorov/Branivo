@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../data/models/bulk_quote_models.dart';
 import '../data/repositories/fleet_repository.dart';
 import 'fleet_bulk_purchase_result_dialog.dart';
@@ -48,12 +49,7 @@ class _FleetBulkQuoteScreenState extends State<FleetBulkQuoteScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Грешка: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppToast.error(context, 'Грешка: ${e.toString()}');
     }
   }
 

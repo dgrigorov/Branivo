@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { SelectField } from '@/components/ui/select-field';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { webFetch, webPost, webPatch } from '@/lib/web-fetch';
 
 interface SystemNotification {
   id: string;
@@ -21,28 +23,15 @@ interface CreateNotificationBody {
 }
 
 async function fetchNotifications(): Promise<SystemNotification[]> {
-  const res = await fetch('/api/v1/admin/notifications', { credentials: 'include' });
-  if (!res.ok) throw new Error('Failed to fetch notifications');
-  return res.json() as Promise<SystemNotification[]>;
+  return webFetch<SystemNotification[]>('/api/v1/admin/notifications');
 }
 
 async function createNotification(body: CreateNotificationBody): Promise<SystemNotification> {
-  const res = await fetch('/api/v1/admin/notifications', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error('Failed to create notification');
-  return res.json() as Promise<SystemNotification>;
+  return webPost<SystemNotification>('/api/v1/admin/notifications', body);
 }
 
 async function deactivateNotification(id: string): Promise<void> {
-  const res = await fetch(`/api/v1/admin/notifications/${id}/deactivate`, {
-    method: 'PATCH',
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error('Failed to deactivate notification');
+  await webPatch<unknown>(`/api/v1/admin/notifications/${id}/deactivate`);
 }
 
 const TYPE_BADGE: Record<SystemNotification['type'], { label: string; className: string }> = {
@@ -129,16 +118,15 @@ export default function SystemNotificationsPage() {
             <label htmlFor="type" className="block text-sm font-medium mb-1">
               Тип
             </label>
-            <select
+            <SelectField
               id="type"
               value={type}
               onChange={(e) => setType(e.target.value as 'info' | 'warning' | 'critical')}
-              className="border rounded p-2 text-sm"
             >
               <option value="info">Info</option>
               <option value="warning">Warning</option>
               <option value="critical">Critical</option>
-            </select>
+            </SelectField>
           </div>
 
           <div className="mb-4">

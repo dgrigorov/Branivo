@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { webFetch, webPost } from '@/lib/web-fetch';
 import {
   FaFacebook,
   FaInstagram,
@@ -386,40 +387,21 @@ function InsurerCard({ insurer, locale }: { insurer: FscInsurerRecord; locale: s
 }
 
 async function syncFscInsurers(): Promise<FscSyncResponse> {
-  const res = await fetch('/api/v1/admin/insurers/fsc/sync', {
-    method: 'POST',
-    credentials: 'include',
-  });
-  const body = (await res.json().catch(() => ({}))) as { message?: string } & Partial<FscSyncResponse>;
-  if (!res.ok) throw new Error(body.message ?? 'Грешка при FSC sync');
-  return body as FscSyncResponse;
+  return webPost<FscSyncResponse>('/api/v1/admin/insurers/fsc/sync');
 }
 
 async function enrichTrustpilot(): Promise<{ enriched: number; failed: number; skipped: number }> {
-  const res = await fetch('/api/v1/admin/insurers/fsc/trustpilot/enrich', {
-    method: 'POST',
-    credentials: 'include',
-  });
-  const body = (await res.json().catch(() => ({}))) as {
-    message?: string;
-    enriched?: number;
-    failed?: number;
-    skipped?: number;
-  };
-  if (!res.ok) throw new Error(body.message ?? 'Грешка при Trustpilot enrich');
-  return { enriched: body.enriched ?? 0, failed: body.failed ?? 0, skipped: body.skipped ?? 0 };
+  return webPost<{ enriched: number; failed: number; skipped: number }>(
+    '/api/v1/admin/insurers/fsc/trustpilot/enrich',
+  );
 }
 
 async function fetchFscInsurers(): Promise<FscInsurerRecord[]> {
-  const res = await fetch('/api/v1/admin/insurers/fsc?limit=500', { credentials: 'include' });
-  if (!res.ok) throw new Error('Failed to fetch FSC insurers');
-  return res.json() as Promise<FscInsurerRecord[]>;
+  return webFetch<FscInsurerRecord[]>('/api/v1/admin/insurers/fsc?limit=500');
 }
 
 async function fetchFscSyncStatus(): Promise<FscSyncStatusResponse> {
-  const res = await fetch('/api/v1/admin/insurers/fsc/sync/status', { credentials: 'include' });
-  if (!res.ok) throw new Error('Failed to fetch FSC sync status');
-  return res.json() as Promise<FscSyncStatusResponse>;
+  return webFetch<FscSyncStatusResponse>('/api/v1/admin/insurers/fsc/sync/status');
 }
 
 export default function AdminInsurersPage() {

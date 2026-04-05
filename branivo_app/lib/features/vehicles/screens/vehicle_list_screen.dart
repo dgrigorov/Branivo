@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/widgets/app_drawer.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../anonymous_session/data/repositories/anonymous_session_repository.dart';
 import '../bloc/vehicles_bloc.dart';
 import '../bloc/vehicles_state.dart';
@@ -107,11 +108,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
     } catch (e) {
       log('Failed to create session', error: e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Грешка при стартиране на сканиране. Опитайте пак.'),
-          ),
-        );
+        AppToast.error(context, 'Грешка при стартиране на сканиране. Опитайте пак.');
       }
     } finally {
       if (mounted) setState(() => _creatingSession = false);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { SelectField } from '@/components/ui/select-field';
 import type { OwnerData } from '../hooks/use-wizard-state';
 
 interface StepOwnerProps {
@@ -59,12 +60,14 @@ export function StepOwner({ data, onChange, onNext }: StepOwnerProps) {
 
       <div>
         <label htmlFor="ownerType" className="mb-1 block text-sm font-medium text-gray-700">Собственик</label>
-        <select id="ownerType" value={data.type}
+        <SelectField
+          id="ownerType"
+          value={data.type}
           onChange={(e) => set('type', e.target.value as 'individual' | 'company')}
-          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none">
+        >
           <option value="individual">Физическо лице</option>
           <option value="company">Юридическо лице</option>
-        </select>
+        </SelectField>
       </div>
 
       {data.type === 'individual' ? (

@@ -72,11 +72,10 @@ void main() {
     when(
       () => mockRepo.createPaymentIntent(
         quoteId: any(named: 'quoteId'),
-        bearerToken: any(named: 'bearerToken'),
       ),
     ).thenAnswer((_) async => mockResponse);
 
-    bloc = PaymentBloc(paymentRepo: mockRepo, bearerToken: 'test-token');
+    bloc = PaymentBloc(paymentRepo: mockRepo);
   });
 
   tearDown(() {

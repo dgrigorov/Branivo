@@ -335,7 +335,6 @@ class AppRouter {
           return BlocProvider(
             create: (_) => PaymentBloc(
               paymentRepo: repo,
-              bearerToken: '',
             ),
             child: PaymentScreen(
               quoteId: args.quoteId,

@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../ocr/data/repositories/ocr_models.dart';
 import '../../quotes/screens/offers_screen.dart';
+import '../../vehicle_catalog/data/models/catalog_make_model.dart';
+import '../../vehicle_catalog/data/repositories/vehicle_catalog_repository.dart';
+import '../../vehicle_catalog/widgets/vehicle_catalog_picker.dart';
 import '../bloc/vehicle_validation_bloc.dart';
 
 // ─── Design tokens (consistent with OCR wizard) ────────────────────────────────
@@ -200,26 +203,32 @@ class _VehicleValidationScreenState extends State<VehicleValidationScreen> {
             const SizedBox(height: 20),
             _SectionLabel(label: 'ДАННИ ЗА МПС (незадължителни)', color: _kMuted),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _DarkField(
-                    controller: _makeCtrl,
-                    label: 'Марка',
-                    hint: 'напр. BMW',
-                    capitalization: TextCapitalization.words,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _DarkField(
-                    controller: _modelCtrl,
-                    label: 'Модел',
-                    hint: 'напр. 320d',
-                    capitalization: TextCapitalization.words,
-                  ),
-                ),
-              ],
+            VehicleCatalogPicker(
+              repository: context.read<VehicleCatalogRepository>(),
+              initialMakeText:
+                  _makeCtrl.text.isNotEmpty ? _makeCtrl.text : null,
+              initialModelText:
+                  _modelCtrl.text.isNotEmpty ? _modelCtrl.text : null,
+              showModifications: true,
+              onChanged: (VehicleCatalogSelection? selection) {
+                if (selection == null) return;
+                setState(() {
+                  _makeCtrl.text = selection.makeName;
+                  _modelCtrl.text = selection.modelName ?? '';
+                  if (selection.powerKw != null) {
+                    _powerCtrl.text = selection.powerKw.toString();
+                  }
+                  if (selection.engineSizeCc != null) {
+                    _engineCtrl.text = selection.engineSizeCc.toString();
+                  }
+                  if (selection.engineType != null) {
+                    _fuelCtrl.text = selection.engineType!;
+                  }
+                  if (selection.yearFrom != null && _yearCtrl.text.isEmpty) {
+                    _yearCtrl.text = selection.yearFrom.toString();
+                  }
+                });
+              },
             ),
             const SizedBox(height: 12),
             Row(
