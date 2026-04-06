@@ -62,6 +62,12 @@ class ApiEndpoints {
   static String privacyPolicy({String lang = 'bg'}) =>
       '$_baseUrl/api/v1/public/privacy-policy?lang=$lang';
 
+  // ToS (public read — no auth; client accept/status — auth required)
+  static String tos({String lang = 'bg'}) =>
+      '$_baseUrl/api/v1/public/tos?lang=$lang';
+  static String get tosAccept => '$_baseUrl/api/v1/clients/tos/accept';
+  static String get tosStatus => '$_baseUrl/api/v1/clients/tos/status';
+
   // Health
   static String get health => '$_baseUrl/health';
 }

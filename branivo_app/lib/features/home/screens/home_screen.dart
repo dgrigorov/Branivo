@@ -4,9 +4,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/api/dio_client.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../compliance/data/tos_service.dart';
 import '../../anonymous_session/data/repositories/anonymous_session_repository.dart';
 import '../../auth/services/biometric_auth_service.dart';
 import '../../auth/widgets/biometric_setup_sheet.dart';
@@ -29,7 +31,32 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     context.read<PolicyWalletBloc>().add(const PolicyWalletLoadRequested());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowBiometricPrompt());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _checkTosAcceptance();
+      if (mounted) await _maybeShowBiometricPrompt();
+    });
+  }
+
+  Future<void> _checkTosAcceptance() async {
+    try {
+      final tosService = TosService(dio: DioClient.instance);
+      final status = await tosService.getStatus();
+      if (!status.requiresAcceptance || !mounted) return;
+      final tos = status.currentVersion;
+      if (tos == null) return;
+      await context.push<void>(
+        '/tos-accept',
+        extra: TosAcceptanceRouteArgs(
+          tosService: tosService,
+          tosVersion: tos,
+          onAccepted: () {
+            if (mounted) context.pop();
+          },
+        ),
+      );
+    } catch (_) {
+      // Non-critical — silently skip on any error; user will be checked next session
+    }
   }
 
   Future<void> _maybeShowBiometricPrompt() async {

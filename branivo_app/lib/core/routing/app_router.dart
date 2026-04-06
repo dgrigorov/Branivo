@@ -42,6 +42,9 @@ import '../../features/auth/services/biometric_auth_service.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/compliance/data/privacy_policy_service.dart';
 import '../../features/compliance/presentation/screens/privacy_policy_screen.dart';
+import '../../features/compliance/data/tos_service.dart';
+import '../../features/compliance/presentation/screens/tos_screen.dart';
+import '../../features/compliance/presentation/screens/tos_acceptance_screen.dart';
 
 /// Navigation extras for /fleet route
 class FleetRouteArgs {
@@ -90,6 +93,19 @@ class AuthGateRouteArgs {
   final Object? redirectExtra;
 }
 
+/// Navigation extras for /tos-accept route
+class TosAcceptanceRouteArgs {
+  const TosAcceptanceRouteArgs({
+    required this.tosService,
+    required this.tosVersion,
+    required this.onAccepted,
+  });
+
+  final TosService tosService;
+  final TosVersionData tosVersion;
+  final VoidCallback onAccepted;
+}
+
 const _storage = FlutterSecureStorage();
 final _biometricService = BiometricAuthService(storage: _storage);
 
@@ -105,6 +121,7 @@ const _publicRoutes = {
   '/onboarding',
   '/reset-password',
   '/privacy-policy',
+  '/tos',
 };
 
 Future<void> _startAnonScan(
@@ -379,6 +396,26 @@ class AppRouter {
               ? state.extra as PrivacyPolicyService
               : PrivacyPolicyService(dio: DioClient.instance);
           return PrivacyPolicyScreen(privacyPolicyService: service);
+        },
+      ),
+      GoRoute(
+        path: '/tos',
+        builder: (context, state) {
+          final service = state.extra is TosService
+              ? state.extra as TosService
+              : TosService(dio: DioClient.instance);
+          return TosScreen(tosService: service);
+        },
+      ),
+      GoRoute(
+        path: '/tos-accept',
+        builder: (context, state) {
+          final args = state.extra as TosAcceptanceRouteArgs;
+          return TosAcceptanceScreen(
+            tosService: args.tosService,
+            tosVersion: args.tosVersion,
+            onAccepted: args.onAccepted,
+          );
         },
       ),
     ],
