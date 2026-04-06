@@ -63,6 +63,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedShipments();
     await this.seedTenantHealthData();
     await this.seedSystemNotifications();
+    await this.seedPrivacyPolicy();
 
     this.logger.log(
       'Demo seed complete.\n' +
@@ -1080,5 +1081,43 @@ export class SeedService implements OnApplicationBootstrap {
       [PREMIUM_TENANT_ID, insurer[0].id],
     );
     this.logger.log('Premium commission events seeded.');
+  }
+
+  private async seedPrivacyPolicy(): Promise<void> {
+    const content = `# Политика за поверителност — Demo Broker
+
+**Последна актуализация:** 2026-04-05
+
+## Администратор на лични данни
+Demo Broker, ЕИК: 123456789, адрес: гр. София 1000, бул. „Витоша" № 1
+Контакт: support@demo.com
+
+## Цели и правно основание за обработката
+Обработваме личните Ви данни за: (1) сключване и управление на застрахователен договор (GDPR чл. 6, ал. 1, б. „б"); (2) изпълнение на законови задължения (чл. 6, ал. 1, б. „в"); (3) маркетинг — само с Ваше съгласие (чл. 6, ал. 1, б. „а").
+
+## Категории лични данни
+Обработваме: три имена, ЕГН (при нужда), телефон, имейл, данни за МПС (рег. номер, VIN), история на полиците.
+
+## Получатели на данните (под-обработващи)
+AWS (хостинг), Stripe (плащания), SendGrid (имейли), Twilio (SMS). Актуален списък: support@demo.com
+
+## Права на субекта на данни
+Имате право на: достъп, коригиране, изтриване, ограничаване, преносимост, възражение. За упражняване: support@demo.com
+
+## Право на жалба
+КЗЛД, адрес: гр. София 1592, бул. „Проф. Цветан Лазаров" № 2, www.cpdp.bg
+
+## Срок на съхранение
+Данните се съхраняват за срока на полицата + 5 години (КФН изискване) или по-малко ако законодателството позволява.`;
+
+    await this.dataSource.query(
+      `INSERT INTO tenant_privacy_policies
+         (id, tenant_id, version, content, language, is_published, published_at, created_by)
+       VALUES
+         (gen_random_uuid(), $1, 1, $2, 'bg', true, NOW(), NULL)
+       ON CONFLICT (tenant_id, version, language) DO NOTHING`,
+      [DEMO_TENANT_ID, content],
+    );
+    this.logger.log('Privacy policy seeded.');
   }
 }
