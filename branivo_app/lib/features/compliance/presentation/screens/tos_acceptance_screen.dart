@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../data/tos_service.dart';
 
 /// Fullscreen screen that forces the user to accept the current ToS.
@@ -72,9 +73,9 @@ class _TosAcceptanceScreenState extends State<TosAcceptanceScreen> {
                           ),
                     ),
                     const SizedBox(height: 12),
-                    SelectableText(
-                      widget.tosVersion.content,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    MarkdownBody(
+                      data: widget.tosVersion.content,
+                      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
                     ),
                   ],
                 ),

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TosService } from './tos.service';
 import { TenantTosVersion } from './entities/tenant-tos-version.entity';
@@ -185,6 +185,18 @@ describe('TosService', () => {
         NotFoundException,
       );
     });
+
+    it('throws BadRequestException when ToS is already published', async () => {
+      const alreadyPublished = makeTosEntity({
+        isPublished: true,
+        publishedAt: new Date(),
+      });
+      mockTosRepo.findOne.mockResolvedValue(alreadyPublished);
+
+      await expect(service.publish(TOS_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
   });
 
   // AC13 case 3: getPublished → returns MAX(version) when is_published=true
@@ -253,6 +265,15 @@ describe('TosService', () => {
     });
 
     it('throws NotFoundException when tosVersionId not in current tenant', async () => {
+      mockTosRepo.findOne.mockResolvedValue(null);
+
+      const dto: AcceptTosDto = { tosVersionId: TOS_ID };
+      await expect(service.accept(CLIENT_ID, dto, null, null)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('throws NotFoundException when tosVersionId is a draft (not published)', async () => {
       mockTosRepo.findOne.mockResolvedValue(null);
 
       const dto: AcceptTosDto = { tosVersionId: TOS_ID };

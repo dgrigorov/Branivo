@@ -69,9 +69,24 @@ export class CreateTenantTosVersions1710000062000 implements MigrationInterface 
       CREATE INDEX "idx_tos_acceptances_client_tenant"
         ON "end_client_tos_acceptances" ("client_id", "tenant_id")
     `);
+
+    await queryRunner.query(
+      `ALTER TABLE "end_client_tos_acceptances" ENABLE ROW LEVEL SECURITY`,
+    );
+
+    await queryRunner.query(`
+      CREATE POLICY "tos_acceptances_tenant_isolation"
+        ON "end_client_tos_acceptances"
+        USING (
+          tenant_id::text = current_setting('app.current_tenant_id', true)
+        )
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS "tos_acceptances_tenant_isolation" ON "end_client_tos_acceptances"`,
+    );
     await queryRunner.query(
       `DROP TABLE IF EXISTS "end_client_tos_acceptances"`,
     );

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -79,6 +80,10 @@ export class TosService {
       throw new NotFoundException('TOS_NOT_FOUND');
     }
 
+    if (tos.isPublished) {
+      throw new BadRequestException('TOS_ALREADY_PUBLISHED');
+    }
+
     tos.isPublished = true;
     tos.publishedAt = new Date();
     const updated = await this.tosRepo.save(tos);
@@ -125,7 +130,7 @@ export class TosService {
     const tenantId = this.tenantContext.getTenantId();
 
     const versions = await this.tosRepo.find({
-      where: { tenantId, deletedAt: IsNull() },
+      where: { tenantId },
       order: { version: 'DESC' },
     });
 
@@ -141,12 +146,19 @@ export class TosService {
     const tenantId = this.tenantContext.getTenantId();
 
     const tosVersion = await this.tosRepo.findOne({
-      where: { id: dto.tosVersionId, tenantId, deletedAt: IsNull() },
+      where: {
+        id: dto.tosVersionId,
+        tenantId,
+        isPublished: true,
+        deletedAt: IsNull(),
+      },
     });
 
     if (!tosVersion) {
       throw new NotFoundException('TOS_VERSION_NOT_FOUND');
     }
+
+    const now = new Date();
 
     await this.acceptanceRepo
       .createQueryBuilder()
@@ -156,6 +168,7 @@ export class TosService {
         clientId,
         tenantId,
         tosVersionId: dto.tosVersionId,
+        acceptedAt: now,
         ipAddress,
         userAgent,
       })
@@ -165,14 +178,10 @@ export class TosService {
       )
       .execute();
 
-    const acceptance = await this.acceptanceRepo.findOneOrFail({
-      where: { clientId, tosVersionId: dto.tosVersionId },
-    });
-
     const result = new TosAcceptanceResponseDto();
     result.accepted = true;
     result.version = tosVersion.version;
-    result.acceptedAt = acceptance.acceptedAt;
+    result.acceptedAt = now;
     return result;
   }
 
@@ -180,7 +189,7 @@ export class TosService {
     const tenantId = this.tenantContext.getTenantId();
 
     const latestTos = await this.tosRepo.findOne({
-      where: { tenantId, isPublished: true, deletedAt: IsNull() },
+      where: { tenantId, isPublished: true },
       order: { version: 'DESC' },
     });
 

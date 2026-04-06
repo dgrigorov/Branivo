@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  BadRequestException,
   INestApplication,
   NotFoundException,
   UnauthorizedException,
@@ -188,6 +189,18 @@ describe('TosController (Admin)', () => {
       ).put(`/tenants/tos/${TOS_ID}/publish`);
 
       expect(res.status).toBe(404);
+    });
+
+    it('returns 400 when ToS is already published', async () => {
+      mockService.publish.mockRejectedValue(
+        new BadRequestException('TOS_ALREADY_PUBLISHED'),
+      );
+
+      const res = await request(
+        brokerAdminApp.getHttpServer() as import('http').Server,
+      ).put(`/tenants/tos/${TOS_ID}/publish`);
+
+      expect(res.status).toBe(400);
     });
   });
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../data/tos_service.dart';
 
 class TosScreen extends StatefulWidget {
@@ -66,12 +67,9 @@ class _TosScreenState extends State<TosScreen> {
             );
           }
           final tos = snapshot.data!;
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: SelectableText(
-              tos.content,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+          return Markdown(
+            data: tos.content,
+            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
           );
         },
       ),

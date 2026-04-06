@@ -1,6 +1,6 @@
 # Story 11.12: Terms of Service Version Tracking
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -579,8 +579,9 @@ claude-sonnet-4-6
 - Flutter: `TosService`, `TosAcceptanceScreen` (force-accept с PopScope canPop=false), `TosScreen` (read-only), `_TosNotice` в registration flow
 - ToS acceptance check в `HomeScreen.initState()` — след login и преди biometric prompt
 - Seed с пълни 7-секционни Общи Условия за demo tenant; ON CONFLICT DO NOTHING
-- `flutter_markdown` не е в pubspec.yaml — използван `SelectableText` по аналогия с `PrivacyPolicyScreen`
-- 31 NestJS теста + 5 Flutter widget теста; 0 lint errors; build success
+- `flutter_markdown: 0.7.4+2` добавен в pubspec.yaml; `TosAcceptanceScreen` и `TosScreen` обновени да ползват `MarkdownBody`/`Markdown`
+- Code review fixes: RLS добавен за `end_client_tos_acceptances`; `accept()` вече проверява `isPublished: true`; `publish()` връща 400 при re-publish; extra `findOneOrFail` след UPSERT премахнат
+- 34 NestJS теста (3 нови) + 5 Flutter widget теста; 0 lint errors; build success
 
 ### File List
 
@@ -611,3 +612,4 @@ claude-sonnet-4-6
 - `branivo_app/lib/features/home/screens/home_screen.dart`
 - `branivo_app/lib/features/registration/screens/registration_screen.dart`
 - `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `branivo_app/pubspec.yaml` (добавен `flutter_markdown: 0.7.4+2`)
