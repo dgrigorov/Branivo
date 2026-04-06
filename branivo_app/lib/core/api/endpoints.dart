@@ -68,6 +68,14 @@ class ApiEndpoints {
   static String get tosAccept => '$_baseUrl/api/v1/clients/tos/accept';
   static String get tosStatus => '$_baseUrl/api/v1/clients/tos/status';
 
+  // Cookie Policy (public read — no auth; client consent — auth required)
+  static String cookiePolicy({String lang = 'bg'}) =>
+      '$_baseUrl/api/v1/public/cookie-policy?lang=$lang';
+  static String get cookieConsentSave =>
+      '$_baseUrl/api/v1/clients/cookie-consent';
+  static String get cookieConsentGet =>
+      '$_baseUrl/api/v1/clients/cookie-consent';
+
   // Health
   static String get health => '$_baseUrl/health';
 }

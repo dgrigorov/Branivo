@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
@@ -45,6 +45,10 @@ import '../../features/compliance/presentation/screens/privacy_policy_screen.dar
 import '../../features/compliance/data/tos_service.dart';
 import '../../features/compliance/presentation/screens/tos_screen.dart';
 import '../../features/compliance/presentation/screens/tos_acceptance_screen.dart';
+import '../../features/compliance/data/cookie_policy_service.dart';
+import '../../features/compliance/data/cookie_consent_service.dart';
+import '../../features/compliance/presentation/screens/cookie_policy_screen.dart';
+import '../../features/compliance/presentation/widgets/cookie_consent_sheet.dart';
 
 /// Navigation extras for /fleet route
 class FleetRouteArgs {
@@ -122,6 +126,7 @@ const _publicRoutes = {
   '/reset-password',
   '/privacy-policy',
   '/tos',
+  '/cookie-policy',
 };
 
 Future<void> _startAnonScan(
@@ -191,11 +196,9 @@ class AppRouter {
             create: (_) => AuthBloc(
               dio: DioClient.instance,
               storage: _storage,
-              biometricService: _biometricService,
             ),
             child: LoginScreen(
               authRedirect: redirect,
-              biometricService: _biometricService,
             ),
           );
         },
@@ -418,6 +421,39 @@ class AppRouter {
           );
         },
       ),
+      GoRoute(
+        path: '/cookie-policy',
+        builder: (context, state) {
+          final service = state.extra is CookiePolicyService
+              ? state.extra as CookiePolicyService
+              : CookiePolicyService(dio: DioClient.instance);
+          return CookiePolicyScreen(cookiePolicyService: service);
+        },
+      ),
     ],
   );
+
+  /// Shows [CookieConsentSheet] as a bottom sheet if the user has not yet
+  /// given cookie consent. Call this after the main screen is displayed.
+  static Future<void> showCookieConsentIfNeeded(BuildContext context) async {
+    try {
+      final consentService =
+          CookieConsentService(dio: DioClient.instance);
+      final hasConsent = await consentService.hasGivenConsent();
+      if (hasConsent) return;
+      if (!context.mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        isDismissible: false,
+        enableDrag: false,
+        isScrollControlled: true,
+        builder: (_) => CookieConsentSheet(
+          cookieConsentService: consentService,
+          cookiePolicyService: CookiePolicyService(dio: DioClient.instance),
+        ),
+      );
+    } catch (_) {
+      // Hive or context unavailable — skip consent banner silently
+    }
+  }
 }
