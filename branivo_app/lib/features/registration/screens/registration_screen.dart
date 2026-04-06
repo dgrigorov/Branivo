@@ -5,7 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/registration_bloc.dart';
 import '../../../core/routing/auth_redirect.dart';
+import '../../../core/api/dio_client.dart';
 import '../../compliance/data/privacy_policy_service.dart';
+import '../../compliance/data/tos_service.dart';
 
 class RegistrationScreen extends StatelessWidget {
   const RegistrationScreen({
@@ -146,6 +148,8 @@ class _PhoneEntryFormState extends State<_PhoneEntryForm> {
           _PrivacyPolicyNotice(
             privacyPolicyService: widget.privacyPolicyService,
           ),
+          const SizedBox(height: 4),
+          _TosNotice(),
         ],
       ),
     );
@@ -175,6 +179,40 @@ class _PrivacyPolicyNotice extends StatelessWidget {
               ),
               child: Text(
                 'Политика за поверителност',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                    ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+}
+
+class _TosNotice extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.grey.shade600,
+            ),
+        children: [
+          const TextSpan(text: 'Като продължавате, приемате нашите '),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: () => context.push(
+                '/tos',
+                extra: TosService(dio: DioClient.instance),
+              ),
+              child: Text(
+                'Общи Условия',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.primary,
                       decoration: TextDecoration.underline,
