@@ -70,9 +70,40 @@ export class CreateCookiePoliciesAndConsents1710000063000 implements MigrationIn
       CREATE INDEX "idx_cookie_consent_client_lookup"
         ON "cookie_consent_records" ("client_id", "tenant_id")
     `);
+
+    // RLS — tenant isolation (same pattern as tenant_privacy_policies and tenant_tos_versions)
+    await queryRunner.query(
+      `ALTER TABLE "tenant_cookie_policies" ENABLE ROW LEVEL SECURITY`,
+    );
+
+    await queryRunner.query(`
+      CREATE POLICY "cookie_policies_tenant_isolation"
+        ON "tenant_cookie_policies"
+        USING (
+          tenant_id::text = current_setting('app.current_tenant_id', true)
+        )
+    `);
+
+    await queryRunner.query(
+      `ALTER TABLE "cookie_consent_records" ENABLE ROW LEVEL SECURITY`,
+    );
+
+    await queryRunner.query(`
+      CREATE POLICY "cookie_consent_tenant_isolation"
+        ON "cookie_consent_records"
+        USING (
+          tenant_id::text = current_setting('app.current_tenant_id', true)
+        )
+    `);
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS "cookie_consent_tenant_isolation" ON "cookie_consent_records"`,
+    );
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS "cookie_policies_tenant_isolation" ON "tenant_cookie_policies"`,
+    );
     await queryRunner.query(
       `DROP INDEX IF EXISTS "idx_cookie_consent_client_lookup"`,
     );

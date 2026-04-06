@@ -53,16 +53,28 @@ class CookieConsentService {
   }
 
   bool get canTrackAnalytics {
-    final box = Hive.box<dynamic>(_kBoxName);
-    return box.get(_kKeyAnalytics, defaultValue: false) as bool;
+    // Box may not be open yet (e.g. called before hasGivenConsent()) — default to false.
+    if (!Hive.isBoxOpen(_kBoxName)) return false;
+    return Hive.box<dynamic>(_kBoxName).get(_kKeyAnalytics, defaultValue: false) as bool;
   }
 
   bool get canUseMarketing {
-    final box = Hive.box<dynamic>(_kBoxName);
-    return box.get(_kKeyMarketing, defaultValue: false) as bool;
+    // Box may not be open yet — default to false.
+    if (!Hive.isBoxOpen(_kBoxName)) return false;
+    return Hive.box<dynamic>(_kBoxName).get(_kKeyMarketing, defaultValue: false) as bool;
   }
 
   Map<String, dynamic> getCurrentConsent() {
+    // Box may not be open yet — return safe defaults.
+    if (!Hive.isBoxOpen(_kBoxName)) {
+      return {
+        _kKeyNecessary: true,
+        _kKeyAnalytics: false,
+        _kKeyMarketing: false,
+        _kKeyFunctional: false,
+        _kKeyConsentedAt: null,
+      };
+    }
     final box = Hive.box<dynamic>(_kBoxName);
     return {
       _kKeyNecessary: true,

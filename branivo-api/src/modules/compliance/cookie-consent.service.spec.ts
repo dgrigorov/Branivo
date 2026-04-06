@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { CookieConsentService } from './cookie-consent.service';
 import { CookieConsentRecord } from './entities/cookie-consent-record.entity';
 import { TenantCookiePolicy } from './entities/tenant-cookie-policy.entity';
@@ -9,17 +10,8 @@ import { SaveCookieConsentDto } from './dto/save-cookie-consent.dto';
 const TENANT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
 const CLIENT_ID = 'cccccccc-0000-0000-0000-000000000003';
 
-const mockInsertBuilder = {
-  insert: jest.fn().mockReturnThis(),
-  into: jest.fn().mockReturnThis(),
-  values: jest.fn().mockReturnThis(),
-  orUpdate: jest.fn().mockReturnThis(),
-  execute: jest.fn().mockResolvedValue(undefined),
-};
-
 const mockConsentRepo = {
   findOne: jest.fn(),
-  createQueryBuilder: jest.fn().mockReturnValue(mockInsertBuilder),
 };
 
 const mockPolicyRepo = {
@@ -30,12 +22,15 @@ const mockTenantContext = {
   getTenantId: jest.fn().mockReturnValue(TENANT_ID),
 };
 
+const mockDataSource = {
+  query: jest.fn().mockResolvedValue([]),
+};
+
 describe('CookieConsentService', () => {
   let service: CookieConsentService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockConsentRepo.createQueryBuilder.mockReturnValue(mockInsertBuilder);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -49,6 +44,7 @@ describe('CookieConsentService', () => {
           useValue: mockPolicyRepo,
         },
         { provide: TenantContext, useValue: mockTenantContext },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
@@ -67,12 +63,14 @@ describe('CookieConsentService', () => {
       };
       await service.saveConsent(CLIENT_ID, dto, null, null);
 
-      expect(mockInsertBuilder.values).toHaveBeenCalledWith(
-        expect.objectContaining({ necessary: true }),
-      );
+      const callArgs = mockDataSource.query.mock.calls[0] as [
+        string,
+        unknown[],
+      ];
+      expect(callArgs[1][2]).toBe(true); // index 2 = necessary
     });
 
-    it('calls orUpdate for UPSERT — second call does not duplicate', async () => {
+    it('calls raw SQL UPSERT twice — second call does not duplicate', async () => {
       mockPolicyRepo.findOne.mockResolvedValue({ version: 2 });
 
       const dto: SaveCookieConsentDto = {
@@ -85,8 +83,11 @@ describe('CookieConsentService', () => {
       await service.saveConsent(CLIENT_ID, dto, '1.2.3.4', 'TestAgent/1.0');
       await service.saveConsent(CLIENT_ID, dto, '1.2.3.4', 'TestAgent/1.0');
 
-      expect(mockInsertBuilder.orUpdate).toHaveBeenCalledTimes(2);
-      expect(mockInsertBuilder.execute).toHaveBeenCalledTimes(2);
+      expect(mockDataSource.query).toHaveBeenCalledTimes(2);
+      const calls = mockDataSource.query.mock.calls as [string, unknown[]][];
+      const sql = calls[0]?.[0] ?? '';
+      expect(sql).toContain('ON CONFLICT (tenant_id, client_id)');
+      expect(sql).toContain('WHERE client_id IS NOT NULL');
     });
 
     it('includes policyVersion from latest published policy', async () => {
@@ -100,9 +101,11 @@ describe('CookieConsentService', () => {
       };
       await service.saveConsent(CLIENT_ID, dto, null, null);
 
-      expect(mockInsertBuilder.values).toHaveBeenCalledWith(
-        expect.objectContaining({ policyVersion: 3 }),
-      );
+      const callArgs = mockDataSource.query.mock.calls[0] as [
+        string,
+        unknown[],
+      ];
+      expect(callArgs[1][6]).toBe(3); // index 6 = policy_version
     });
 
     it('returns saved=true and consentedAt ISO string', async () => {

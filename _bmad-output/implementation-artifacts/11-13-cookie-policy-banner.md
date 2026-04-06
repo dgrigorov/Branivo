@@ -1,6 +1,6 @@
 # Story 11.13: Cookie Policy Banner
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -422,4 +422,19 @@ claude-sonnet-4-6
 
 ### Completion Notes List
 
+- Code Review fixes applied (2026-04-06):
+  - H1: Added RLS (ENABLE ROW LEVEL SECURITY + tenant isolation policies) to migration 1710000063000 for both `tenant_cookie_policies` and `cookie_consent_records` — matching pattern from migrations 61/62.
+  - H2: Replaced TypeORM `orUpdate()` UPSERT with raw SQL (`dataSource.query`) to correctly handle the partial unique index `WHERE client_id IS NOT NULL` — TypeORM orUpdate generates ON CONFLICT without WHERE clause which PostgreSQL rejects for partial indexes.
+  - M1: Added `AppRouter.showCookieConsentIfNeeded()` call to `LoginScreen._startAnonymousScan()` so anonymous users entering the OCR flow also see the GDPR consent banner.
+  - M2: Added `Hive.isBoxOpen()` guard to `canTrackAnalytics`, `canUseMarketing`, and `getCurrentConsent()` — prevents HiveError if box not yet opened.
+  - M3: Added Flutter widget tests: `cookie_policy_screen_test.dart` (4 tests) and `cookie_consent_sheet_test.dart` (6 tests).
+
 ### File List
+
+- `branivo-api/src/infrastructure/database/migrations/1710000063000-CreateCookiePoliciesAndConsents.ts` — добавени RLS policies
+- `branivo-api/src/modules/compliance/cookie-consent.service.ts` — UPSERT заменен с raw SQL; DataSource инжектиран
+- `branivo-api/src/modules/compliance/cookie-consent.service.spec.ts` — тестове обновени за DataSource mock
+- `branivo_app/lib/features/auth/screens/login_screen.dart` — добавен consent check преди anonymous scan
+- `branivo_app/lib/features/compliance/data/cookie_consent_service.dart` — Hive.isBoxOpen() guard
+- `branivo_app/test/features/compliance/screens/cookie_policy_screen_test.dart` — нов (4 теста)
+- `branivo_app/test/features/compliance/widgets/cookie_consent_sheet_test.dart` — нов (6 теста)
