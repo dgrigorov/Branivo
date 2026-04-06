@@ -32,8 +32,13 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     context.read<PolicyWalletBloc>().add(const PolicyWalletLoadRequested());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _checkTosAcceptance();
-      if (mounted) await _maybeShowBiometricPrompt();
+      try {
+        await _checkTosAcceptance();
+        if (mounted) await AppRouter.showCookieConsentIfNeeded(context);
+        if (mounted) await _maybeShowBiometricPrompt();
+      } catch (_) {
+        // Best-effort post-login checks — silently skip on any error
+      }
     });
   }
 

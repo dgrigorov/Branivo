@@ -51,6 +51,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_startingAnonymous) return;
     setState(() => _startingAnonymous = true);
     try {
+      // Show cookie consent banner before starting the anonymous flow so that
+      // users who never reach HomeScreen still get the GDPR consent prompt.
+      await AppRouter.showCookieConsentIfNeeded(context);
+      if (!mounted) return;
+
       final repo = context.read<AnonymousSessionRepository>();
       final sessionToken = await repo.createSession();
       if (!mounted) return;

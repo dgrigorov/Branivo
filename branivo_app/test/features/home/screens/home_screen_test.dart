@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -10,8 +11,11 @@ import 'package:branivo_app/features/policies/bloc/policy_wallet_event.dart';
 import 'package:branivo_app/features/policies/bloc/policy_wallet_state.dart';
 import 'package:branivo_app/features/policies/data/models/policy_document.dart';
 import 'package:branivo_app/features/anonymous_session/data/repositories/anonymous_session_repository.dart';
+import 'package:branivo_app/features/auth/services/biometric_auth_service.dart';
 
 class MockDio extends Mock implements Dio {}
+
+class MockBiometricAuthService extends Mock implements BiometricAuthService {}
 
 class _FakePolicyWalletBloc extends Fake implements PolicyWalletBloc {
   final PolicyWalletState _state;
@@ -32,10 +36,15 @@ class _FakePolicyWalletBloc extends Fake implements PolicyWalletBloc {
   Future<void> close() async {}
 }
 
-Widget _buildWidget(_FakePolicyWalletBloc bloc, AnonymousSessionRepository repo) {
+Widget _buildWidget(
+  _FakePolicyWalletBloc bloc,
+  AnonymousSessionRepository repo,
+  BiometricAuthService biometricService,
+) {
   return MultiRepositoryProvider(
     providers: [
       RepositoryProvider<AnonymousSessionRepository>.value(value: repo),
+      RepositoryProvider<BiometricAuthService>.value(value: biometricService),
     ],
     child: BlocProvider<PolicyWalletBloc>.value(
       value: bloc,
@@ -47,38 +56,76 @@ Widget _buildWidget(_FakePolicyWalletBloc bloc, AnonymousSessionRepository repo)
 void main() {
   late MockDio mockDio;
   late AnonymousSessionRepository anonRepo;
+  late MockBiometricAuthService mockBiometricService;
+
+  // Mock flutter_secure_storage to avoid MissingPluginException from
+  // DioClient._AuthInterceptor which calls FlutterSecureStorage.read() in
+  // initState's async post-frame callbacks.
+  const secureStorageChannel =
+      MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(secureStorageChannel, (_) async => null);
+  });
+
+  tearDownAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(secureStorageChannel, null);
+  });
 
   setUp(() {
     mockDio = MockDio();
     anonRepo = AnonymousSessionRepository(dio: mockDio);
+    mockBiometricService = MockBiometricAuthService();
+    // Return values that skip the biometric prompt
+    when(() => mockBiometricService.isAvailable()).thenAnswer((_) async => false);
+    when(() => mockBiometricService.isEnabled()).thenAnswer((_) async => false);
+    when(() => mockBiometricService.wasPromptShown()).thenAnswer((_) async => true);
   });
 
   group('HomeScreen', () {
     testWidgets('renders app brand name in topbar', (tester) async {
-      await tester.pumpWidget(_buildWidget(_FakePolicyWalletBloc(), anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(_FakePolicyWalletBloc(), anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       // Brand name is configurable via AppConfig.brandName (defaults to 'Branivo')
       expect(find.text('Branivo'), findsOneWidget);
     });
 
     testWidgets('renders hero headline', (tester) async {
-      await tester.pumpWidget(_buildWidget(_FakePolicyWalletBloc(), anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(_FakePolicyWalletBloc(), anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       expect(find.text('Застрахови колата си за минути'), findsOneWidget);
     });
 
     testWidgets('renders Сканирай талона CTA button', (tester) async {
-      await tester.pumpWidget(_buildWidget(_FakePolicyWalletBloc(), anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(_FakePolicyWalletBloc(), anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       expect(find.text('Сканирай талона'), findsOneWidget);
     });
 
     testWidgets('renders bottom navigation with 3 items', (tester) async {
-      await tester.pumpWidget(_buildWidget(_FakePolicyWalletBloc(), anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(_FakePolicyWalletBloc(), anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       expect(find.byType(BottomNavigationBar), findsOneWidget);
       expect(find.text('Начало'), findsOneWidget);
@@ -87,8 +134,12 @@ void main() {
     });
 
     testWidgets('shows zero active policies when no policies loaded', (tester) async {
-      await tester.pumpWidget(_buildWidget(_FakePolicyWalletBloc(), anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(_FakePolicyWalletBloc(), anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       expect(find.text('0'), findsOneWidget);
       expect(find.text('Активни полици'), findsOneWidget);
@@ -107,15 +158,23 @@ void main() {
         PolicyWalletLoaded(policies: [policy], shipments: const {}),
       );
 
-      await tester.pumpWidget(_buildWidget(loadedBloc, anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(loadedBloc, anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       expect(find.text('1'), findsOneWidget);
     });
 
     testWidgets('shows empty policies card when no policies', (tester) async {
-      await tester.pumpWidget(_buildWidget(_FakePolicyWalletBloc(), anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(_FakePolicyWalletBloc(), anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       expect(find.text('Добави полица'), findsOneWidget);
     });
@@ -133,8 +192,12 @@ void main() {
         PolicyWalletLoaded(policies: [policy], shipments: const {}),
       );
 
-      await tester.pumpWidget(_buildWidget(loadedBloc, anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(loadedBloc, anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       expect(find.text('GO-2025-00001'), findsOneWidget);
       expect(find.text('Активна'), findsOneWidget);
@@ -156,8 +219,12 @@ void main() {
         PolicyWalletLoaded(policies: [expiredPolicy], shipments: const {}),
       );
 
-      await tester.pumpWidget(_buildWidget(loadedBloc, anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(loadedBloc, anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       expect(find.text('—'), findsOneWidget);
     });
@@ -176,8 +243,12 @@ void main() {
         PolicyWalletLoaded(policies: [expiredPolicy], shipments: const {}),
       );
 
-      await tester.pumpWidget(_buildWidget(loadedBloc, anonRepo));
-      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _buildWidget(loadedBloc, anonRepo, mockBiometricService),
+        );
+        await tester.pump();
+      });
 
       expect(find.text('Изтекла'), findsOneWidget);
       expect(find.text('expired'), findsNothing);
