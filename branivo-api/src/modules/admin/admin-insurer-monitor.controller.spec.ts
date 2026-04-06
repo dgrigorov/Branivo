@@ -9,6 +9,7 @@ import {
 const request = require('supertest') as typeof import('supertest');
 import { AdminInsurerMonitorController } from './admin-insurer-monitor.controller';
 import { AdminInsurerMonitorService } from './admin-insurer-monitor.service';
+import { AdminInsurerDetailService } from './admin-insurer-detail.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
@@ -36,6 +37,13 @@ const mockAdminInsurerMonitorService = {
   deactivateManualFallback: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockAdminInsurerDetailService = {
+  getDetail: jest.fn().mockResolvedValue({}),
+  updateConfig: jest.fn().mockResolvedValue({}),
+  setApiKey: jest.fn().mockResolvedValue(undefined),
+  testConnection: jest.fn().mockResolvedValue({}),
+};
+
 const superAdminUser = { userId: 'super-uuid', role: 'super_admin' };
 const brokerAdminUser = { userId: 'broker-uuid', role: 'broker_admin' };
 
@@ -59,6 +67,10 @@ async function buildApp(
       {
         provide: AdminInsurerMonitorService,
         useValue: mockAdminInsurerMonitorService,
+      },
+      {
+        provide: AdminInsurerDetailService,
+        useValue: mockAdminInsurerDetailService,
       },
       Reflector,
     ],

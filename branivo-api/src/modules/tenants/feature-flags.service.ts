@@ -1,4 +1,5 @@
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
+import { AuditService } from '../../common/audit/audit.service';
 import {
   ForbiddenException,
   Inject,
@@ -69,7 +70,7 @@ export class FeatureFlagsService {
     @InjectRepository(Tenant)
     private readonly tenantRepo: Repository<Tenant>,
     private readonly tenantContext: TenantContext,
-    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -164,33 +165,17 @@ export class FeatureFlagsService {
     newValue: boolean;
     entityId: string;
   }): Promise<void> {
-    try {
-      await this.dataSource.transaction(async (manager) => {
-        await manager.query('SET LOCAL app.current_tenant_id = $1', [
-          entry.tenantId,
-        ]);
-        await manager.query(
-          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-          [
-            entry.tenantId,
-            entry.userId,
-            'feature_flag.updated',
-            'tenant',
-            entry.entityId,
-            JSON.stringify({
-              flag: entry.flag,
-              old_value: entry.oldValue,
-              new_value: entry.newValue,
-            }),
-          ],
-        );
-      });
-    } catch (err) {
-      this.logger.error(
-        'Failed to write audit log for feature flag change',
-        err,
-      );
-    }
+    await this.auditService.log({
+      tenantId: entry.tenantId,
+      userId: entry.userId,
+      action: 'feature_flag.updated',
+      entityType: 'tenant',
+      entityId: entry.entityId,
+      metadata: {
+        flag: entry.flag,
+        old_value: entry.oldValue,
+        new_value: entry.newValue,
+      },
+    });
   }
 }

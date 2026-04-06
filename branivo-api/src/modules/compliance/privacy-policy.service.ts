@@ -5,8 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, QueryFailedError, Repository } from 'typeorm';
+import { IsNull, QueryFailedError, Repository } from 'typeorm';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { AuditService } from '../../common/audit/audit.service';
 import { TenantPrivacyPolicy } from './entities/tenant-privacy-policy.entity';
 import { CreatePrivacyPolicyDto } from './dto/create-privacy-policy.dto';
 import {
@@ -22,7 +23,7 @@ export class PrivacyPolicyService {
     @InjectRepository(TenantPrivacyPolicy)
     private readonly repo: Repository<TenantPrivacyPolicy>,
     private readonly tenantContext: TenantContext,
-    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
   ) {}
 
   async create(
@@ -80,28 +81,14 @@ export class PrivacyPolicyService {
     policy.publishedAt = new Date();
     const updated = await this.repo.save(policy);
 
-    try {
-      await this.dataSource.query(
-        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          tenantId,
-          userId,
-          'privacy_policy.published',
-          'tenant_privacy_policy',
-          policy.id,
-          JSON.stringify({
-            version: policy.version,
-            language: policy.language,
-          }),
-        ],
-      );
-    } catch (auditErr) {
-      this.logger.error(
-        `audit_log write failed for privacy_policy id=${policy.id}`,
-        auditErr instanceof Error ? auditErr.stack : String(auditErr),
-      );
-    }
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'privacy_policy.published',
+      entityType: 'tenant_privacy_policy',
+      entityId: policy.id,
+      metadata: { version: policy.version, language: policy.language },
+    });
 
     return this.toResponseDto(updated);
   }

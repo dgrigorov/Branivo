@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, EntityManager } from 'typeorm';
+import { AuditService } from '../../common/audit/audit.service';
 import {
   NotificationsRepository,
   EndClientRow,
@@ -51,7 +51,7 @@ export class NotificationsService {
     private readonly emailChannel: EmailChannel,
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
-    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
   ) {}
 
   async notifyBroker(params: {
@@ -163,33 +163,17 @@ export class NotificationsService {
     oldConfig: StageConfig[] | null;
     newConfig: StageConfig[];
   }): Promise<void> {
-    try {
-      await this.dataSource.transaction(async (manager: EntityManager) => {
-        await manager.query('SET LOCAL app.current_tenant_id = $1', [
-          entry.tenantId,
-        ]);
-        await manager.query(
-          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-          [
-            entry.tenantId,
-            entry.userId,
-            'renewal_config.updated',
-            'tenant',
-            entry.tenantId,
-            JSON.stringify({
-              old_config: entry.oldConfig,
-              new_config: entry.newConfig,
-            }),
-          ],
-        );
-      });
-    } catch (err) {
-      this.logger.error(
-        'Failed to write audit log for renewal config change',
-        err,
-      );
-    }
+    await this.auditService.log({
+      tenantId: entry.tenantId,
+      userId: entry.userId,
+      action: 'renewal_config.updated',
+      entityType: 'tenant',
+      entityId: entry.tenantId,
+      metadata: {
+        old_config: entry.oldConfig,
+        new_config: entry.newConfig,
+      },
+    });
   }
 
   private async dispatchChannel(

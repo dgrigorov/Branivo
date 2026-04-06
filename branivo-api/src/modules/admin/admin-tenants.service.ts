@@ -16,6 +16,7 @@ import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../infrastructure/redis/redis.module';
 import { RedisKeyHelper } from '../../common/helpers/redis-key.helper';
 import { CryptoService } from '../../common/crypto/crypto.service';
+import { AuditService } from '../../common/audit/audit.service';
 import { EmailService } from '../../common/email/email.service';
 import { TenantsRepository } from '../tenants/tenants.repository';
 import { TenantInvitationsRepository } from './repositories/tenant-invitations.repository';
@@ -49,6 +50,7 @@ export class AdminTenantsService {
     private readonly tenantsRepository: TenantsRepository,
     private readonly invitationsRepository: TenantInvitationsRepository,
     private readonly cryptoService: CryptoService,
+    private readonly auditService: AuditService,
     private readonly emailService: EmailService,
     private readonly dataSource: DataSource,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
@@ -395,25 +397,12 @@ export class AdminTenantsService {
     entityType: string;
     entityId: string;
   }): Promise<void> {
-    try {
-      await this.dataSource.transaction(async (manager) => {
-        await manager.query(`SET LOCAL app.current_tenant_id = $1`, [
-          entry.tenantId,
-        ]);
-        await manager.query(
-          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, created_at)
-           VALUES ($1, $2, $3, $4, $5, NOW())`,
-          [
-            entry.tenantId,
-            entry.userId,
-            entry.action,
-            entry.entityType,
-            entry.entityId,
-          ],
-        );
-      });
-    } catch (err) {
-      this.logger.error('Failed to write audit log', err);
-    }
+    await this.auditService.log({
+      tenantId: entry.tenantId,
+      userId: entry.userId,
+      action: entry.action,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+    });
   }
 }

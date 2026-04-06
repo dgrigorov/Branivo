@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
 import { CommissionsService } from './commissions.service';
+import { AuditService } from '../../common/audit/audit.service';
 import { CommissionsRepository } from './commissions.repository';
 import { CommissionMatrix } from './entities/commission-matrix.entity';
 import { ProductType } from './enums/product-type.enum';
@@ -23,8 +23,8 @@ const mockConfig = {
   get: jest.fn().mockReturnValue('0.05'),
 };
 
-const mockDataSource = {
-  query: jest.fn().mockResolvedValue([]),
+const mockAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
 };
 
 describe('CommissionsService', () => {
@@ -38,7 +38,7 @@ describe('CommissionsService', () => {
         CommissionsService,
         { provide: CommissionsRepository, useValue: mockRepo },
         { provide: ConfigService, useValue: mockConfig },
-        { provide: DataSource, useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -113,15 +113,14 @@ describe('CommissionsService', () => {
         ratePct: 0.06,
         createdBy: 'user-uuid',
       });
-      expect(mockDataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining([
-          '00000000-0000-0000-0000-000000000000',
-          'user-uuid',
-          'commission_matrix.updated',
-          'commission_matrix',
-          'entry-uuid',
-        ]),
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: '00000000-0000-0000-0000-000000000000',
+          userId: 'user-uuid',
+          action: 'commission_matrix.updated',
+          entityType: 'commission_matrix',
+          entityId: 'entry-uuid',
+        }),
       );
     });
 
@@ -131,18 +130,11 @@ describe('CommissionsService', () => {
 
       await service.upsertRate('insurer-uuid', dto, 'user-uuid');
 
-      const auditCall = mockDataSource.query.mock.calls[0] as [
-        string,
-        unknown[],
+      const logCall = mockAuditService.log.mock.calls[0] as [
+        { metadata: { old_rate: number; new_rate: number } },
       ];
-      const metadataJson = auditCall[1][5] as string;
-      const metadata = JSON.parse(metadataJson) as {
-        old_rate: number;
-        new_rate: number;
-      };
-
-      expect(metadata.old_rate).toBe(0.05);
-      expect(metadata.new_rate).toBe(0.06);
+      expect(logCall[0].metadata.old_rate).toBe(0.05);
+      expect(logCall[0].metadata.new_rate).toBe(0.06);
     });
 
     it('records null old_rate when no prior entry exists', async () => {
@@ -151,14 +143,10 @@ describe('CommissionsService', () => {
 
       await service.upsertRate('insurer-uuid', dto, null);
 
-      const auditCall = mockDataSource.query.mock.calls[0] as [
-        string,
-        unknown[],
+      const logCall = mockAuditService.log.mock.calls[0] as [
+        { metadata: { old_rate: number | null } },
       ];
-      const metadataJson = auditCall[1][5] as string;
-      const metadata = JSON.parse(metadataJson) as { old_rate: number | null };
-
-      expect(metadata.old_rate).toBeNull();
+      expect(logCall[0].metadata.old_rate).toBeNull();
     });
   });
 

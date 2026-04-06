@@ -1,27 +1,28 @@
 import { AdminSubscriptionRepository } from './admin-subscription.repository';
+import { AuditService } from '../../../common/audit/audit.service';
 import { PendingDowngrade } from '../../tenants/entities/tenant.entity';
 
 describe('AdminSubscriptionRepository', () => {
   let repository: AdminSubscriptionRepository;
   let mockQuery: jest.Mock;
-  let mockManagerQuery: jest.Mock;
+  let mockAuditLog: jest.Mock;
 
   beforeEach(() => {
     mockQuery = jest.fn();
-    mockManagerQuery = jest.fn().mockResolvedValue([]);
+    mockAuditLog = jest.fn().mockResolvedValue(undefined);
 
     const dataSource = {
       query: mockQuery,
-      transaction: jest
-        .fn()
-        .mockImplementation(
-          async (cb: (manager: { query: jest.Mock }) => Promise<void>) => {
-            await cb({ query: mockManagerQuery });
-          },
-        ),
     };
 
-    repository = new AdminSubscriptionRepository(dataSource as never);
+    const auditService = {
+      log: mockAuditLog,
+    } as unknown as AuditService;
+
+    repository = new AdminSubscriptionRepository(
+      dataSource as never,
+      auditService,
+    );
   });
 
   describe('findTenantById()', () => {
@@ -146,7 +147,7 @@ describe('AdminSubscriptionRepository', () => {
   });
 
   describe('insertAuditLog()', () => {
-    it('трябва да извика SET LOCAL и INSERT в транзакция', async () => {
+    it('трябва да делегира към auditService.log с правилни параметри', async () => {
       await repository.insertAuditLog({
         tenantId: 'tenant-uuid',
         userId: 'admin-uuid',
@@ -160,15 +161,19 @@ describe('AdminSubscriptionRepository', () => {
         },
       });
 
-      expect(mockManagerQuery).toHaveBeenCalledTimes(2);
-
-      const firstCall = mockManagerQuery.mock.calls[0] as [string, string[]];
-      expect(firstCall[0]).toContain('SET LOCAL app.current_tenant_id');
-      expect(firstCall[1]).toEqual(['tenant-uuid']);
-
-      const secondCall = mockManagerQuery.mock.calls[1] as [string, unknown[]];
-      expect(secondCall[0]).toContain('INSERT INTO audit_log');
-      expect(secondCall[1]).toContain('subscription.tier_changed');
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-uuid',
+          userId: 'admin-uuid',
+          action: 'subscription.tier_changed',
+          entityType: 'tenant',
+          entityId: 'tenant-uuid',
+          metadata: expect.objectContaining({ old_tier: 'starter' }) as Record<
+            string,
+            unknown
+          >,
+        }),
+      );
     });
 
     it('трябва да поддържа userId = null (cron job)', async () => {
@@ -181,8 +186,9 @@ describe('AdminSubscriptionRepository', () => {
         metadata: { old_tier: 'professional', new_tier: 'starter' },
       });
 
-      const secondCall = mockManagerQuery.mock.calls[1] as [string, unknown[]];
-      expect(secondCall[1][1]).toBeNull(); // userId = null
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: null }),
+      );
     });
   });
 

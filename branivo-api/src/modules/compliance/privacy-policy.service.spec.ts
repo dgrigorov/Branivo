@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import { PrivacyPolicyService } from './privacy-policy.service';
 import { TenantPrivacyPolicy } from './entities/tenant-privacy-policy.entity';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { AuditService } from '../../common/audit/audit.service';
 import { CreatePrivacyPolicyDto } from './dto/create-privacy-policy.dto';
 
 const TENANT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
@@ -23,8 +23,8 @@ const mockTenantContext = {
   getTenantId: jest.fn().mockReturnValue(TENANT_ID),
 };
 
-const mockDataSource = {
-  query: jest.fn().mockResolvedValue([]),
+const mockAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
 };
 
 function makePolicyEntity(
@@ -62,7 +62,7 @@ describe('PrivacyPolicyService', () => {
           useValue: mockRepo,
         },
         { provide: TenantContext, useValue: mockTenantContext },
-        { provide: DataSource, useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -150,13 +150,14 @@ describe('PrivacyPolicyService', () => {
 
       await service.publish(POLICY_ID, USER_ID);
 
-      expect(mockDataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining([
-          TENANT_ID,
-          USER_ID,
-          'privacy_policy.published',
-        ]),
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          userId: USER_ID,
+          action: 'privacy_policy.published',
+          entityType: 'tenant_privacy_policy',
+          entityId: POLICY_ID,
+        }),
       );
     });
 

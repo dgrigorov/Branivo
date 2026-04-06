@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { AuditService } from '../../../common/audit/audit.service';
 import type { QuoteResult } from '../adapters/insurer-adapter.interface';
 import type { Insurer } from '../entities/insurer.entity';
 import type { ScoringWeights } from './nlp-scoring.service';
@@ -21,7 +20,7 @@ export interface ScoredOffer extends QuoteResult {
 
 @Injectable()
 export class ScoringService {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(private readonly auditService: AuditService) {}
 
   scoreOffers(
     offers: QuoteResult[],
@@ -95,10 +94,12 @@ export class ScoringService {
       })),
     };
 
-    await this.dataSource.query(
-      `INSERT INTO audit_logs (id, tenant_id, user_id, action, entity_type, entity_id, payload, created_at)
-       VALUES (gen_random_uuid(), $1, NULL, 'quote.scored', 'quote_session', $2, $3, NOW())`,
-      [tenantId, sessionToken, JSON.stringify(payload)],
-    );
+    await this.auditService.log({
+      tenantId,
+      action: 'quote.scored',
+      entityType: 'quote_session',
+      entityId: sessionToken,
+      metadata: payload,
+    });
   }
 }

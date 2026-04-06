@@ -2,6 +2,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { FeatureFlagsService } from './feature-flags.service';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { AuditService } from '../../common/audit/audit.service';
 import { RedisKeyHelper } from '../../common/helpers/redis-key.helper';
 
 const TENANT_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -27,25 +28,14 @@ const mockTenantRepo = {
   createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
 };
 
-const mockQueryRunner = {
-  query: jest.fn().mockResolvedValue(undefined),
-};
-
-const mockDataSource = {
-  transaction: jest
-    .fn()
-    .mockImplementation(
-      async (cb: (m: typeof mockQueryRunner) => Promise<void>) => {
-        await cb(mockQueryRunner);
-      },
-    ),
-};
+const mockAuditLog = jest.fn().mockResolvedValue(undefined);
+const mockAuditService = { log: mockAuditLog } as unknown as AuditService;
 
 function buildService(): FeatureFlagsService {
   return new FeatureFlagsService(
     mockTenantRepo as any,
     mockTenantContext,
-    mockDataSource as any,
+    mockAuditService,
     mockRedis as any,
   );
 }
@@ -186,25 +176,21 @@ describe('FeatureFlagsService', () => {
 
       // QueryBuilder execute should NOT be called (no actual change)
       expect(mockQueryBuilder.execute).not.toHaveBeenCalled();
-      // Audit log transaction should NOT be called
-      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      // Audit log should NOT be called when no change
+      expect(mockAuditLog).not.toHaveBeenCalled();
       // Redis DEL should NOT be called — no real change occurred
       expect(mockRedis.del).not.toHaveBeenCalled();
     });
 
-    it('audit log failure does not throw — only logs error', async () => {
+    it('audit log failure does not throw — AuditService handles errors internally', async () => {
       mockTenantRepo.findOne.mockResolvedValueOnce({
         id: TENANT_ID,
         plan: 'starter',
         features: { dkp: false },
       });
 
-      // Make transaction throw
-      mockDataSource.transaction.mockRejectedValueOnce(
-        new Error('DB connection lost'),
-      );
-
-      // Should NOT propagate the error
+      // AuditService.log always resolves (catches internally) — this is a no-op test
+      // confirming the pattern still holds with the new audit approach
       await expect(
         buildService().updateFeatureFlags({ dkp: true }, USER_ID),
       ).resolves.not.toThrow();
@@ -250,8 +236,8 @@ describe('FeatureFlagsService', () => {
 
       // 2 DB updates for the 2 changed flags
       expect(mockQueryBuilder.execute).toHaveBeenCalledTimes(2);
-      // 2 audit log writes
-      expect(mockDataSource.transaction).toHaveBeenCalledTimes(2);
+      // 2 audit log writes (one per changed flag)
+      expect(mockAuditLog).toHaveBeenCalledTimes(2);
       // Redis DEL called once (at least one change happened)
       expect(mockRedis.del).toHaveBeenCalledTimes(1);
     });

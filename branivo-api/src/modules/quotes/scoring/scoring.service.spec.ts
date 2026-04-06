@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getDataSourceToken } from '@nestjs/typeorm';
 import { ScoringService } from './scoring.service';
+import { AuditService } from '../../../common/audit/audit.service';
 import type { QuoteResult } from '../adapters/insurer-adapter.interface';
 import type { Insurer } from '../entities/insurer.entity';
 
-const mockDataSource = {
-  query: jest.fn().mockResolvedValue(undefined),
+const mockAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
 };
 
 const makeInsurer = (
@@ -49,7 +49,7 @@ describe('ScoringService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ScoringService,
-        { provide: getDataSourceToken(), useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -120,7 +120,7 @@ describe('ScoringService', () => {
   });
 
   describe('logScoringAudit', () => {
-    it('inserts into audit_logs with correct structure', async () => {
+    it('записва в audit_log (таблицата audit_log, не audit_logs)', async () => {
       const scoredOffers = service.scoreOffers(
         [makeQuoteResult('allianz', 450)],
         [makeInsurer('allianz', 4.5, 8.5)],
@@ -133,9 +133,13 @@ describe('ScoringService', () => {
         scoredOffers,
       );
 
-      expect(mockDataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_logs'),
-        expect.arrayContaining(['tenant-uuid', 'session-token-123']),
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-uuid',
+          action: 'quote.scored',
+          entityType: 'quote_session',
+          entityId: 'session-token-123',
+        }),
       );
     });
   });
