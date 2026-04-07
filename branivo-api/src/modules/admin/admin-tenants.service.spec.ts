@@ -11,6 +11,7 @@ import { AdminTenantsService } from './admin-tenants.service';
 import { TenantsRepository } from '../tenants/tenants.repository';
 import { TenantInvitationsRepository } from './repositories/tenant-invitations.repository';
 import { CryptoService } from '../../common/crypto/crypto.service';
+import { AuditService } from '../../common/audit/audit.service';
 import { EmailService } from '../../common/email/email.service';
 import { REDIS_CLIENT } from '../../infrastructure/redis/redis.module';
 import { RedisKeyHelper } from '../../common/helpers/redis-key.helper';
@@ -118,17 +119,12 @@ describe('AdminTenantsService', () => {
     decrypt: jest.fn(),
   };
 
-  const managerQueryMock = jest.fn().mockResolvedValue(undefined);
   const dataSource = {
     query: jest.fn().mockResolvedValue([{ id: 'new-user-uuid' }]),
-    transaction: jest
-      .fn()
-      .mockImplementation(
-        async (fn: (manager: { query: jest.Mock }) => Promise<void>) => {
-          return fn({ query: managerQueryMock });
-        },
-      ),
   };
+
+  const mockAuditLog = jest.fn().mockResolvedValue(undefined);
+  const mockAuditService = { log: mockAuditLog };
 
   const redisMock = {
     exists: jest.fn().mockResolvedValue(0),
@@ -149,6 +145,7 @@ describe('AdminTenantsService', () => {
         { provide: ConfigService, useValue: configService },
         { provide: EmailService, useValue: emailService },
         { provide: CryptoService, useValue: cryptoService },
+        { provide: AuditService, useValue: mockAuditService },
         { provide: DataSource, useValue: dataSource },
         { provide: REDIS_CLIENT, useValue: redisMock },
       ],
@@ -383,13 +380,12 @@ describe('AdminTenantsService', () => {
       expect(redisMock.del).toHaveBeenCalledWith(
         expect.stringContaining('tenant-uuid'),
       );
-      expect(managerQueryMock).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining([
-          'tenant-uuid',
-          'super-uuid',
-          'tenant.deactivated',
-        ]),
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-uuid',
+          userId: 'super-uuid',
+          action: 'tenant.deactivated',
+        }),
       );
     });
 
@@ -404,13 +400,12 @@ describe('AdminTenantsService', () => {
         'tenant-uuid',
         'active',
       );
-      expect(managerQueryMock).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining([
-          'tenant-uuid',
-          'super-uuid',
-          'tenant.reactivated',
-        ]),
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-uuid',
+          userId: 'super-uuid',
+          action: 'tenant.reactivated',
+        }),
       );
     });
 
@@ -477,9 +472,8 @@ describe('AdminTenantsService', () => {
       ).resolves.toBeUndefined();
 
       // Audit log must still be written even if cache invalidation fails
-      expect(managerQueryMock).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining(['tenant.kfn_license_updated']),
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'tenant.kfn_license_updated' }),
       );
     });
 
@@ -510,13 +504,12 @@ describe('AdminTenantsService', () => {
 
       await service.updateKfnLicense(TENANT_ID, '12345', ADMIN_ID);
 
-      expect(managerQueryMock).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining([
-          TENANT_ID,
-          ADMIN_ID,
-          'tenant.kfn_license_updated',
-        ]),
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          userId: ADMIN_ID,
+          action: 'tenant.kfn_license_updated',
+        }),
       );
     });
 
@@ -548,9 +541,12 @@ describe('AdminTenantsService', () => {
         'super-uuid',
       );
 
-      expect(managerQueryMock).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining(['tenant-uuid', 'super-uuid', 'tenant.invited']),
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-uuid',
+          userId: 'super-uuid',
+          action: 'tenant.invited',
+        }),
       );
     });
 
@@ -561,9 +557,12 @@ describe('AdminTenantsService', () => {
 
       await service.verifyKfnAndActivate('tenant-uuid', '12345', null);
 
-      expect(managerQueryMock).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining(['tenant-uuid', null, 'tenant.activated']),
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-uuid',
+          userId: null,
+          action: 'tenant.activated',
+        }),
       );
     });
   });

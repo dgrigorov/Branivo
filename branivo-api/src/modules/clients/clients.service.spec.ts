@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DataSource } from 'typeorm';
 import { ClientsService } from './clients.service';
 import { PushSubscriptionRepository } from '../notifications/repositories/push-subscription.repository';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { AuditService } from '../../common/audit/audit.service';
 import { RegisterPushSubscriptionDto } from '../notifications/dto/register-push-subscription.dto';
 
 const mockPushSubRepo = {
@@ -13,8 +13,8 @@ const mockTenantContext = {
   getTenantId: jest.fn().mockReturnValue('tenant-uuid-123'),
 };
 
-const mockDataSource = {
-  query: jest.fn().mockResolvedValue(undefined),
+const mockAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
 };
 
 describe('ClientsService', () => {
@@ -27,7 +27,7 @@ describe('ClientsService', () => {
         ClientsService,
         { provide: PushSubscriptionRepository, useValue: mockPushSubRepo },
         { provide: TenantContext, useValue: mockTenantContext },
-        { provide: DataSource, useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -59,13 +59,12 @@ describe('ClientsService', () => {
     it('логва в audit_log след upsert', async () => {
       await service.registerPushSubscription('client-uuid-456', dto);
 
-      expect(mockDataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining([
-          'tenant-uuid-123',
-          'client-uuid-456',
-          'client.push_subscription.registered',
-        ]),
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-uuid-123',
+          userId: 'client-uuid-456',
+          action: 'client.push_subscription.registered',
+        }),
       );
     });
 
@@ -84,12 +83,16 @@ describe('ClientsService', () => {
       );
     });
 
-    it('audit_log грешка не хвърля exception', async () => {
-      mockDataSource.query.mockRejectedValueOnce(new Error('DB error'));
+    it('извиква auditService.log с endpoint в metadata', async () => {
+      await service.registerPushSubscription('client-uuid-456', dto);
 
-      await expect(
-        service.registerPushSubscription('client-uuid-456', dto),
-      ).resolves.not.toThrow();
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            endpoint: dto.endpoint,
+          }) as Record<string, unknown>,
+        }),
+      );
     });
   });
 });

@@ -6,6 +6,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { AuditService } from '../../../common/audit/audit.service';
+
+const SYSTEM_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 
 export interface InsurerStatusRow {
   id: string;
@@ -62,7 +65,10 @@ const INSURER_SELECT_SQL = `
 
 @Injectable()
 export class AdminInsurerMonitorRepository {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
+  ) {}
 
   async findAllInsurers(): Promise<InsurerStatusRow[]> {
     return this.dataSource.query<InsurerStatusRow[]>(
@@ -187,58 +193,42 @@ export class AdminInsurerMonitorRepository {
     adminId: string,
     reason: string,
   ): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      await manager.query(
-        `UPDATE insurers
-         SET is_manually_disabled = true,
-             disabled_reason = $2,
-             disabled_by_admin_id = $3,
-             updated_at = NOW()
-         WHERE id = $1 AND deleted_at IS NULL`,
-        [insurerId, reason, adminId],
-      );
-      await manager.query(
-        `INSERT INTO audit_log (id, tenant_id, user_id, action, entity_type, entity_id, payload, timestamp)
-         VALUES (
-           gen_random_uuid(),
-           NULL,
-           $2,
-           'insurer.manual_fallback.activated',
-           'insurer',
-           $1,
-           jsonb_build_object('reason', $3, 'admin_id', $2),
-           NOW()
-         )`,
-        [insurerId, adminId, reason],
-      );
+    await this.dataSource.query(
+      `UPDATE insurers
+       SET is_manually_disabled = true,
+           disabled_reason = $2,
+           disabled_by_admin_id = $3,
+           updated_at = NOW()
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [insurerId, reason, adminId],
+    );
+    await this.auditService.log({
+      tenantId: SYSTEM_TENANT_ID,
+      userId: adminId,
+      action: 'insurer.manual_fallback.activated',
+      entityType: 'insurer',
+      entityId: insurerId,
+      metadata: { reason, admin_id: adminId },
     });
   }
 
   async enableInsurer(insurerId: string, adminId: string): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      await manager.query(
-        `UPDATE insurers
-         SET is_manually_disabled = false,
-             disabled_reason = NULL,
-             disabled_by_admin_id = NULL,
-             updated_at = NOW()
-         WHERE id = $1 AND deleted_at IS NULL`,
-        [insurerId],
-      );
-      await manager.query(
-        `INSERT INTO audit_log (id, tenant_id, user_id, action, entity_type, entity_id, payload, timestamp)
-         VALUES (
-           gen_random_uuid(),
-           NULL,
-           $2,
-           'insurer.manual_fallback.deactivated',
-           'insurer',
-           $1,
-           jsonb_build_object('admin_id', $2),
-           NOW()
-         )`,
-        [insurerId, adminId],
-      );
+    await this.dataSource.query(
+      `UPDATE insurers
+       SET is_manually_disabled = false,
+           disabled_reason = NULL,
+           disabled_by_admin_id = NULL,
+           updated_at = NOW()
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [insurerId],
+    );
+    await this.auditService.log({
+      tenantId: SYSTEM_TENANT_ID,
+      userId: adminId,
+      action: 'insurer.manual_fallback.deactivated',
+      entityType: 'insurer',
+      entityId: insurerId,
+      metadata: { admin_id: adminId },
     });
   }
 }

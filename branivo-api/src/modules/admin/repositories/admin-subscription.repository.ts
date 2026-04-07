@@ -5,6 +5,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { AuditService } from '../../../common/audit/audit.service';
 import { PendingDowngrade } from '../../tenants/entities/tenant.entity';
 
 export interface TenantRow {
@@ -25,7 +26,10 @@ export interface AuditEntry {
 
 @Injectable()
 export class AdminSubscriptionRepository {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
+  ) {}
 
   async findTenantById(tenantId: string): Promise<TenantRow | null> {
     const rows = await this.dataSource.query<TenantRow[]>(
@@ -93,22 +97,13 @@ export class AdminSubscriptionRepository {
   }
 
   async insertAuditLog(entry: AuditEntry): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      await manager.query('SET LOCAL app.current_tenant_id = $1', [
-        entry.tenantId,
-      ]);
-      await manager.query(
-        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-        [
-          entry.tenantId,
-          entry.userId,
-          entry.action,
-          entry.entityType,
-          entry.entityId,
-          JSON.stringify(entry.metadata),
-        ],
-      );
+    await this.auditService.log({
+      tenantId: entry.tenantId,
+      userId: entry.userId,
+      action: entry.action,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      metadata: entry.metadata,
     });
   }
 

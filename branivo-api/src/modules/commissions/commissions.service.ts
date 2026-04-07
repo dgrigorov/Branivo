@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
+import { AuditService } from '../../common/audit/audit.service';
 import { CommissionsRepository } from './commissions.repository';
 import type { CreatePendingEventData } from './commissions.repository';
 import { CommissionMatrixEntryDto } from './dto/commission-matrix-response.dto';
@@ -25,7 +25,7 @@ export class CommissionsService {
   constructor(
     private readonly commissionsRepo: CommissionsRepository,
     private readonly config: ConfigService,
-    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
   ) {}
 
   async getRate(insurerId: string, productType: string): Promise<number> {
@@ -74,30 +74,19 @@ export class CommissionsService {
       createdBy: userId,
     });
 
-    try {
-      await this.dataSource.query(
-        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          SYSTEM_TENANT_ID,
-          userId,
-          'commission_matrix.updated',
-          'commission_matrix',
-          entry.id,
-          JSON.stringify({
-            insurer_id: insurerId,
-            product_type: dto.productType,
-            old_rate: oldRate,
-            new_rate: dto.ratePct,
-          }),
-        ],
-      );
-    } catch (auditErr) {
-      this.logger.error(
-        `audit_log write failed for commission_matrix entry=${entry.id}`,
-        auditErr instanceof Error ? auditErr.stack : String(auditErr),
-      );
-    }
+    await this.auditService.log({
+      tenantId: SYSTEM_TENANT_ID,
+      userId,
+      action: 'commission_matrix.updated',
+      entityType: 'commission_matrix',
+      entityId: entry.id,
+      metadata: {
+        insurer_id: insurerId,
+        product_type: dto.productType,
+        old_rate: oldRate,
+        new_rate: dto.ratePct,
+      },
+    });
 
     return {
       insurerId: entry.insurerId,

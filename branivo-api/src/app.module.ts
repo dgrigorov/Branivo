@@ -10,6 +10,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TenantContextModule } from './common/tenant-context/tenant-context.module';
+import { AuditModule } from './common/audit/audit.module';
 import { TenantMiddleware } from './common/tenant-context/tenant.middleware';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -54,6 +55,7 @@ import { HealthModule } from './health/health.module';
     RedisModule,
     QueueModule,
     TenantContextModule,
+    AuditModule,
     HealthModule,
     TenantsModule,
     AuthModule,

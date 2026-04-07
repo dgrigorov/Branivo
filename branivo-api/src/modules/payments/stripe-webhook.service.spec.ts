@@ -19,6 +19,7 @@ import {
   QUEUE_PDF_GENERATION,
 } from '../../infrastructure/queues/queue.module';
 import { CommissionsService } from '../commissions/commissions.service';
+import { AuditService } from '../../common/audit/audit.service';
 import { EmailService } from '../../infrastructure/email/email.service';
 
 const TENANT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
@@ -110,6 +111,10 @@ const mockCommissionsService = {
   failPendingEvent: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
+};
+
 describe('StripeWebhookService', () => {
   let service: StripeWebhookService;
 
@@ -128,6 +133,7 @@ describe('StripeWebhookService', () => {
         { provide: ConfigService, useValue: mockConfig },
         { provide: CommissionsService, useValue: mockCommissionsService },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
         { provide: EmailService, useValue: mockEmailService },
         {
           provide: getQueueToken(QUEUE_PDF_GENERATION),
@@ -389,11 +395,6 @@ describe('StripeWebhookService', () => {
       }) as unknown as Stripe.Event;
 
     beforeEach(() => {
-      mockDataSource.transaction.mockImplementation(
-        async (cb: (manager: typeof mockDataSource) => Promise<void>) => {
-          await cb(mockDataSource);
-        },
-      );
       mockDataSource.query.mockResolvedValue([{ email: 'broker@demo.com' }]);
       mockEmailService.sendStripeRevocationEmail.mockResolvedValue(undefined);
       mockTenantsRepo.updateStatus.mockResolvedValue(undefined);
@@ -411,7 +412,12 @@ describe('StripeWebhookService', () => {
         TENANT_ID,
         'stripe_revoked',
       );
-      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          action: 'stripe_account_revoked',
+        }),
+      );
       expect(mockEmailService.sendStripeRevocationEmail).toHaveBeenCalledWith(
         expect.objectContaining({ isRevoked: true, to: 'broker@demo.com' }),
       );
@@ -459,7 +465,7 @@ describe('StripeWebhookService', () => {
       expect(mockTenantsRepo.updateStatus).not.toHaveBeenCalled();
     });
 
-    it('AC5: audit_log INSERT called with correct parameters on revocation', async () => {
+    it('AC5: auditService.log called with correct parameters on revocation', async () => {
       mockTenantsRepo.findByStripeAccountId.mockResolvedValue({
         ...mockTenant,
         status: 'active',
@@ -467,23 +473,19 @@ describe('StripeWebhookService', () => {
 
       await service.handleEvent(makeAccountEvent(false));
 
-      const auditLogCall = (
-        mockDataSource.query.mock.calls as Array<[string, unknown[]]>
-      ).find(([sql]) => sql.includes('INSERT INTO audit_log'));
-      expect(auditLogCall).toBeDefined();
-      const [, auditParams] = auditLogCall!;
-      expect(auditParams[0]).toBe(TENANT_ID);
-      expect(auditParams[1]).toBe('stripe_account_revoked');
-      expect(auditParams[2]).toBe(TENANT_ID);
-      const metadata = JSON.parse(auditParams[3] as string) as Record<
-        string,
-        unknown
-      >;
-      expect(metadata).toMatchObject({
-        stripeEventId: STRIPE_EVENT_ID,
-        stripeAccountId: STRIPE_ACCOUNT_ID,
-        chargesEnabled: false,
-      });
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          action: 'stripe_account_revoked',
+          entityType: 'tenant',
+          entityId: TENANT_ID,
+          metadata: expect.objectContaining({
+            stripeEventId: STRIPE_EVENT_ID,
+            stripeAccountId: STRIPE_ACCOUNT_ID,
+            chargesEnabled: false,
+          }) as Record<string, unknown>,
+        }),
+      );
     });
 
     it('No broker_admin email found → logs warn, skips email, no error', async () => {
@@ -492,10 +494,7 @@ describe('StripeWebhookService', () => {
         status: 'active',
       });
       // Override: no broker_admin found in users table
-      mockDataSource.query
-        .mockResolvedValueOnce(undefined) // SET LOCAL inside transaction
-        .mockResolvedValueOnce(undefined) // INSERT INTO audit_log inside transaction
-        .mockResolvedValueOnce([]); // SELECT email → empty
+      mockDataSource.query.mockResolvedValueOnce([]); // SELECT email FROM users → empty
 
       await expect(
         service.handleEvent(makeAccountEvent(false)),

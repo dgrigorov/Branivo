@@ -28,6 +28,7 @@ import { AdminSubscriptionJob } from './admin-subscription.job';
 import { AdminNotificationRepository } from './repositories/admin-notification.repository';
 import { AdminNotificationService } from './admin-notification.service';
 import { AdminNotificationController } from './admin-notification.controller';
+import { AdminAuditLogController } from './admin-audit-log.controller';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { AdminNotificationController } from './admin-notification.controller';
     AdminInsurerMonitorController,
     AdminSubscriptionController,
     AdminNotificationController,
+    AdminAuditLogController,
   ],
   providers: [
     AdminTenantsService,

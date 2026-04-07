@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
+import { AuditService } from '../../common/audit/audit.service';
 import {
   NotificationsService,
   RenewalNotificationJobData,
@@ -61,18 +61,8 @@ const mockEmailService = {
   sendRenewalFailureAlert: jest.fn().mockResolvedValue(undefined),
 };
 
-const mockManager = {
-  query: jest.fn().mockResolvedValue(undefined),
-};
-
-const mockDataSource = {
-  transaction: jest
-    .fn()
-    .mockImplementation(
-      async (cb: (manager: typeof mockManager) => Promise<void>) => {
-        await cb(mockManager);
-      },
-    ),
+const mockAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
 };
 
 const BASE_DATA: RenewalNotificationJobData = {
@@ -126,7 +116,7 @@ describe('NotificationsService', () => {
           useValue: { get: jest.fn().mockReturnValue(undefined) },
         },
         { provide: EmailService, useValue: mockEmailService },
-        { provide: DataSource, useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -517,17 +507,18 @@ describe('NotificationsService', () => {
       const dto = { stages: CUSTOM_STAGES };
       await service.upsertTenantRenewalConfig('tenant-1', dto, 'admin-user-id');
 
-      expect(mockDataSource.transaction).toHaveBeenCalled();
-      expect(mockManager.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining([
-          'tenant-1',
-          'admin-user-id',
-          'renewal_config.updated',
-          'tenant',
-          'tenant-1',
-          expect.stringContaining('old_config') as string,
-        ]),
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          userId: 'admin-user-id',
+          action: 'renewal_config.updated',
+          entityType: 'tenant',
+          entityId: 'tenant-1',
+          metadata: expect.objectContaining({
+            old_config: oldStages,
+            new_config: CUSTOM_STAGES,
+          }) as Record<string, unknown>,
+        }),
       );
     });
 

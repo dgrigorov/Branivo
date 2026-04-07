@@ -202,7 +202,7 @@ development_status:
   11-11-privacy-policy-white-label: done                    # White-label Privacy Policy per tenant; GDPR чл. 13; версионирана
   11-12-terms-of-service-version-tracking: review      # ToS с version accept tracking; force re-accept при нова версия
   11-13-cookie-policy-banner: review                           # Cookie banner + granular consent (IAB TCF 2.2); GDPR чл. 7
-  11-4-tamper-evident-audit-log: ready-for-dev                   # Hash-chain audit log (SHA-256 prev_hash); КФН одит изисква tamper-evidence
+  11-4-tamper-evident-audit-log: review                          # Hash-chain audit log (SHA-256 prev_hash); КФН одит изисква tamper-evidence
   11-16-data-breach-response-workflow: ready-for-dev       # 72ч. КЗЛД нотификация; breach register; detection mechanism
 
   # — Wave 2: Core Compliance Infrastructure —

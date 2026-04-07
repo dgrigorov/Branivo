@@ -1,26 +1,27 @@
 import { AdminInsurerMonitorRepository } from './admin-insurer-monitor.repository';
+import { AuditService } from '../../../common/audit/audit.service';
 
 describe('AdminInsurerMonitorRepository', () => {
   let repository: AdminInsurerMonitorRepository;
   let mockQuery: jest.Mock;
-  let mockManagerQuery: jest.Mock;
+  let mockAuditLog: jest.Mock;
 
   beforeEach(() => {
-    mockQuery = jest.fn();
-    mockManagerQuery = jest.fn().mockResolvedValue([]);
+    mockQuery = jest.fn().mockResolvedValue([]);
+    mockAuditLog = jest.fn().mockResolvedValue(undefined);
 
     const dataSource = {
       query: mockQuery,
-      transaction: jest
-        .fn()
-        .mockImplementation(
-          async (cb: (manager: { query: jest.Mock }) => Promise<void>) => {
-            await cb({ query: mockManagerQuery });
-          },
-        ),
     };
 
-    repository = new AdminInsurerMonitorRepository(dataSource as never);
+    const auditService = {
+      log: mockAuditLog,
+    } as unknown as AuditService;
+
+    repository = new AdminInsurerMonitorRepository(
+      dataSource as never,
+      auditService,
+    );
   });
 
   describe('findAllInsurers()', () => {
@@ -79,33 +80,39 @@ describe('AdminInsurerMonitorRepository', () => {
   });
 
   describe('disableInsurer()', () => {
-    it('трябва да извика UPDATE и INSERT в транзакция', async () => {
+    it('трябва да изпълни UPDATE и да извика auditService.log', async () => {
       await repository.disableInsurer('insurer-id', 'admin-id', 'API degraded');
 
-      expect(mockManagerQuery).toHaveBeenCalledTimes(2);
-
-      const firstCall = mockManagerQuery.mock.calls[0] as [string, string[]];
-      expect(firstCall[0]).toContain('UPDATE insurers');
-      expect(firstCall[1]).toEqual(['insurer-id', 'API degraded', 'admin-id']);
-
-      const secondCall = mockManagerQuery.mock.calls[1] as [string, string[]];
-      expect(secondCall[0]).toContain('INSERT INTO audit_log');
-      expect(secondCall[0]).toContain('insurer.manual_fallback.activated');
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE insurers'),
+        ['insurer-id', 'API degraded', 'admin-id'],
+      );
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'insurer.manual_fallback.activated',
+          entityType: 'insurer',
+          entityId: 'insurer-id',
+          userId: 'admin-id',
+        }),
+      );
     });
   });
 
   describe('enableInsurer()', () => {
-    it('трябва да извика UPDATE и INSERT в транзакция', async () => {
+    it('трябва да изпълни UPDATE и да извика auditService.log', async () => {
       await repository.enableInsurer('insurer-id', 'admin-id');
 
-      expect(mockManagerQuery).toHaveBeenCalledTimes(2);
-
-      const firstCall = mockManagerQuery.mock.calls[0] as [string, string[]];
-      expect(firstCall[0]).toContain('UPDATE insurers');
-      expect(firstCall[0]).toContain('is_manually_disabled = false');
-
-      const secondCall = mockManagerQuery.mock.calls[1] as [string, string[]];
-      expect(secondCall[0]).toContain('insurer.manual_fallback.deactivated');
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE insurers'),
+        expect.arrayContaining(['insurer-id']),
+      );
+      expect(mockAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'insurer.manual_fallback.deactivated',
+          entityType: 'insurer',
+          entityId: 'insurer-id',
+        }),
+      );
     });
   });
 });

@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import { CookiePolicyService } from './cookie-policy.service';
 import { TenantCookiePolicy } from './entities/tenant-cookie-policy.entity';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { AuditService } from '../../common/audit/audit.service';
 import { CreateCookiePolicyDto } from './dto/create-cookie-policy.dto';
 
 const TENANT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
@@ -23,8 +23,8 @@ const mockTenantContext = {
   getTenantId: jest.fn().mockReturnValue(TENANT_ID),
 };
 
-const mockDataSource = {
-  query: jest.fn().mockResolvedValue([]),
+const mockAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
 };
 
 function makePolicyEntity(
@@ -62,7 +62,7 @@ describe('CookiePolicyService', () => {
           useValue: mockRepo,
         },
         { provide: TenantContext, useValue: mockTenantContext },
-        { provide: DataSource, useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -134,7 +134,7 @@ describe('CookiePolicyService', () => {
       expect(result.publishedAt).not.toBeNull();
     });
 
-    it('writes audit_log entry on publish', async () => {
+    it('writes audit_log entry via AuditService on publish', async () => {
       mockRepo.findOne.mockResolvedValue(
         makePolicyEntity({ isPublished: false }),
       );
@@ -144,9 +144,14 @@ describe('CookiePolicyService', () => {
 
       await service.publish(POLICY_ID, USER_ID);
 
-      expect(mockDataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining([TENANT_ID, USER_ID, 'cookie_policy.published']),
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          userId: USER_ID,
+          action: 'cookie_policy.published',
+          entityType: 'tenant_cookie_policy',
+          entityId: POLICY_ID,
+        }),
       );
     });
 

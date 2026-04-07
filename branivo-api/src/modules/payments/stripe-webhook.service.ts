@@ -23,6 +23,7 @@ import type { TenantStatus } from '../tenants/entities/tenant.entity';
 import { StickerDeliveryJobPayload } from '../logistics/interfaces/sticker-delivery-job.payload';
 import { DeliveryAddress } from '../logistics/interfaces/delivery-address.interface';
 import { CommissionsService } from '../commissions/commissions.service';
+import { AuditService } from '../../common/audit/audit.service';
 
 export interface PdfGenerationJobPayload {
   policyId: string;
@@ -45,6 +46,7 @@ export class StripeWebhookService {
     private readonly config: ConfigService,
     private readonly commissionsService: CommissionsService,
     private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
     private readonly emailService: EmailService,
     @InjectQueue(QUEUE_PDF_GENERATION)
     private readonly pdfQueue: Queue<PdfGenerationJobPayload>,
@@ -106,26 +108,20 @@ export class StripeWebhookService {
     // 4. Update tenant status
     await this.tenantsRepo.updateStatus(tenant.id, newStatus);
 
-    // 5. Write audit_log (IMMUTABLE — INSERT only, with RLS context)
+    // 5. Write audit_log (IMMUTABLE — INSERT only, hash-chained)
     const action = account.charges_enabled
       ? 'stripe_account_reinstated'
       : 'stripe_account_revoked';
-    await this.dataSource.transaction(async (manager) => {
-      await manager.query(`SET LOCAL app.current_tenant_id = $1`, [tenant.id]);
-      await manager.query(
-        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
-         VALUES ($1, NULL, $2, 'tenant', $3, $4, NOW())`,
-        [
-          tenant.id,
-          action,
-          tenant.id,
-          JSON.stringify({
-            stripeEventId,
-            stripeAccountId: account.id,
-            chargesEnabled: account.charges_enabled,
-          }),
-        ],
-      );
+    await this.auditService.log({
+      tenantId: tenant.id,
+      action,
+      entityType: 'tenant',
+      entityId: tenant.id,
+      metadata: {
+        stripeEventId,
+        stripeAccountId: account.id,
+        chargesEnabled: account.charges_enabled,
+      },
     });
 
     // 6. Find broker_admin email and send notification
