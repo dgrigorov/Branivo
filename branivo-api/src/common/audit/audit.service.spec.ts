@@ -1,6 +1,8 @@
 import { AuditService } from './audit.service';
 import { computeEntryHash } from './audit-hash.util';
 
+const GENESIS_HASH = '0'.repeat(64);
+
 describe('AuditService', () => {
   let service: AuditService;
   let mockManagerQuery: jest.Mock;
@@ -40,7 +42,7 @@ describe('AuditService', () => {
       const insertCall = mockManagerQuery.mock.calls[2] as [string, unknown[]];
       expect(insertCall[0]).toContain('INSERT INTO audit_log');
       // prev_hash should be GENESIS_HASH (64 zeros) at index 7 (0-based)
-      expect(insertCall[1][7]).toBe(AuditService.GENESIS_HASH);
+      expect(insertCall[1][7]).toBe(GENESIS_HASH);
     });
 
     it('prev_hash = entry_hash на предишния запис при съществуващ запис', async () => {
@@ -107,7 +109,7 @@ describe('AuditService', () => {
 
       expect(writes).toHaveLength(3);
       // First entry has genesis hash
-      expect(writes[0].prevHash).toBe(AuditService.GENESIS_HASH);
+      expect(writes[0].prevHash).toBe(GENESIS_HASH);
       // Each subsequent entry's prevHash equals the previous entry's entryHash
       expect(writes[1].prevHash).toBe(writes[0].entryHash);
       expect(writes[2].prevHash).toBe(writes[1].entryHash);
@@ -157,7 +159,7 @@ describe('AuditService', () => {
       const now2 = new Date('2026-04-06T10:00:01.000Z');
       const now3 = new Date('2026-04-06T10:00:02.000Z');
 
-      const genesis = AuditService.GENESIS_HASH;
+      const genesis = GENESIS_HASH;
       const hash1 = computeEntryHash({
         tenantId,
         action: 'a1',
@@ -231,7 +233,7 @@ describe('AuditService', () => {
       const now1 = new Date('2026-04-06T10:00:00.000Z');
       const now2 = new Date('2026-04-06T10:00:01.000Z');
 
-      const genesis = AuditService.GENESIS_HASH;
+      const genesis = GENESIS_HASH;
       const hash1 = computeEntryHash({
         tenantId,
         action: 'a1',
@@ -321,7 +323,7 @@ describe('computeEntryHash()', () => {
       entityId: 'entity-id',
       metadata: { key: 'value' },
       createdAt: new Date('2026-04-06T10:00:00.000Z'),
-      prevHash: AuditService.GENESIS_HASH,
+      prevHash: GENESIS_HASH,
     };
 
     const hash1 = computeEntryHash(params);
@@ -336,7 +338,7 @@ describe('computeEntryHash()', () => {
       tenantId: 'tenant-uuid',
       action: 'test.action',
       createdAt: new Date('2026-04-06T10:00:00.000Z'),
-      prevHash: AuditService.GENESIS_HASH,
+      prevHash: GENESIS_HASH,
     };
 
     const hash1 = computeEntryHash(base);
@@ -353,12 +355,41 @@ describe('computeEntryHash()', () => {
       tenantId: 'tenant-uuid',
       action: 'test.action',
       createdAt: new Date('2026-04-06T10:00:00.000Z'),
-      prevHash: AuditService.GENESIS_HASH,
+      prevHash: GENESIS_HASH,
     };
 
     const hash1 = computeEntryHash(base);
     const hash2 = computeEntryHash({ ...base, prevHash: 'b'.repeat(64) });
 
     expect(hash1).not.toBe(hash2);
+  });
+
+  it('canonical JSON — metadata с различен key order дава СЪЩИЯ хеш (JSONB compatibility)', () => {
+    const base = {
+      tenantId: 'tenant-uuid',
+      action: 'test.action',
+      createdAt: new Date('2026-04-06T10:00:00.000Z'),
+      prevHash: GENESIS_HASH,
+    };
+
+    // Same keys, different insertion order (simulates JSONB normalisation)
+    const hash1 = computeEntryHash({
+      ...base,
+      metadata: {
+        stripeEventId: 'ev_1',
+        stripeAccountId: 'acct_1',
+        chargesEnabled: true,
+      },
+    });
+    const hash2 = computeEntryHash({
+      ...base,
+      metadata: {
+        chargesEnabled: true,
+        stripeAccountId: 'acct_1',
+        stripeEventId: 'ev_1',
+      },
+    });
+
+    expect(hash1).toBe(hash2);
   });
 });

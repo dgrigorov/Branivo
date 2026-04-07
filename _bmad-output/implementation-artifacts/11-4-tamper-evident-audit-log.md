@@ -1,6 +1,6 @@
 # Story 11.4: Tamper-Evident Audit Log
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -465,3 +465,40 @@ claude-sonnet-4-6
 ### Completion Notes List
 
 ### File List
+
+- branivo-api/src/common/audit/audit-hash.util.ts
+- branivo-api/src/common/audit/audit.module.ts
+- branivo-api/src/common/audit/audit.service.ts
+- branivo-api/src/common/audit/audit.service.spec.ts
+- branivo-api/src/common/audit/index.ts
+- branivo-api/src/infrastructure/database/migrations/1710000064000-AddHashChainToAuditLog.ts
+- branivo-api/src/modules/admin/admin-audit-log.controller.ts
+- branivo-api/src/modules/admin/admin-audit-log.controller.spec.ts
+- branivo-api/src/modules/admin/admin-insurer-monitor.controller.spec.ts
+- branivo-api/src/modules/admin/admin-tenants.service.spec.ts
+- branivo-api/src/modules/admin/admin-tenants.service.ts
+- branivo-api/src/modules/admin/admin.module.ts
+- branivo-api/src/modules/admin/repositories/admin-insurer-monitor.repository.spec.ts
+- branivo-api/src/modules/admin/repositories/admin-insurer-monitor.repository.ts
+- branivo-api/src/modules/admin/repositories/admin-subscription.repository.spec.ts
+- branivo-api/src/modules/admin/repositories/admin-subscription.repository.ts
+- branivo-api/src/modules/clients/clients.service.spec.ts
+- branivo-api/src/modules/clients/clients.service.ts
+- branivo-api/src/modules/commissions/commissions.service.spec.ts
+- branivo-api/src/modules/commissions/commissions.service.ts
+- branivo-api/src/modules/compliance/cookie-policy.service.spec.ts
+- branivo-api/src/modules/compliance/cookie-policy.service.ts
+- branivo-api/src/modules/compliance/privacy-policy.service.spec.ts
+- branivo-api/src/modules/compliance/privacy-policy.service.ts
+- branivo-api/src/modules/compliance/tos.service.spec.ts
+- branivo-api/src/modules/compliance/tos.service.ts
+- branivo-api/src/modules/notifications/notifications.service.spec.ts
+- branivo-api/src/modules/notifications/notifications.service.ts
+- branivo-api/src/modules/payments/stripe-webhook.service.spec.ts
+- branivo-api/src/modules/payments/stripe-webhook.service.ts
+- branivo-api/src/modules/quotes/scoring/scoring.service.spec.ts
+- branivo-api/src/modules/quotes/scoring/scoring.service.ts
+- branivo-api/src/modules/tenants/feature-flags.service.spec.ts
+- branivo-api/src/modules/tenants/feature-flags.service.ts
+- branivo-api/src/app.module.ts
+- _bmad-output/implementation-artifacts/sprint-status.yaml

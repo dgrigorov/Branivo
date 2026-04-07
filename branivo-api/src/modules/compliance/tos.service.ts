@@ -2,12 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, QueryFailedError, Repository } from 'typeorm';
+import { IsNull, QueryFailedError, Repository } from 'typeorm';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { AuditService } from '../../common/audit/audit.service';
 import { TenantTosVersion } from './entities/tenant-tos-version.entity';
 import { EndClientTosAcceptance } from './entities/end-client-tos-acceptance.entity';
 import { CreateTosDto } from './dto/create-tos.dto';
@@ -21,15 +21,13 @@ import {
 
 @Injectable()
 export class TosService {
-  private readonly logger = new Logger(TosService.name);
-
   constructor(
     @InjectRepository(TenantTosVersion)
     private readonly tosRepo: Repository<TenantTosVersion>,
     @InjectRepository(EndClientTosAcceptance)
     private readonly acceptanceRepo: Repository<EndClientTosAcceptance>,
     private readonly tenantContext: TenantContext,
-    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
   ) {}
 
   async create(dto: CreateTosDto, userId: string): Promise<TosResponseDto> {
@@ -88,25 +86,14 @@ export class TosService {
     tos.publishedAt = new Date();
     const updated = await this.tosRepo.save(tos);
 
-    try {
-      await this.dataSource.query(
-        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          tenantId,
-          userId,
-          'tos.published',
-          'tenant_tos_version',
-          tos.id,
-          JSON.stringify({ version: tos.version, language: tos.language }),
-        ],
-      );
-    } catch (auditErr) {
-      this.logger.error(
-        `audit_log write failed for tos_version id=${tos.id}`,
-        auditErr instanceof Error ? auditErr.stack : String(auditErr),
-      );
-    }
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'tos.published',
+      entityType: 'tenant_tos_version',
+      entityId: tos.id,
+      metadata: { version: tos.version, language: tos.language },
+    });
 
     return this.toResponseDto(updated);
   }

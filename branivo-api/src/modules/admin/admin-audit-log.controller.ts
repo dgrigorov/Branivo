@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiProperty } from '@nestjs/swagger';
 import { IsUUID } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -6,6 +7,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService, AuditChainVerificationResult } from '../../common/audit';
 
 class VerifyChainQueryDto {
+  @ApiProperty({ description: 'Tenant UUID to verify audit chain for' })
   @IsUUID()
   tenantId!: string;
 }

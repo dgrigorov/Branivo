@@ -1,12 +1,12 @@
 import {
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, QueryFailedError, Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { AuditService } from '../../common/audit/audit.service';
 import { TenantCookiePolicy } from './entities/tenant-cookie-policy.entity';
 import { CreateCookiePolicyDto } from './dto/create-cookie-policy.dto';
 import {
@@ -16,13 +16,11 @@ import {
 
 @Injectable()
 export class CookiePolicyService {
-  private readonly logger = new Logger(CookiePolicyService.name);
-
   constructor(
     @InjectRepository(TenantCookiePolicy)
     private readonly repo: Repository<TenantCookiePolicy>,
     private readonly tenantContext: TenantContext,
-    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
   ) {}
 
   async create(
@@ -78,28 +76,14 @@ export class CookiePolicyService {
     policy.publishedAt = new Date();
     const updated = await this.repo.save(policy);
 
-    try {
-      await this.dataSource.query(
-        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          tenantId,
-          userId,
-          'cookie_policy.published',
-          'tenant_cookie_policy',
-          policy.id,
-          JSON.stringify({
-            version: policy.version,
-            language: policy.language,
-          }),
-        ],
-      );
-    } catch (auditErr) {
-      this.logger.error(
-        `audit_log write failed for cookie_policy id=${policy.id}`,
-        auditErr instanceof Error ? auditErr.stack : String(auditErr),
-      );
-    }
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'cookie_policy.published',
+      entityType: 'tenant_cookie_policy',
+      entityId: policy.id,
+      metadata: { version: policy.version, language: policy.language },
+    });
 
     return this.toResponseDto(updated);
   }

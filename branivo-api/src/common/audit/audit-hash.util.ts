@@ -18,6 +18,30 @@ export interface AuditChainVerificationResult {
 }
 
 /**
+ * Serialises a metadata object with all object keys sorted recursively.
+ * This ensures that the same logical data always produces the same JSON string
+ * regardless of insertion order — critical for JSONB compatibility, because
+ * PostgreSQL JSONB normalises key order alphabetically on storage and returns
+ * keys in that order when read back.
+ */
+function canonicalJsonStringify(
+  value: Record<string, unknown> | null | undefined,
+): string {
+  return JSON.stringify(value ?? {}, (_key: string, val: unknown): unknown => {
+    if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+      const obj = val as Record<string, unknown>;
+      return Object.keys(obj)
+        .sort()
+        .reduce((sorted: Record<string, unknown>, k: string) => {
+          sorted[k] = obj[k];
+          return sorted;
+        }, {});
+    }
+    return val;
+  });
+}
+
+/**
  * Pure deterministic function — same input always produces the same SHA-256 hash.
  * Used both when writing (audit.service.ts) and when verifying (verifyChain).
  */
@@ -37,7 +61,7 @@ export function computeEntryHash(params: {
     params.action,
     params.entityType ?? '',
     params.entityId ?? '',
-    JSON.stringify(params.metadata ?? {}),
+    canonicalJsonStringify(params.metadata),
     params.createdAt.toISOString(),
     params.prevHash,
   ].join('|');

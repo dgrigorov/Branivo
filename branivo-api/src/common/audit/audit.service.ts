@@ -9,7 +9,7 @@ import {
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
-  static readonly GENESIS_HASH = '0'.repeat(64);
+  private static readonly GENESIS_HASH = '0'.repeat(64);
 
   constructor(private readonly dataSource: DataSource) {}
 
@@ -90,7 +90,8 @@ export class AuditService {
               metadata, created_at, prev_hash, entry_hash
        FROM audit_log
        WHERE tenant_id = $1
-       ORDER BY created_at ASC, id ASC`,
+       ORDER BY created_at ASC, id ASC
+       LIMIT 50000`,
       [tenantId],
     );
 

@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import { TosService } from './tos.service';
 import { TenantTosVersion } from './entities/tenant-tos-version.entity';
 import { EndClientTosAcceptance } from './entities/end-client-tos-acceptance.entity';
 import { TenantContext } from '../../common/tenant-context/tenant.context';
+import { AuditService } from '../../common/audit/audit.service';
 import { CreateTosDto } from './dto/create-tos.dto';
 import { AcceptTosDto } from './dto/accept-tos.dto';
 
@@ -35,8 +35,8 @@ const mockTenantContext = {
   getTenantId: jest.fn().mockReturnValue(TENANT_ID),
 };
 
-const mockDataSource = {
-  query: jest.fn().mockResolvedValue([]),
+const mockAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
 };
 
 function makeTosEntity(
@@ -94,7 +94,7 @@ describe('TosService', () => {
           useValue: mockAcceptanceRepo,
         },
         { provide: TenantContext, useValue: mockTenantContext },
-        { provide: DataSource, useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -172,9 +172,14 @@ describe('TosService', () => {
 
       await service.publish(TOS_ID, USER_ID);
 
-      expect(mockDataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO audit_log'),
-        expect.arrayContaining([TENANT_ID, USER_ID, 'tos.published']),
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          userId: USER_ID,
+          action: 'tos.published',
+          entityType: 'tenant_tos_version',
+          entityId: TOS_ID,
+        }),
       );
     });
 
