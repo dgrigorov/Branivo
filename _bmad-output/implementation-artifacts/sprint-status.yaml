@@ -203,13 +203,13 @@ development_status:
   11-12-terms-of-service-version-tracking: review      # ToS с version accept tracking; force re-accept при нова версия
   11-13-cookie-policy-banner: review                           # Cookie banner + granular consent (IAB TCF 2.2); GDPR чл. 7
   11-4-tamper-evident-audit-log: review                          # Hash-chain audit log (SHA-256 prev_hash); КФН одит изисква tamper-evidence
-  11-16-data-breach-response-workflow: in-progress         # 72ч. КЗЛД нотификация; breach register; detection mechanism
+  11-16-data-breach-response-workflow: done                # 72ч. КЗЛД нотификация; breach register; detection mechanism
 
   # — Wave 2: Core Compliance Infrastructure —
   11-2-field-level-encryption-aws-kms: backlog             # AES-256-GCM field encryption; AWS KMS CMK per tenant; key rotation 90 дни
   11-5-audit-log-retention-policy: backlog                 # КФН 5yr retention vs GDPR минимизация; per data-type limits; min/max граници
   11-14-dpa-broker-esign: backlog                          # DPA за брокери при onboarding; e-sign + PDF; sub-processors списък
-  11-10-consent-management: ready-for-dev                  # Consent per purpose (contract/marketing/analytics); opt-in/opt-out flows
+  11-10-consent-management: in-progress                    # Consent per purpose (contract/marketing/analytics); opt-in/opt-out flows
   11-6-lawful-basis-registry: backlog                      # Lawful basis per data category (GDPR чл. 13); документиран registry
 
   # — Wave 3: Individual Rights (FR63, FR64, FR65) —
@@ -289,8 +289,8 @@ development_status:
   # ─────────────────────────────────────────────────────────────
   epic-15: in-progress
   15-1-biometric-login-face-id-fingerprint: done         # Face ID / fingerprint + onboarding prompt (PR #66)
-  15-2-sign-in-with-google: ready-for-dev
-  15-3-sign-in-with-apple: backlog
+  15-2-sign-in-with-google: review
+  15-3-sign-in-with-apple: ready-for-dev
   epic-15-retrospective: optional
 
   # ─────────────────────────────────────────────────────────────

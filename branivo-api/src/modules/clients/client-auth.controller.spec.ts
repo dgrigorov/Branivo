@@ -15,6 +15,9 @@ const mockClientAuthService = {
   requestOtp: jest.fn(),
   verifyOtp: jest.fn(),
   generateTokens: jest.fn(),
+  googleAuth: jest.fn(),
+  requestPhoneOtp: jest.fn(),
+  verifyPhoneOtp: jest.fn(),
 };
 
 const mockTenantContext = {
@@ -35,8 +38,12 @@ const makeClient = (overrides: Partial<EndClient> = {}): EndClient =>
     tenantId: TENANT_ID,
     phoneNumber: PHONE,
     phoneVerified: false,
+    authProvider: 'sms',
+    googleSub: null,
+    appleSub: null,
     firstName: null,
     lastName: null,
+    email: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -134,7 +141,7 @@ describe('ClientAuthController', () => {
       ).rejects.toThrow(HttpException);
     });
 
-    it('should call migrateSession when session_id is provided', async () => {
+    it('should call migrateSession when session_id is provided (verifyOtp)', async () => {
       const client = makeClient();
       mockClientAuthService.verifyOtp.mockResolvedValue({
         client,
@@ -156,6 +163,112 @@ describe('ClientAuthController', () => {
         TENANT_ID,
         'client-uuid',
       );
+    });
+  });
+
+  describe('POST /auth/client/google', () => {
+    const GOOGLE_CLIENT = makeClient({
+      phoneNumber: null,
+      phoneVerified: false,
+      authProvider: 'google',
+      googleSub: 'google-sub-123',
+      email: 'ivan@gmail.com',
+    });
+
+    it('should return 200 with access_token and user info for new Google customer', async () => {
+      mockClientAuthService.googleAuth.mockResolvedValue({
+        client: GOOGLE_CLIENT,
+        isNew: true,
+        accountMerged: false,
+      });
+      mockClientAuthService.generateTokens.mockResolvedValue({
+        access_token: ACCESS_TOKEN,
+        refresh_token: REFRESH_TOKEN,
+      });
+
+      const result = await controller.googleAuth(
+        { id_token: 'google-id-token' },
+        mockResponse as unknown as import('express').Response,
+      );
+
+      expect(result.access_token).toBe(ACCESS_TOKEN);
+      expect(result.user.is_new).toBe(true);
+      expect(result.user.account_merged).toBe(false);
+      expect(result.user.phone_verified).toBe(false);
+      expect(result.user.phone_number).toBeNull();
+      expect(mockResponse.cookie).toHaveBeenCalledWith(
+        'refresh_token',
+        REFRESH_TOKEN,
+        expect.objectContaining({ httpOnly: true }),
+      );
+    });
+
+    it('should return account_merged true on SMS account merge', async () => {
+      const mergedClient = makeClient({
+        authProvider: 'google',
+        googleSub: 'google-sub-123',
+        phoneNumber: PHONE,
+        phoneVerified: true,
+      });
+      mockClientAuthService.googleAuth.mockResolvedValue({
+        client: mergedClient,
+        isNew: false,
+        accountMerged: true,
+      });
+      mockClientAuthService.generateTokens.mockResolvedValue({
+        access_token: ACCESS_TOKEN,
+        refresh_token: REFRESH_TOKEN,
+      });
+
+      const result = await controller.googleAuth(
+        { id_token: 'google-id-token' },
+        mockResponse as unknown as import('express').Response,
+      );
+
+      expect(result.user.account_merged).toBe(true);
+      expect(result.user.phone_verified).toBe(true);
+    });
+
+    it('should return 200 for returning Google customer (login)', async () => {
+      const existingClient = makeClient({
+        authProvider: 'google',
+        googleSub: 'google-sub-123',
+        phoneNumber: null,
+        phoneVerified: false,
+      });
+      mockClientAuthService.googleAuth.mockResolvedValue({
+        client: existingClient,
+        isNew: false,
+        accountMerged: false,
+      });
+      mockClientAuthService.generateTokens.mockResolvedValue({
+        access_token: ACCESS_TOKEN,
+        refresh_token: REFRESH_TOKEN,
+      });
+
+      const result = await controller.googleAuth(
+        { id_token: 'google-id-token' },
+        mockResponse as unknown as import('express').Response,
+      );
+
+      expect(result.user.is_new).toBe(false);
+      expect(result.user.account_merged).toBe(false);
+    });
+
+    it('should propagate 401 UnauthorizedException for invalid token', async () => {
+      mockClientAuthService.googleAuth.mockRejectedValue(
+        new HttpException(
+          { message: 'Invalid Google token' },
+          HttpStatus.UNAUTHORIZED,
+        ),
+      );
+
+      await expect(
+        controller.googleAuth(
+          { id_token: 'bad-token' },
+          mockResponse as unknown as import('express').Response,
+        ),
+      ).rejects.toThrow(HttpException);
     });
   });
 });

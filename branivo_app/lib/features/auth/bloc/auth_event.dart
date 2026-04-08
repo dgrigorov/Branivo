@@ -23,3 +23,9 @@ final class TokenRefreshRequestedEvent extends AuthEvent {
 
   final String refreshToken;
 }
+
+final class GoogleSignInRequestedEvent extends AuthEvent {
+  GoogleSignInRequestedEvent({this.sessionId});
+
+  final String? sessionId;
+}

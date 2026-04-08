@@ -305,19 +305,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildAnonymousCta() => Column(
     children: [
-      Row(
-        children: [
-          const Expanded(child: Divider(color: Color(0xFFCBD5E1))),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              'или',
-              style: TextStyle(color: _kDarkCard.withAlpha(100), fontSize: 13),
-            ),
-          ),
-          const Expanded(child: Divider(color: Color(0xFFCBD5E1))),
-        ],
-      ),
+      _buildDivider(),
+      const SizedBox(height: 16),
+      _GoogleSignInButton(),
+      const SizedBox(height: 12),
+      _buildDivider(),
       const SizedBox(height: 16),
       SizedBox(
         width: double.infinity,
@@ -361,10 +353,32 @@ class _LoginScreenState extends State<LoginScreen> {
     ],
   );
 
+  Widget _buildDivider() => Row(
+    children: [
+      const Expanded(child: Divider(color: Color(0xFFCBD5E1))),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Text(
+          'или',
+          style: TextStyle(color: _kDarkCard.withAlpha(100), fontSize: 13),
+        ),
+      ),
+      const Expanded(child: Divider(color: Color(0xFFCBD5E1))),
+    ],
+  );
+
   void _handleStateChange(BuildContext context, AuthState state) {
     if (state is AuthRequires2FAState) {
       context.push('/2fa', extra: state.tempToken);
     } else if (state is AuthAuthenticatedState) {
+      if (state.accountMerged) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Свързахме Google акаунта ви с вашия съществуващ профил.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
       final redirect = widget.authRedirect;
       if (redirect != null) {
         context.go(redirect.path, extra: redirect.extra);
@@ -532,6 +546,57 @@ class _BranivoTextField extends StatelessWidget {
           vertical: 16,
         ),
       ),
+    );
+  }
+}
+
+class _GoogleSignInButton extends StatelessWidget {
+  const _GoogleSignInButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final isLoading = state is AuthLoadingState;
+        return SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: OutlinedButton.icon(
+            onPressed: isLoading
+                ? null
+                : () => context
+                    .read<AuthBloc>()
+                    .add(GoogleSignInRequestedEvent()),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _kDarkCard,
+              side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              backgroundColor: Colors.white,
+            ),
+            icon: isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(
+                    Icons.g_mobiledata,
+                    size: 24,
+                    color: Color(0xFF4285F4),
+                  ),
+            label: const Text(
+              'Продължи с Google',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: _kDarkCard,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

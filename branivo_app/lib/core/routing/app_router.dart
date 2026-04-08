@@ -39,6 +39,7 @@ import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/anonymous_session/data/repositories/anonymous_session_repository.dart';
 import '../../features/auth/services/biometric_auth_service.dart';
+import '../../features/auth/services/google_sign_in_service.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/compliance/data/privacy_policy_service.dart';
 import '../../features/compliance/presentation/screens/privacy_policy_screen.dart';
@@ -112,6 +113,7 @@ class TosAcceptanceRouteArgs {
 
 const _storage = FlutterSecureStorage();
 final _biometricService = BiometricAuthService(storage: _storage);
+final _googleSignInService = GoogleSignInService();
 
 /// Routes accessible without authentication (anonymous users allowed).
 const _publicRoutes = {
@@ -196,6 +198,7 @@ class AppRouter {
             create: (_) => AuthBloc(
               dio: DioClient.instance,
               storage: _storage,
+              googleSignInService: _googleSignInService,
             ),
             child: LoginScreen(
               authRedirect: redirect,

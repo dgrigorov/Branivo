@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   HttpException,
   HttpStatus,
   Inject,
@@ -10,12 +11,14 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { OAuth2Client } from 'google-auth-library';
 import { v4 as uuidv4 } from 'uuid';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../infrastructure/redis/redis.module';
 import { EndClientRepository } from './repositories/end-client.repository';
 import { SmsService } from './sms.service';
 import { EndClient } from './entities/end-client.entity';
+import { GoogleAuthDto } from './dto/google-auth.dto';
 
 const OTP_TTL_SECONDS = 300; // 5 min
 const OTP_ATTEMPTS_TTL_SECONDS = 3600; // 1 hour
@@ -91,6 +94,23 @@ export class ClientAuthService {
     otpCode: string,
     tenantId: string,
   ): Promise<{ client: EndClient; isNew: boolean }> {
+    await this.verifyOtpCode(phoneNumber, otpCode, tenantId);
+
+    const { client, isNew } = await this.endClientRepository.findOrCreate(
+      phoneNumber,
+      tenantId,
+    );
+    await this.endClientRepository.markPhoneVerified(client.id);
+    client.phoneVerified = true;
+
+    return { client, isNew };
+  }
+
+  private async verifyOtpCode(
+    phoneNumber: string,
+    otpCode: string,
+    tenantId: string,
+  ): Promise<void> {
     const attemptsKey = `client_otp_attempts:${tenantId}:${phoneNumber}`;
     const otpKey = `client_otp:${tenantId}:${phoneNumber}`;
 
@@ -137,21 +157,110 @@ export class ClientAuthService {
       throw new UnauthorizedException({ message: 'Грешен код.' });
     }
 
-    // OTP is correct — clean up
+    // OTP correct — consume immediately before any business logic checks
     try {
       await Promise.all([this.redis.del(otpKey), this.redis.del(attemptsKey)]);
     } catch (err) {
       this.logger.error('Redis cleanup error after OTP verify', err);
     }
+  }
 
-    const { client, isNew } = await this.endClientRepository.findOrCreate(
+  async googleAuth(
+    dto: GoogleAuthDto,
+    tenantId: string,
+  ): Promise<{ client: EndClient; isNew: boolean; accountMerged: boolean }> {
+    const googleClientId = this.config.getOrThrow<string>('GOOGLE_CLIENT_ID');
+    const oauthClient = new OAuth2Client(googleClientId);
+
+    let googleSub: string;
+    let email: string | undefined;
+    let givenName: string | undefined;
+    let familyName: string | undefined;
+
+    try {
+      const ticket = await oauthClient.verifyIdToken({
+        idToken: dto.id_token,
+        audience: googleClientId,
+      });
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new UnauthorizedException('Invalid Google token');
+      }
+      googleSub = payload.sub;
+      email = payload.email;
+      givenName = payload.given_name;
+      familyName = payload.family_name;
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      this.logger.error('Google token verification failed', err);
+      throw new UnauthorizedException('Invalid Google token');
+    }
+
+    // 1. Find by google_sub → direct login
+    const byGoogleSub = await this.endClientRepository.findByGoogleSub(
+      tenantId,
+      googleSub,
+    );
+    if (byGoogleSub) {
+      return { client: byGoogleSub, isNew: false, accountMerged: false };
+    }
+
+    // 2. Find by email (SMS customer) → auto-merge
+    if (email) {
+      const byEmail = await this.endClientRepository.findByEmail(
+        tenantId,
+        email,
+      );
+      if (byEmail) {
+        await this.endClientRepository.mergeGoogleAccount(
+          byEmail.id,
+          googleSub,
+        );
+        byEmail.googleSub = googleSub;
+        byEmail.authProvider = 'google';
+        return { client: byEmail, isNew: false, accountMerged: true };
+      }
+    }
+
+    // 3. Create new Google client
+    const newClient = await this.endClientRepository.createGoogleClient({
+      tenantId,
+      googleSub,
+      email: email ?? null,
+      firstName: givenName ?? null,
+      lastName: familyName ?? null,
+    });
+
+    return { client: newClient, isNew: true, accountMerged: false };
+  }
+
+  async requestPhoneOtp(
+    phoneNumber: string,
+    tenantId: string,
+  ): Promise<{ expires_in: number }> {
+    return this.requestOtp(phoneNumber, tenantId);
+  }
+
+  async verifyPhoneOtp(
+    clientId: string,
+    phoneNumber: string,
+    otpCode: string,
+    tenantId: string,
+  ): Promise<void> {
+    await this.verifyOtpCode(phoneNumber, otpCode, tenantId);
+
+    // Check phone is not already used by another account in this tenant
+    const existing = await this.endClientRepository.findByPhone(
       phoneNumber,
       tenantId,
     );
-    await this.endClientRepository.markPhoneVerified(client.id);
-    client.phoneVerified = true;
+    if (existing && existing.id !== clientId) {
+      throw new ConflictException(
+        'Телефонният номер вече е свързан с друг акаунт.',
+      );
+    }
 
-    return { client, isNew };
+    await this.endClientRepository.updatePhone(clientId, phoneNumber);
   }
 
   async generateTokens(
