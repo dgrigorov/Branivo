@@ -6,6 +6,7 @@ import { TenantTosVersion } from './entities/tenant-tos-version.entity';
 import { EndClientTosAcceptance } from './entities/end-client-tos-acceptance.entity';
 import { TenantCookiePolicy } from './entities/tenant-cookie-policy.entity';
 import { CookieConsentRecord } from './entities/cookie-consent-record.entity';
+import { DataBreach } from './entities/data-breach.entity';
 import { PrivacyPolicyService } from './privacy-policy.service';
 import { PrivacyPolicyController } from './privacy-policy.controller';
 import { PrivacyPolicyPublicController } from './privacy-policy-public.controller';
@@ -18,6 +19,10 @@ import { CookiePolicyController } from './cookie-policy.controller';
 import { CookiePolicyPublicController } from './cookie-policy-public.controller';
 import { CookieConsentService } from './cookie-consent.service';
 import { CookieConsentClientController } from './cookie-consent-client.controller';
+import { DataBreachService } from './data-breach.service';
+import { DataBreachAdminController } from './data-breach-admin.controller';
+import { DataBreachBrokerController } from './data-breach-broker.controller';
+import { DataBreachAlertJob } from './data-breach-alert.job';
 
 @Global()
 @Module({
@@ -28,6 +33,7 @@ import { CookieConsentClientController } from './cookie-consent-client.controlle
       EndClientTosAcceptance,
       TenantCookiePolicy,
       CookieConsentRecord,
+      DataBreach,
     ]),
   ],
   controllers: [
@@ -39,6 +45,8 @@ import { CookieConsentClientController } from './cookie-consent-client.controlle
     CookiePolicyController,
     CookiePolicyPublicController,
     CookieConsentClientController,
+    DataBreachAdminController,
+    DataBreachBrokerController,
   ],
   providers: [
     PiiRegistryService,
@@ -46,6 +54,8 @@ import { CookieConsentClientController } from './cookie-consent-client.controlle
     TosService,
     CookiePolicyService,
     CookieConsentService,
+    DataBreachService,
+    DataBreachAlertJob,
   ],
   exports: [
     PiiRegistryService,
@@ -53,6 +63,7 @@ import { CookieConsentClientController } from './cookie-consent-client.controlle
     TosService,
     CookiePolicyService,
     CookieConsentService,
+    DataBreachService,
   ],
 })
 export class ComplianceModule {}

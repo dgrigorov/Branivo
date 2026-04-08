@@ -66,6 +66,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedPrivacyPolicy();
     await this.seedTos();
     await this.seedCookiePolicy();
+    await this.seedDataBreaches();
 
     this.logger.log(
       'Demo seed complete.\n' +
@@ -1202,5 +1203,59 @@ Demo Broker може да изменя настоящите Общи Услов�
       [DEMO_TENANT_ID, content],
     );
     this.logger.log('Cookie policy seeded.');
+  }
+
+  private async seedDataBreaches(): Promise<void> {
+    // Closed breach — fully resolved
+    await this.dataSource.query(
+      `INSERT INTO data_breaches
+         (id, tenant_id, title, description, breach_type, severity,
+          detected_at, kzld_notification_required, kzld_notified_at,
+          kzld_notification_deadline, status, affected_data_categories,
+          containment_actions, remediation_actions, closed_at)
+       VALUES
+         ('dd000000-0000-0000-0000-000000000001',
+          $1,
+          'Test: Email exposure incident',
+          'A misconfigured email list exposed client email addresses to a third party.',
+          'accidental_disclosure', 'medium',
+          NOW() - INTERVAL '10 days',
+          true,
+          NOW() - INTERVAL '9 days 12 hours',
+          NOW() - INTERVAL '10 days' + INTERVAL '72 hours',
+          'closed',
+          '["email"]',
+          'List misconfiguration corrected and access revoked.',
+          'Email provider access policy reviewed. Training scheduled.',
+          NOW() - INTERVAL '8 days')
+       ON CONFLICT (id) DO NOTHING`,
+      [DEMO_TENANT_ID],
+    );
+
+    // Active breach — approaching deadline
+    await this.dataSource.query(
+      `INSERT INTO data_breaches
+         (id, tenant_id, title, description, breach_type, severity,
+          detected_at, kzld_notification_required, kzld_notified_at,
+          kzld_notification_deadline, status, affected_data_categories,
+          affected_subjects_count)
+       VALUES
+         ('dd000000-0000-0000-0000-000000000002',
+          $1,
+          'Test: Potential unauthorized access',
+          'Suspicious login activity detected from an unrecognised IP. Under investigation.',
+          'unauthorized_access', 'high',
+          NOW() - INTERVAL '48 hours',
+          true,
+          NULL,
+          NOW() - INTERVAL '48 hours' + INTERVAL '72 hours',
+          'investigating',
+          '["name", "email", "policy_data"]',
+          42)
+       ON CONFLICT (id) DO NOTHING`,
+      [DEMO_TENANT_ID],
+    );
+
+    this.logger.log('Data breaches seeded.');
   }
 }
