@@ -80,7 +80,9 @@ export class EndClientRepository extends BaseRepository<EndClient> {
     tenantId: string,
   ): Promise<{ client: EndClient; isNew: boolean }> {
     await this.setTenantSession();
-    const existing = await this.findByPhone(phoneNumber, tenantId);
+    const existing = await this.endClientRepo.findOne({
+      where: { phoneNumber, tenantId, deletedAt: IsNull() },
+    });
     if (existing) {
       return { client: existing, isNew: false };
     }

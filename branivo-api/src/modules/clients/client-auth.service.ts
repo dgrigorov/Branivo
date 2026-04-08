@@ -94,6 +94,23 @@ export class ClientAuthService {
     otpCode: string,
     tenantId: string,
   ): Promise<{ client: EndClient; isNew: boolean }> {
+    await this.verifyOtpCode(phoneNumber, otpCode, tenantId);
+
+    const { client, isNew } = await this.endClientRepository.findOrCreate(
+      phoneNumber,
+      tenantId,
+    );
+    await this.endClientRepository.markPhoneVerified(client.id);
+    client.phoneVerified = true;
+
+    return { client, isNew };
+  }
+
+  private async verifyOtpCode(
+    phoneNumber: string,
+    otpCode: string,
+    tenantId: string,
+  ): Promise<void> {
     const attemptsKey = `client_otp_attempts:${tenantId}:${phoneNumber}`;
     const otpKey = `client_otp:${tenantId}:${phoneNumber}`;
 
@@ -140,21 +157,12 @@ export class ClientAuthService {
       throw new UnauthorizedException({ message: 'Грешен код.' });
     }
 
-    // OTP is correct — clean up
+    // OTP correct — consume immediately before any business logic checks
     try {
       await Promise.all([this.redis.del(otpKey), this.redis.del(attemptsKey)]);
     } catch (err) {
       this.logger.error('Redis cleanup error after OTP verify', err);
     }
-
-    const { client, isNew } = await this.endClientRepository.findOrCreate(
-      phoneNumber,
-      tenantId,
-    );
-    await this.endClientRepository.markPhoneVerified(client.id);
-    client.phoneVerified = true;
-
-    return { client, isNew };
   }
 
   async googleAuth(
@@ -239,53 +247,9 @@ export class ClientAuthService {
     otpCode: string,
     tenantId: string,
   ): Promise<void> {
-    const attemptsKey = `client_otp_attempts:${tenantId}:${phoneNumber}`;
-    const otpKey = `client_otp:${tenantId}:${phoneNumber}`;
+    await this.verifyOtpCode(phoneNumber, otpCode, tenantId);
 
-    let attempts: number;
-    let storedOtp: string | null;
-
-    try {
-      const [attemptsRaw, stored] = await Promise.all([
-        this.redis.get(attemptsKey),
-        this.redis.get(otpKey),
-      ]);
-      attempts = attemptsRaw ? parseInt(attemptsRaw, 10) : 0;
-      storedOtp = stored;
-    } catch (err) {
-      this.logger.error('Redis error during phone OTP verify', err);
-      throw new ServiceUnavailableException('Услугата временно не е достъпна');
-    }
-
-    if (attempts >= MAX_OTP_ATTEMPTS) {
-      throw new HttpException(
-        {
-          message: 'Твърде много опити. Опитайте след 1 час.',
-          retry_after: 3600,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    if (!storedOtp) {
-      throw new UnprocessableEntityException({
-        message: 'Кодът е изтекъл. Поискайте нов код.',
-      });
-    }
-
-    if (storedOtp !== otpCode) {
-      try {
-        const newAttempts = await this.redis.incr(attemptsKey);
-        if (newAttempts === 1) {
-          await this.redis.expire(attemptsKey, OTP_ATTEMPTS_TTL_SECONDS);
-        }
-      } catch (err) {
-        this.logger.error('Redis error during phone attempt increment', err);
-      }
-      throw new UnauthorizedException({ message: 'Грешен код.' });
-    }
-
-    // Check phone is not already used by another account in tenant
+    // Check phone is not already used by another account in this tenant
     const existing = await this.endClientRepository.findByPhone(
       phoneNumber,
       tenantId,
@@ -294,12 +258,6 @@ export class ClientAuthService {
       throw new ConflictException(
         'Телефонният номер вече е свързан с друг акаунт.',
       );
-    }
-
-    try {
-      await Promise.all([this.redis.del(otpKey), this.redis.del(attemptsKey)]);
-    } catch (err) {
-      this.logger.error('Redis cleanup error after phone OTP verify', err);
     }
 
     await this.endClientRepository.updatePhone(clientId, phoneNumber);

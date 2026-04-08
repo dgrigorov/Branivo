@@ -65,7 +65,8 @@ void main() {
       await tester.pumpWidget(buildWithState(AuthLoadingState()));
       await tester.pump();
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // Both the login button and the Google Sign-In button show spinners on loading
+      expect(find.byType(CircularProgressIndicator), findsAtLeastNWidgets(1));
     });
   });
 

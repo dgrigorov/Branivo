@@ -163,6 +163,7 @@ export class ClientAuthController {
   @Post('phone/verify')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ClientJwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async verifyPhone(
     @Body() dto: VerifyOtpDto,
     @CurrentUser() user: AuthenticatedUser,

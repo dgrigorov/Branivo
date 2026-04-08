@@ -177,6 +177,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _clearTokens() async {
     await _storage.delete(key: 'access_token');
     await _storage.delete(key: 'refresh_token');
+    await _storage.delete(key: 'phone_verified');
   }
 
   String _extractError(DioException e) {
