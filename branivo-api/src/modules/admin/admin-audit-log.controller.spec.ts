@@ -47,7 +47,11 @@ describe('AdminAuditLogController', () => {
 
     app = module.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
   });
@@ -103,7 +107,9 @@ describe('AdminAuditLogController', () => {
         .compile();
 
       const unauthorizedApp = module.createNestApplication();
-      unauthorizedApp.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+      unauthorizedApp.useGlobalPipes(
+        new ValidationPipe({ whitelist: true, transform: true }),
+      );
       await unauthorizedApp.init();
 
       await request(unauthorizedApp.getHttpServer() as Server)
@@ -129,7 +135,9 @@ describe('AdminAuditLogController', () => {
         .compile();
 
       const forbiddenApp = module.createNestApplication();
-      forbiddenApp.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+      forbiddenApp.useGlobalPipes(
+        new ValidationPipe({ whitelist: true, transform: true }),
+      );
       await forbiddenApp.init();
 
       await request(forbiddenApp.getHttpServer() as Server)
