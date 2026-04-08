@@ -18,8 +18,22 @@ export class EndClient {
   tenantId!: string;
 
   @PiiField(PiiClassification.PII_BASIC)
-  @Column({ name: 'phone_number' })
-  phoneNumber!: string;
+  @Column({ name: 'phone_number', nullable: true, type: 'varchar', length: 20 })
+  phoneNumber!: string | null;
+
+  @Column({
+    name: 'auth_provider',
+    type: 'varchar',
+    length: 20,
+    default: 'sms',
+  })
+  authProvider!: string;
+
+  @Column({ name: 'google_sub', nullable: true, type: 'varchar', length: 255 })
+  googleSub!: string | null;
+
+  @Column({ name: 'apple_sub', nullable: true, type: 'varchar', length: 255 })
+  appleSub!: string | null;
 
   @Column({ name: 'phone_verified', default: false })
   phoneVerified!: boolean;

@@ -13,9 +13,19 @@ final class AuthRequires2FAState extends AuthState {
 }
 
 final class AuthAuthenticatedState extends AuthState {
-  AuthAuthenticatedState({required this.accessToken});
+  AuthAuthenticatedState({
+    required this.accessToken,
+    this.accountMerged = false,
+    this.phoneVerified = true,
+  });
 
   final String accessToken;
+
+  /// True when a Google login merged with an existing SMS account.
+  final bool accountMerged;
+
+  /// False when authenticated via Google OAuth and phone is not yet verified.
+  final bool phoneVerified;
 }
 
 final class AuthErrorState extends AuthState {

@@ -25,6 +25,56 @@ export class EndClientRepository extends BaseRepository<EndClient> {
     });
   }
 
+  async findByGoogleSub(
+    tenantId: string,
+    googleSub: string,
+  ): Promise<EndClient | null> {
+    await this.setTenantSession();
+    return this.endClientRepo.findOne({
+      where: { tenantId, googleSub, deletedAt: IsNull() },
+    });
+  }
+
+  async findByEmail(
+    tenantId: string,
+    email: string,
+  ): Promise<EndClient | null> {
+    await this.setTenantSession();
+    return this.endClientRepo.findOne({
+      where: { tenantId, email, deletedAt: IsNull() },
+    });
+  }
+
+  async mergeGoogleAccount(clientId: string, googleSub: string): Promise<void> {
+    await this.setTenantSession();
+    await this.endClientRepo.update(clientId, {
+      googleSub,
+      authProvider: 'google',
+      updatedAt: new Date(),
+    });
+  }
+
+  async createGoogleClient(params: {
+    tenantId: string;
+    googleSub: string;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+  }): Promise<EndClient> {
+    await this.setTenantSession();
+    const newClient = this.endClientRepo.create({
+      tenantId: params.tenantId,
+      googleSub: params.googleSub,
+      email: params.email,
+      firstName: params.firstName,
+      lastName: params.lastName,
+      authProvider: 'google',
+      phoneNumber: null,
+      phoneVerified: false,
+    });
+    return this.endClientRepo.save(newClient);
+  }
+
   async findOrCreate(
     phoneNumber: string,
     tenantId: string,
@@ -54,6 +104,15 @@ export class EndClientRepository extends BaseRepository<EndClient> {
   async markPhoneVerified(clientId: string): Promise<void> {
     await this.setTenantSession();
     await this.endClientRepo.update(clientId, {
+      phoneVerified: true,
+      updatedAt: new Date(),
+    });
+  }
+
+  async updatePhone(clientId: string, phoneNumber: string): Promise<void> {
+    await this.setTenantSession();
+    await this.endClientRepo.update(clientId, {
+      phoneNumber,
       phoneVerified: true,
       updatedAt: new Date(),
     });

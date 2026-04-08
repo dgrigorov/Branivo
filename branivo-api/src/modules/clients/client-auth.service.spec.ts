@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   HttpException,
   HttpStatus,
   UnauthorizedException,
@@ -12,6 +13,14 @@ import { EndClient } from './entities/end-client.entity';
 import { EndClientRepository } from './repositories/end-client.repository';
 import { SmsService } from './sms.service';
 
+// Mock google-auth-library before importing the service
+jest.mock('google-auth-library', () => ({
+  OAuth2Client: jest.fn().mockImplementation(() => ({
+    verifyIdToken: jest.fn(),
+  })),
+}));
+import { OAuth2Client } from 'google-auth-library';
+
 const mockRedis = {
   incr: jest.fn(),
   expire: jest.fn(),
@@ -24,6 +33,12 @@ const mockRedis = {
 const mockEndClientRepo = {
   findOrCreate: jest.fn(),
   markPhoneVerified: jest.fn(),
+  findByGoogleSub: jest.fn(),
+  findByEmail: jest.fn(),
+  mergeGoogleAccount: jest.fn(),
+  createGoogleClient: jest.fn(),
+  findByPhone: jest.fn(),
+  updatePhone: jest.fn(),
 };
 
 const mockSmsService = {
@@ -35,7 +50,10 @@ const mockJwtService = {
 };
 
 const mockConfig = {
-  getOrThrow: jest.fn().mockReturnValue('test-secret'),
+  getOrThrow: jest.fn().mockImplementation((key: string) => {
+    if (key === 'GOOGLE_CLIENT_ID') return 'google-client-id-test';
+    return 'test-secret';
+  }),
   get: jest.fn().mockReturnValue('test'),
 };
 
@@ -207,6 +225,228 @@ describe('ClientAuthService', () => {
       expect(result).toEqual({ client: existing, isNew: false });
       // findOrCreate called once — no duplicates
       expect(mockEndClientRepo.findOrCreate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('googleAuth', () => {
+    const GOOGLE_SUB = 'google-sub-12345';
+    const GOOGLE_EMAIL = 'ivan@gmail.com';
+    const ID_TOKEN = 'mock-google-id-token';
+
+    const makeClient = (overrides: Partial<EndClient> = {}): EndClient =>
+      Object.assign(new EndClient(), {
+        id: 'client-uuid',
+        tenantId: TENANT_ID,
+        phoneNumber: null,
+        phoneVerified: false,
+        authProvider: 'google',
+        googleSub: GOOGLE_SUB,
+        appleSub: null,
+        firstName: 'Иван',
+        lastName: 'Иванов',
+        email: GOOGLE_EMAIL,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        ...overrides,
+      });
+
+    const setupMockVerifyIdToken = (
+      overrides: {
+        sub?: string;
+        email?: string;
+        given_name?: string;
+        family_name?: string;
+      } = {},
+    ) => {
+      const MockOAuth2Client = OAuth2Client as jest.MockedClass<
+        typeof OAuth2Client
+      >;
+      const mockInstance = {
+        verifyIdToken: jest.fn().mockResolvedValue({
+          getPayload: () => ({
+            sub: overrides.sub ?? GOOGLE_SUB,
+            email: overrides.email ?? GOOGLE_EMAIL,
+            given_name: overrides.given_name ?? 'Иван',
+            family_name: overrides.family_name ?? 'Иванов',
+          }),
+        }),
+      };
+      MockOAuth2Client.mockImplementation(
+        () => mockInstance as unknown as OAuth2Client,
+      );
+      return mockInstance;
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      service = new ClientAuthService(
+        mockRedis as unknown as Redis,
+        mockEndClientRepo as unknown as EndClientRepository,
+        mockSmsService as unknown as SmsService,
+        mockJwtService as unknown as JwtService,
+        mockConfig as unknown as ConfigService,
+      );
+    });
+
+    it('should login existing Google customer (by google_sub)', async () => {
+      setupMockVerifyIdToken();
+      const client = makeClient();
+      mockEndClientRepo.findByGoogleSub.mockResolvedValue(client);
+
+      const result = await service.googleAuth(
+        { id_token: ID_TOKEN },
+        TENANT_ID,
+      );
+
+      expect(result).toEqual({ client, isNew: false, accountMerged: false });
+      expect(mockEndClientRepo.findByGoogleSub).toHaveBeenCalledWith(
+        TENANT_ID,
+        GOOGLE_SUB,
+      );
+      expect(mockEndClientRepo.createGoogleClient).not.toHaveBeenCalled();
+    });
+
+    it('should create new Google customer when not found', async () => {
+      setupMockVerifyIdToken();
+      const newClient = makeClient({ id: 'new-client-uuid' });
+      mockEndClientRepo.findByGoogleSub.mockResolvedValue(null);
+      mockEndClientRepo.findByEmail.mockResolvedValue(null);
+      mockEndClientRepo.createGoogleClient.mockResolvedValue(newClient);
+
+      const result = await service.googleAuth(
+        { id_token: ID_TOKEN },
+        TENANT_ID,
+      );
+
+      expect(result).toEqual({
+        client: newClient,
+        isNew: true,
+        accountMerged: false,
+      });
+      expect(mockEndClientRepo.createGoogleClient).toHaveBeenCalledWith({
+        tenantId: TENANT_ID,
+        googleSub: GOOGLE_SUB,
+        email: GOOGLE_EMAIL,
+        firstName: 'Иван',
+        lastName: 'Иванов',
+      });
+    });
+
+    it('should auto-merge SMS customer with same email', async () => {
+      setupMockVerifyIdToken();
+      const smsClient = makeClient({
+        authProvider: 'sms',
+        googleSub: null,
+        phoneNumber: '+35988123456',
+        phoneVerified: true,
+      });
+      mockEndClientRepo.findByGoogleSub.mockResolvedValue(null);
+      mockEndClientRepo.findByEmail.mockResolvedValue(smsClient);
+      mockEndClientRepo.mergeGoogleAccount.mockResolvedValue(undefined);
+
+      const result = await service.googleAuth(
+        { id_token: ID_TOKEN },
+        TENANT_ID,
+      );
+
+      expect(result.accountMerged).toBe(true);
+      expect(result.isNew).toBe(false);
+      expect(result.client.googleSub).toBe(GOOGLE_SUB);
+      expect(mockEndClientRepo.mergeGoogleAccount).toHaveBeenCalledWith(
+        smsClient.id,
+        GOOGLE_SUB,
+      );
+    });
+
+    it('should throw UnauthorizedException for invalid Google token', async () => {
+      const MockOAuth2Client = OAuth2Client as jest.MockedClass<
+        typeof OAuth2Client
+      >;
+      MockOAuth2Client.mockImplementation(
+        () =>
+          ({
+            verifyIdToken: jest
+              .fn()
+              .mockRejectedValue(new Error('Invalid token')),
+          }) as unknown as OAuth2Client,
+      );
+      service = new ClientAuthService(
+        mockRedis as unknown as Redis,
+        mockEndClientRepo as unknown as EndClientRepository,
+        mockSmsService as unknown as SmsService,
+        mockJwtService as unknown as JwtService,
+        mockConfig as unknown as ConfigService,
+      );
+
+      await expect(
+        service.googleAuth({ id_token: 'bad-token' }, TENANT_ID),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException when payload is null', async () => {
+      const MockOAuth2Client = OAuth2Client as jest.MockedClass<
+        typeof OAuth2Client
+      >;
+      MockOAuth2Client.mockImplementation(
+        () =>
+          ({
+            verifyIdToken: jest.fn().mockResolvedValue({
+              getPayload: () => null,
+            }),
+          }) as unknown as OAuth2Client,
+      );
+      service = new ClientAuthService(
+        mockRedis as unknown as Redis,
+        mockEndClientRepo as unknown as EndClientRepository,
+        mockSmsService as unknown as SmsService,
+        mockJwtService as unknown as JwtService,
+        mockConfig as unknown as ConfigService,
+      );
+
+      await expect(
+        service.googleAuth({ id_token: ID_TOKEN }, TENANT_ID),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('verifyPhoneOtp', () => {
+    const CLIENT_ID = 'client-uuid';
+
+    it('should update phone and mark verified when OTP is correct', async () => {
+      mockRedis.get.mockImplementation((key: string) => {
+        if (key.startsWith('client_otp_attempts')) return Promise.resolve(null);
+        if (key.startsWith('client_otp:')) return Promise.resolve(OTP);
+        return Promise.resolve(null);
+      });
+      mockRedis.del.mockResolvedValue(1);
+      mockEndClientRepo.findByPhone.mockResolvedValue(null);
+      mockEndClientRepo.updatePhone.mockResolvedValue(undefined);
+
+      await service.verifyPhoneOtp(CLIENT_ID, PHONE, OTP, TENANT_ID);
+
+      expect(mockEndClientRepo.updatePhone).toHaveBeenCalledWith(
+        CLIENT_ID,
+        PHONE,
+      );
+    });
+
+    it('should throw ConflictException when phone belongs to another account', async () => {
+      mockRedis.get.mockImplementation((key: string) => {
+        if (key.startsWith('client_otp_attempts')) return Promise.resolve(null);
+        if (key.startsWith('client_otp:')) return Promise.resolve(OTP);
+        return Promise.resolve(null);
+      });
+      mockRedis.del.mockResolvedValue(1);
+      const otherClient = Object.assign(new EndClient(), {
+        id: 'other-client-uuid',
+        tenantId: TENANT_ID,
+      });
+      mockEndClientRepo.findByPhone.mockResolvedValue(otherClient);
+
+      await expect(
+        service.verifyPhoneOtp(CLIENT_ID, PHONE, OTP, TENANT_ID),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });

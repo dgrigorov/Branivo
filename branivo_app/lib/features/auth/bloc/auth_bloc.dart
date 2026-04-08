@@ -3,23 +3,30 @@ import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/auth_tokens.dart';
+import '../services/google_sign_in_service.dart';
 
 part 'auth_event.dart';
 part 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  AuthBloc({required Dio dio, required FlutterSecureStorage storage})
-      : _dio = dio,
+  AuthBloc({
+    required Dio dio,
+    required FlutterSecureStorage storage,
+    GoogleSignInService? googleSignInService,
+  })  : _dio = dio,
         _storage = storage,
+        _googleSignInService = googleSignInService,
         super(AuthInitialState()) {
     on<LoginRequestedEvent>(_onLoginRequested);
     on<TwoFAVerifyRequestedEvent>(_onTwoFAVerifyRequested);
     on<LogoutRequestedEvent>(_onLogoutRequested);
     on<TokenRefreshRequestedEvent>(_onTokenRefreshRequested);
+    on<GoogleSignInRequestedEvent>(_onGoogleSignInRequested);
   }
 
   final Dio _dio;
   final FlutterSecureStorage _storage;
+  final GoogleSignInService? _googleSignInService;
 
   Future<void> _onLoginRequested(
     LoginRequestedEvent event,
@@ -99,6 +106,66 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } on DioException catch (e) {
       await _clearTokens();
       emit(AuthErrorState(message: _extractError(e)));
+    }
+  }
+
+  Future<void> _onGoogleSignInRequested(
+    GoogleSignInRequestedEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    final service = _googleSignInService;
+    if (service == null) {
+      emit(AuthErrorState(message: 'Google Sign-In не е конфигуриран.'));
+      return;
+    }
+
+    emit(AuthLoadingState());
+
+    String? idToken;
+    try {
+      idToken = await service.signIn();
+    } catch (e) {
+      log('GoogleSignIn error', error: e);
+      emit(AuthErrorState(message: 'Грешка при Google вход. Опитайте пак.'));
+      return;
+    }
+
+    if (idToken == null) {
+      // User cancelled — return to initial state without emitting error
+      emit(AuthInitialState());
+      return;
+    }
+
+    try {
+      final body = <String, dynamic>{'id_token': idToken};
+      if (event.sessionId != null) body['session_id'] = event.sessionId;
+
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/auth/client/google',
+        data: body,
+      );
+      final data = response.data!;
+      final accessToken = data['access_token'] as String;
+      final user = data['user'] as Map<String, dynamic>;
+      final accountMerged = (user['account_merged'] as bool?) ?? false;
+      final phoneVerified = (user['phone_verified'] as bool?) ?? false;
+
+      await _storage.write(key: 'access_token', value: accessToken);
+      await _storage.write(
+        key: 'phone_verified',
+        value: phoneVerified ? 'true' : 'false',
+      );
+
+      emit(AuthAuthenticatedState(
+        accessToken: accessToken,
+        accountMerged: accountMerged,
+        phoneVerified: phoneVerified,
+      ));
+    } on DioException catch (e) {
+      emit(AuthErrorState(message: _extractError(e)));
+    } catch (e) {
+      log('AuthBloc google auth error', error: e);
+      emit(AuthErrorState(message: 'Грешка при Google вход. Опитайте пак.'));
     }
   }
 

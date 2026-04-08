@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:go_router/go_router.dart';
 import '../bloc/payment_bloc.dart';
 import '../bloc/payment_event.dart';
 import '../bloc/payment_state.dart';
 import 'policy_confirmation_screen.dart';
+import '../../auth/widgets/phone_verification_dialog.dart';
 
 class PaymentRouteArgs {
   final String quoteId;
@@ -43,12 +45,32 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
+  static const _storage = FlutterSecureStorage();
+
   @override
   void initState() {
     super.initState();
-    context.read<PaymentBloc>().add(
-          PaymentIntentRequestedEvent(quoteId: widget.quoteId),
-        );
+    _checkPhoneVerifiedThenLoad();
+  }
+
+  Future<void> _checkPhoneVerifiedThenLoad() async {
+    final phoneVerified = await _storage.read(key: 'phone_verified');
+    if (phoneVerified == 'false' && mounted) {
+      final verified = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const PhoneVerificationDialog(),
+      );
+      if (verified != true) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+    }
+    if (mounted) {
+      context.read<PaymentBloc>().add(
+            PaymentIntentRequestedEvent(quoteId: widget.quoteId),
+          );
+    }
   }
 
   Future<void> _presentPaymentSheet(
