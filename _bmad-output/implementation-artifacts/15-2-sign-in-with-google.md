@@ -1,6 +1,6 @@
 # Story 15.2: Sign in with Google
 
-Status: review
+Status: done
 
 ## Story
 

@@ -209,7 +209,7 @@ development_status:
   11-2-field-level-encryption-aws-kms: backlog             # AES-256-GCM field encryption; AWS KMS CMK per tenant; key rotation 90 дни
   11-5-audit-log-retention-policy: backlog                 # КФН 5yr retention vs GDPR минимизация; per data-type limits; min/max граници
   11-14-dpa-broker-esign: backlog                          # DPA за брокери при onboarding; e-sign + PDF; sub-processors списък
-  11-10-consent-management: ready-for-dev                  # Consent per purpose (contract/marketing/analytics); opt-in/opt-out flows
+  11-10-consent-management: in-progress                    # Consent per purpose (contract/marketing/analytics); opt-in/opt-out flows
   11-6-lawful-basis-registry: backlog                      # Lawful basis per data category (GDPR чл. 13); документиран registry
 
   # — Wave 3: Individual Rights (FR63, FR64, FR65) —
