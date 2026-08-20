@@ -18,40 +18,22 @@ Four cooperating services — a NestJS API, a Next.js PWA, a Flutter mobile app,
 
 ## Architecture
 
-```
-                         ┌─────────────────────────┐
-                         │      Next.js PWA          │   Client storefront + Broker
-                         │      (branivo-web)         │   dashboard + Super Admin
-                         └────────────┬────────────┘
-                                      │ REST /api/v1
-┌──────────────────────┐             │             ┌──────────────────────┐
-│   Flutter App          │───────────┼─────────────│   branivo-ocr           │
-│   (iOS / Android)      │  REST     │              │   FastAPI + OpenCV      │
-│   BLoC · Hive · Dio    │           │              │   (MRZ / talon parsing) │
-└───────────┬───────────┘             │             └──────────────────────┘
-            │                          │
-            └──────────────┬───────────┘
-                            ▼
-                 ┌────────────────────────┐
-                 │     branivo-api           │
-                 │     NestJS — Modular      │
-                 │     Monolith               │
-                 │  TenantContext middleware │
-                 │  Controller→Service→Repo  │
-                 └───────────┬────────────┘
-                             │
-        ┌────────────────────┼────────────────────┐
-        ▼                    ▼                    ▼
-┌───────────────┐  ┌──────────────────┐  ┌──────────────────────┐
-│ PostgreSQL 16  │  │  Redis 7 + BullMQ  │  │ Insurer / Payment /    │
-│ RLS · UUID PKs │  │  3 queues:          │  │ Logistics adapters      │
-│ soft delete     │  │  pdf-generation      │  │ (circuit-breaker per     │
-└───────────────┘  │  notifications        │  │ integration): Stripe,   │
-                     │  logistics             │  │ insurer APIs, KAT,      │
-                     └──────────────────┘  │ Гаранционен фонд,        │
-                                            │ Speedy/Econt, SendGrid,  │
-                                            │ Twilio, FCM              │
-                                            └──────────────────────┘
+```mermaid
+flowchart TB
+    WEB["<b>Next.js PWA</b><br/>branivo-web<br/><i>client storefront + broker dashboard + super admin</i>"]
+    APP["<b>Flutter App</b><br/>iOS / Android<br/><i>BLoC · Hive · Dio</i>"]
+    OCR["<b>branivo-ocr</b><br/>FastAPI + OpenCV<br/><i>MRZ / talon parsing</i>"]
+    API["<b>branivo-api</b><br/>NestJS — Modular Monolith<br/><i>TenantContext middleware</i><br/><i>Controller → Service → Repository</i>"]
+    PG[("PostgreSQL 16<br/>RLS · UUID PKs · soft delete")]
+    REDIS[("Redis 7 + BullMQ<br/>3 queues: pdf-generation,<br/>notifications, logistics")]
+    EXT["<b>Insurer / Payment / Logistics adapters</b><br/><i>circuit-breaker per integration</i><br/>Stripe · insurer APIs · KAT ·<br/>Гаранционен фонд · Speedy/Econt ·<br/>SendGrid · Twilio · FCM"]
+
+    WEB -- "REST /api/v1" --> API
+    APP -- "REST" --> API
+    WEB -. "REST" .-> OCR
+    API --> PG
+    API --> REDIS
+    API --> EXT
 ```
 
 AWS ECS Fargate (multi-AZ) runs the API, web, and OCR containers behind CloudFront/ALB; Terraform (`branivo-infra/`) defines dev/staging/prod as functionally identical environments (ECS, RDS, ElastiCache, S3, networking).
