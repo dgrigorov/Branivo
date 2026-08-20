@@ -69,6 +69,8 @@ public/fallback-*.js
 
 # BMAD framework internals (not project-specific)
 _bmad/
+_bmad-output/
+CLAUDE.md
 
 # Credentials / service account keys
 *service-account*.json
