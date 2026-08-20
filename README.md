@@ -20,31 +20,79 @@ Four cooperating services — a NestJS API, a Next.js PWA, a Flutter mobile app,
 
 ```mermaid
 flowchart TB
-    WEB["branivo-web"]
-    APP["branivo_app"]
-    OCR["branivo-ocr"]
-    API["branivo-api"]
-    PG[("PostgreSQL")]
-    REDIS[("Redis")]
-    EXT["adapters"]
+    subgraph CLIENTS[Clients]
+        WEB[branivo-web]
+        APP[branivo_app]
+    end
 
-    WEB -- REST --> API
-    APP -- REST --> API
-    WEB -. REST .-> OCR
+    subgraph EDGE[Edge — AWS]
+        CDN[CloudFront / ALB]
+        TC[TenantContext]
+    end
+
+    subgraph API_LAYER[branivo-api — NestJS modular monolith]
+        API[Controller layer]
+        AUTH[auth]
+        TEN[tenants]
+        QUOTES[quotes]
+        POLICIES[policies]
+        PAY[payments]
+        COMM[commissions]
+        NOTIF[notifications]
+        FLEET[fleet]
+        ADMIN[admin]
+    end
+
+    OCRSVC[branivo-ocr — FastAPI]
+
+    subgraph QUEUES[BullMQ queues]
+        QPDF[pdf-generation]
+        QNOTIF[notifications]
+        QLOG[logistics]
+    end
+
+    subgraph DATA[Data layer]
+        PG[(PostgreSQL 16)]
+        REDIS[(Redis 7)]
+        S3[(S3)]
+    end
+
+    subgraph EXTERNAL[External APIs]
+        STRIPE[Stripe]
+        INS[Insurer APIs]
+        KAT[KAT]
+        GF[Гаранционен фонд]
+        LOGI[Speedy / Econt]
+        SG[SendGrid]
+        TW[Twilio]
+        FCMN[FCM]
+        VIS[Google Vision]
+    end
+
+    WEB --> CDN
+    APP --> CDN
+    CDN --> TC
+    TC --> API
+    WEB -. OCR upload .-> OCRSVC
+    TC -- cache --> REDIS
+    TC -. fallback .-> PG
+
+    API --> AUTH & TEN & QUOTES & POLICIES & PAY & COMM & NOTIF & FLEET & ADMIN
     API --> PG
     API --> REDIS
-    API --> EXT
+    API --> QPDF & QNOTIF & QLOG
+
+    QUOTES -- parallel --> INS
+    PAY -- 3DS --> STRIPE
+    POLICIES --> KAT
+    POLICIES --> GF
+    QPDF --> S3
+    QLOG --> LOGI
+    QNOTIF --> SG & TW & FCMN
+    OCRSVC --> VIS
 ```
 
-| Node | What it is |
-|---|---|
-| `branivo-web` | Next.js PWA — client storefront + broker dashboard + super admin console |
-| `branivo_app` | Flutter app, iOS / Android |
-| `branivo-ocr` | FastAPI microservice — MRZ / talon OCR parsing for the web flow |
-| `branivo-api` | NestJS modular monolith — `TenantContext` middleware, `Controller → Service → Repository` layering |
-| `adapters` | Per-integration circuit breakers: Stripe, insurer APIs, KAT, Гаранционен фонд, Speedy/Econt, SendGrid, Twilio, FCM |
-
-`branivo-web` is the client storefront + broker dashboard + super admin console; `branivo-api` enforces tenant isolation via `TenantContext` middleware on a strict `Controller → Service → Repository` layering; the adapter layer wraps every external integration (Stripe, insurer APIs, KAT, Гаранционен фонд, Speedy/Econt, SendGrid, Twilio, FCM) behind a per-integration circuit breaker.
+Every domain module talks to Postgres/Redis only through a shared `BaseRepository` (soft-delete + tenant scoping baked in); nothing crosses module boundaries directly — cross-module signals go through NestJS's `EventEmitter`. Every box in **External APIs** sits behind its own `opossum` circuit breaker, so one dead insurer or a Stripe blip degrades gracefully instead of cascading.
 
 AWS ECS Fargate (multi-AZ) runs the API, web, and OCR containers behind CloudFront/ALB; Terraform (`branivo-infra/`) defines dev/staging/prod as functionally identical environments (ECS, RDS, ElastiCache, S3, networking).
 
