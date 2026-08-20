@@ -19,6 +19,7 @@ Four cooperating services — a NestJS API, a Next.js PWA, a Flutter mobile app,
 ## Architecture
 
 ```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
 flowchart TB
     subgraph CLIENTS[Clients]
         WEB[branivo-web]
