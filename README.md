@@ -20,13 +20,13 @@ Four cooperating services — a NestJS API, a Next.js PWA, a Flutter mobile app,
 
 ```mermaid
 flowchart TB
-    WEB["Next.js PWA<br/>branivo-web"]
-    APP["Flutter App<br/>iOS / Android"]
-    OCR["branivo-ocr<br/>FastAPI"]
-    API["branivo-api<br/>NestJS"]
-    PG[("PostgreSQL 16")]
-    REDIS[("Redis + BullMQ")]
-    EXT["Insurer / Payment /<br/>Logistics adapters"]
+    WEB["branivo-web"]
+    APP["branivo_app"]
+    OCR["branivo-ocr"]
+    API["branivo-api"]
+    PG[("PostgreSQL")]
+    REDIS[("Redis")]
+    EXT["adapters"]
 
     WEB -- REST --> API
     APP -- REST --> API
@@ -35,6 +35,14 @@ flowchart TB
     API --> REDIS
     API --> EXT
 ```
+
+| Node | What it is |
+|---|---|
+| `branivo-web` | Next.js PWA — client storefront + broker dashboard + super admin console |
+| `branivo_app` | Flutter app, iOS / Android |
+| `branivo-ocr` | FastAPI microservice — MRZ / talon OCR parsing for the web flow |
+| `branivo-api` | NestJS modular monolith — `TenantContext` middleware, `Controller → Service → Repository` layering |
+| `adapters` | Per-integration circuit breakers: Stripe, insurer APIs, KAT, Гаранционен фонд, Speedy/Econt, SendGrid, Twilio, FCM |
 
 `branivo-web` is the client storefront + broker dashboard + super admin console; `branivo-api` enforces tenant isolation via `TenantContext` middleware on a strict `Controller → Service → Repository` layering; the adapter layer wraps every external integration (Stripe, insurer APIs, KAT, Гаранционен фонд, Speedy/Econt, SendGrid, Twilio, FCM) behind a per-integration circuit breaker.
 
