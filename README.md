@@ -20,21 +20,23 @@ Four cooperating services — a NestJS API, a Next.js PWA, a Flutter mobile app,
 
 ```mermaid
 flowchart TB
-    WEB["<b>Next.js PWA</b><br/>branivo-web<br/><i>client storefront + broker dashboard + super admin</i>"]
-    APP["<b>Flutter App</b><br/>iOS / Android<br/><i>BLoC · Hive · Dio</i>"]
-    OCR["<b>branivo-ocr</b><br/>FastAPI + OpenCV<br/><i>MRZ / talon parsing</i>"]
-    API["<b>branivo-api</b><br/>NestJS — Modular Monolith<br/><i>TenantContext middleware</i><br/><i>Controller → Service → Repository</i>"]
-    PG[("PostgreSQL 16<br/>RLS · UUID PKs · soft delete")]
-    REDIS[("Redis 7 + BullMQ<br/>3 queues: pdf-generation,<br/>notifications, logistics")]
-    EXT["<b>Insurer / Payment / Logistics adapters</b><br/><i>circuit-breaker per integration</i><br/>Stripe · insurer APIs · KAT ·<br/>Гаранционен фонд · Speedy/Econt ·<br/>SendGrid · Twilio · FCM"]
+    WEB["Next.js PWA<br/>branivo-web"]
+    APP["Flutter App<br/>iOS / Android"]
+    OCR["branivo-ocr<br/>FastAPI"]
+    API["branivo-api<br/>NestJS"]
+    PG[("PostgreSQL 16")]
+    REDIS[("Redis + BullMQ")]
+    EXT["Insurer / Payment /<br/>Logistics adapters"]
 
-    WEB -- "REST /api/v1" --> API
-    APP -- "REST" --> API
-    WEB -. "REST" .-> OCR
+    WEB -- REST --> API
+    APP -- REST --> API
+    WEB -. REST .-> OCR
     API --> PG
     API --> REDIS
     API --> EXT
 ```
+
+`branivo-web` is the client storefront + broker dashboard + super admin console; `branivo-api` enforces tenant isolation via `TenantContext` middleware on a strict `Controller → Service → Repository` layering; the adapter layer wraps every external integration (Stripe, insurer APIs, KAT, Гаранционен фонд, Speedy/Econt, SendGrid, Twilio, FCM) behind a per-integration circuit breaker.
 
 AWS ECS Fargate (multi-AZ) runs the API, web, and OCR containers behind CloudFront/ALB; Terraform (`branivo-infra/`) defines dev/staging/prod as functionally identical environments (ECS, RDS, ElastiCache, S3, networking).
 
